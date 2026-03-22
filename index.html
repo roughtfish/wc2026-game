@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>World Cup 2026 — Prediction Game</title>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/twemoji.min.js" crossorigin="anonymous"></script>
 <style>
   :root {
     --bg:#0a0f1a;--surface:#111827;--surface2:#1a2436;
@@ -322,28 +323,42 @@
 <script>
 // ─── DATA ────────────────────────────────────────────────────────────────────
 const FLAGS={
-  'Mexico':'mx','South Africa':'za','South Korea':'kr','UEFA Path D':null,
-  'Canada':'ca','UEFA Path A':null,'Qatar':'qa','Switzerland':'ch',
-  'USA':'us','Paraguay':'py','Australia':'au','UEFA Path C':null,
-  'Scotland':'gb-sct','Brazil':'br','Morocco':'ma','Haiti':'ht',
-  'Netherlands':'nl','UEFA Path B':null,'Germany':'de','Ivory Coast':'ci',
-  'Ecuador':'ec','Curacao':'cw','Albania/Poland/Sweden/Ukraine':null,'Tunisia':'tn',
-  'Japan':'jp','Spain':'es','Cape Verde':'cv','Saudi Arabia':'sa',
-  'Uruguay':'uy','Belgium':'be','Egypt':'eg','Iran':'ir','New Zealand':'nz',
-  'France':'fr','Senegal':'sn','Bolivia/Iraq/Suriname':null,'Norway':'no',
-  'Argentina':'ar','Algeria':'dz','Austria':'at','Jordan':'jo',
-  'Portugal':'pt','Congo/Jamaica/New Caledonia':null,'Uzbekistan':'uz','Colombia':'co',
-  'England':'gb-eng','Croatia':'hr','Ghana':'gh','Panama':'pa',
-  'Poland':'pl','Albania':'al','Sweden':'se','Ukraine':'ua',
-  'Italy':'it','Wales':'gb-wls','Bosnia':'ba','Northern Ireland':'gb-nir',
-  'Turkey':'tr','Romania':'ro','Slovakia':'sk','Kosovo':'xk',
-  'DR Congo':'cd','Jamaica':'jm','New Caledonia':'nc','Iraq':'iq',
-  'Bolivia':'bo','Suriname':'sr',
+  'Mexico':'🇲🇽','South Africa':'🇿🇦','South Korea':'🇰🇷','UEFA Path D':'🏴',
+  'Canada':'🇨🇦','UEFA Path A':'🏴','Qatar':'🇶🇦','Switzerland':'🇨🇭',
+  'USA':'🇺🇸','Paraguay':'🇵🇾','Australia':'🇦🇺','UEFA Path C':'🏴',
+  'Scotland':'🏴󠁧󠁢󠁳󠁣󠁴󠁿','Brazil':'🇧🇷','Morocco':'🇲🇦','Haiti':'🇭🇹',
+  'Netherlands':'🇳🇱','UEFA Path B':'🏴','Germany':'🇩🇪','Ivory Coast':'🇨🇮',
+  'Ecuador':'🇪🇨','Curacao':'🇨🇼','Albania/Poland/Sweden/Ukraine':'🏴','Tunisia':'🇹🇳',
+  'Japan':'🇯🇵','Spain':'🇪🇸','Cape Verde':'🇨🇻','Saudi Arabia':'🇸🇦',
+  'Uruguay':'🇺🇾','Belgium':'🇧🇪','Egypt':'🇪🇬','Iran':'🇮🇷','New Zealand':'🇳🇿',
+  'France':'🇫🇷','Senegal':'🇸🇳','Bolivia/Iraq/Suriname':'🏴','Norway':'🇳🇴',
+  'Argentina':'🇦🇷','Algeria':'🇩🇿','Austria':'🇦🇹','Jordan':'🇯🇴',
+  'Portugal':'🇵🇹','Congo/Jamaica/New Caledonia':'🏴','Uzbekistan':'🇺🇿','Colombia':'🇨🇴',
+  'England':'🏴󠁧󠁢󠁥󠁮󠁧󠁿','Croatia':'🇭🇷','Ghana':'🇬🇭','Panama':'🇵🇦',
+  'Poland':'🇵🇱','Albania':'🇦🇱','Sweden':'🇸🇪','Ukraine':'🇺🇦',
+  'Italy':'🇮🇹','Wales':'🏴󠁧󠁢󠁷󠁬󠁳󠁿','Bosnia':'🇧🇦','Northern Ireland':'🏴',
+  'Turkey':'🇹🇷','Romania':'🇷🇴','Slovakia':'🇸🇰','Kosovo':'🏴',
+  'DR Congo':'🇨🇩','Jamaica':'🇯🇲','New Caledonia':'🇳🇨','Iraq':'🇮🇶',
+  'Bolivia':'🇧🇴','Suriname':'🇸🇷',
 };
+function emojiToTwemojiUrl(emoji){
+  // Convert emoji string to twemoji SVG filename (codepoints joined by hyphens)
+  const codepoints=[];
+  for(const cp of emoji){
+    const code=cp.codePointAt(0);
+    if(code!==0xFE0F&&code!==0x200D||codepoints.length===0) // skip variation selectors unless leading
+      codepoints.push(code.toString(16));
+  }
+  // Actually use twemoji's own parser for accuracy
+  let url=null;
+  twemoji.parse(emoji,{callback:(icon)=>{url=icon;return false;}});
+  return url?`https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/${url}.svg`:null;
+}
 function flag(t,size=32){
-  const code=FLAGS[t];
-  if(!code)return`<span style="font-size:${Math.round(size*0.75)}px;opacity:0.5">🏴</span>`;
-  return`<img src="https://flagcdn.com/w${size}/${code}.png" srcset="https://flagcdn.com/w${size*2}/${code}.png 2x" alt="${t}" style="width:${size}px;height:auto;border-radius:3px;display:inline-block;vertical-align:middle;flex-shrink:0">`;
+  const emoji=FLAGS[t]||'🏳️';
+  const url=emojiToTwemojiUrl(emoji);
+  if(url)return`<img src="${url}" width="${size}" height="${size}" alt="${t}" style="display:inline-block;vertical-align:middle;flex-shrink:0">`;
+  return`<span style="font-size:${size}px;line-height:1;display:inline-block;vertical-align:middle">${emoji}</span>`;
 }
 
 const GROUP_MATCHES=[
