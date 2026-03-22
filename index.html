@@ -605,18 +605,32 @@ function renderBulkForm(g){
   html+=`</div>
     <div style="padding:12px 0 6px;border-top:0.5px solid var(--border);margin-top:10px;">
       <div style="font-size:10px;color:var(--muted);text-align:center;margin-bottom:7px;letter-spacing:1px;">Tap home flag · 🤝 Draw · away flag</div>
-      <button class="btn btn-primary" id="bulk-submit-btn" ${rem>0?'disabled style="opacity:0.42;cursor:not-allowed;"':''}>
+      <button class="btn btn-primary" id="bulk-submit-btn">
         ${rem>0?'Predict '+rem+' more to continue':'Lock in my predictions ✓'}
       </button>
     </div>`;
 
   const area=document.getElementById('bulk-area');
   area.innerHTML=html;
-  area.querySelectorAll('.bulk-toggle button').forEach(btn=>{
-    btn.addEventListener("click",async()=>{bulkDraft[parseInt(btn.dataset.idx)]=btn.dataset.val;renderBulkForm(g);});
-  });
+
   const sb=area.querySelector('#bulk-submit-btn');
-  if(sb&&!sb.disabled)sb.addEventListener("click",async()=>commitBulk(g));
+  if(rem>0){
+    sb.disabled=true;
+    sb.style.opacity='0.42';
+    sb.style.cursor='not-allowed';
+  } else {
+    sb.disabled=false;
+    sb.style.opacity='1';
+    sb.style.cursor='pointer';
+    sb.addEventListener('click',()=>commitBulk(g));
+  }
+
+  area.querySelectorAll('.bulk-toggle button').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      bulkDraft[parseInt(btn.dataset.idx)]=btn.dataset.val;
+      renderBulkForm(g);
+    });
+  });
 }
 
 async function commitBulk(g){
