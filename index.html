@@ -2069,19 +2069,54 @@ document.getElementById('force-start-btn').addEventListener('click', async () =>
   const fresh = await loadGame(me.code);
   if(!fresh){ btn.textContent='⚡ Force Start'; btn.disabled=false; return; }
   const isKOBulk = fresh.status && fresh.status.startsWith('ko-bulk:');
-  // Mark all players as submitted (unsubmitted ones will just have no predictions)
+
   if(isKOBulk){
+    const round = fresh.status.slice(8);
     if(!fresh.koBulkSubmitted) fresh.koBulkSubmitted={};
-    fresh.players.forEach(p=>{ fresh.koBulkSubmitted[p.name]=true; });
-    fresh.status='playing';
+    // Find all match indices for this KO round
+    const roundMatchIndices = fresh.matches.reduce((acc,m,i)=>{
+      if(m.round===round && !m.koSlot && m.home!=='TBD' && m.away!=='TBD') acc.push(i);
+      return acc;
+    },[]);
+    // Apply -2 lives per unpredicted match for players who haven't submitted
+    fresh.players.forEach(p=>{
+      if(!fresh.koBulkSubmitted[p.name]){
+        roundMatchIndices.forEach(idx=>{
+          if(!fresh.predictions[idx] || !fresh.predictions[idx][p.name]){
+            p.lives = Math.max(0, p.lives - 2);
+            if(p.lives === 0) p.eliminated = true;
+          }
+        });
+        fresh.koBulkSubmitted[p.name] = true;
+      }
+    });
+    fresh.status = 'playing';
   } else {
     if(!fresh.bulkSubmitted) fresh.bulkSubmitted={};
-    fresh.players.forEach(p=>{ fresh.bulkSubmitted[p.name]=true; });
-    fresh.status='playing';
+    // Find all group-stage match indices
+    const groupMatchIndices = fresh.matches.reduce((acc,m,i)=>{
+      if(m.group) acc.push(i);
+      return acc;
+    },[]);
+    // Apply -2 lives per unpredicted match for players who haven't submitted
+    fresh.players.forEach(p=>{
+      if(!fresh.bulkSubmitted[p.name]){
+        groupMatchIndices.forEach(idx=>{
+          if(!fresh.predictions[idx] || !fresh.predictions[idx][p.name]){
+            p.lives = Math.max(0, p.lives - 2);
+            if(p.lives === 0) p.eliminated = true;
+          }
+        });
+        fresh.bulkSubmitted[p.name] = true;
+      }
+    });
+    fresh.status = 'playing';
   }
+
   await saveGame(fresh);
   stopPolling();
-  enterGame(fresh);
+  // Host enters game; players on bulk-done screen will be pushed forward via polling
+  if(me.role==='host') enterGame(fresh); else watchGame(fresh);
 });
 
 // ─── BOOT ────────────────────────────────────────────────────────────────────
