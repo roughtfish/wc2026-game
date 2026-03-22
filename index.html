@@ -231,7 +231,7 @@
       <div class="field"><label>Your name (host)</label><input type="text" id="host-name" placeholder="e.g. Alex" maxlength="20"></div>
       <div class="field-row">
         <div class="field"><label>Lives per player</label><input type="number" id="host-lives" value="40" min="1" max="99"></div>
-        <div class="field"><label>Max players</label><input type="number" id="host-max" value="16" min="2" max="16"></div>
+
       </div>
       <div class="field">
         <label>Match mode</label>
@@ -955,11 +955,10 @@ document.getElementById('create-game-btn').addEventListener("click",async()=>{
   const hostName=document.getElementById('host-name').value.trim();
   if(!hostName){alert('Enter your name!');return;}
   const lives=parseInt(document.getElementById('host-lives').value)||15;
-  const maxP=parseInt(document.getElementById('host-max').value)||16;
   const code=genCode();
   me.name=hostName;me.role='host';me.code=code;saveSession();
   const g={
-    code,hostName,lives,maxPlayers:maxP,mode:selectedMode,
+    code,hostName,lives,mode:selectedMode,
     status:'lobby',
     players:[{name:hostName,lives,correct:0,eliminated:false,isHost:true}],
     matches:buildMatches(selectedMode),
@@ -1042,7 +1041,6 @@ document.getElementById('join-game-btn').addEventListener("click",async()=>{
 
   // New player joining — store password hash
   if(g.status!=='lobby'){err.textContent='This game has already started. Use the same name you originally joined with to rejoin.';err.style.display='block';return;}
-  if(g.players.length>=g.maxPlayers){err.textContent='Game is full.';err.style.display='block';return;}
   me.name=name;me.code=g.code;me.role='player';saveSession();
   g.players.push({name,pwHash,lives:g.lives,correct:0,eliminated:false,isHost:false});
   await saveGame(g);
