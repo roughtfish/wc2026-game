@@ -318,7 +318,7 @@
     <div class="scoreboard">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
         <div class="scoreboard-title" style="margin:0">STANDINGS</div>
-        <button class="btn btn-secondary btn-sm" id="open-history-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7">✎ Correct result</button>
+        <button class="btn btn-secondary btn-sm" id="open-history-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7">✎ Edit Result</button>
       </div>
       <div class="players-grid" id="players-grid"></div>
     </div>
@@ -1480,7 +1480,7 @@ async function renderReveal(g){
     <div style="text-align:center;margin-bottom:16px;"><span style="font-size:12px;color:var(--muted)">Result: </span><span style="font-weight:600;font-size:14px;">${lbl}</span></div>
     <div>${g.players.map(p=>{const v=preds[p.name];const ok=v===actual;return`<div class="pred-recap-item"><span class="pred-name">${p.name}</span><span class="pred-choice">${v==='home'?flag(match.home,16)+' '+match.home:v==='away'?flag(match.away,16)+' '+match.away:'<span style="font-weight:900">=</span> Draw'}</span><span>${ok?'✅':'❌'}</span></div>`;}).join('')}</div>
     <div style="display:flex;gap:9px;margin-top:12px;">
-      <button class="btn-next" id="correct-result-btn" style="flex:0 0 auto;width:auto;padding:12px 16px;font-size:13px;color:var(--muted);border-color:rgba(255,255,255,0.1)">✎ Correct result</button>
+      <button class="btn-next" id="correct-result-btn" style="flex:0 0 auto;width:auto;padding:12px 16px;font-size:13px;color:var(--muted);border-color:rgba(255,255,255,0.1)">✎ Edit Result</button>
       <button class="btn-next" id="next-match-btn" style="flex:1">${alive.length<=1?'SEE RESULTS 🏆':(()=>{
         const nx=g.matches[g.currentMatchIdx+1];
         const cur=g.matches[g.currentMatchIdx];
