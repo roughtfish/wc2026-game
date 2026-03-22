@@ -264,7 +264,7 @@ function showPlayerModal(playerName){
       const match=g.matches[idx];
       if(!match)return'';
       const r=results[idx];
-      const actual=r.home>r.away?'home':r.away>r.home?'away':'draw';
+      const actual=actualOutcome(r);
       const preds=g.predictions[idx]||{};
       const v=preds[playerName];
       const correct=v&&v===actual;
@@ -273,7 +273,7 @@ function showPlayerModal(playerName){
         ?`<span class="badge-group">Grp ${match.group}</span>`
         :`<span class="badge-ko">${match.round||'KO'}</span>`;
       const predLabel=v==='home'?flag(match.home)+match.home:v==='away'?flag(match.away)+match.away:v==='draw'?'Draw':'—';
-      const resultLabel=actual==='home'?match.home:actual==='away'?match.away:'Draw';
+      const resultLabel=(actual==='home'?match.home:actual==='away'?match.away:'Draw')+(r.penWinner?' (pens)':'');
       return`<div class="modal-match">
         <div class="modal-match-name">
           ${roundBadge}
@@ -318,6 +318,13 @@ function renderLeaderboard(g){
   });
 }
 
+function actualOutcome(r){
+  if(r.home>r.away)return'home';
+  if(r.away>r.home)return'away';
+  if(r.penWinner)return r.penWinner;
+  return'draw';
+}
+
 function renderHistory(g){
   const players=[...g.players].sort((a,b)=>{
     if(a.eliminated&&!b.eliminated)return 1;
@@ -345,7 +352,7 @@ function renderHistory(g){
     const match=g.matches[idx];
     if(!match)return'';
     const r=results[idx];
-    const actual=r.home>r.away?'home':r.away>r.home?'away':'draw';
+    const actual=actualOutcome(r);
     const matchLabel=match.group
       ?`${flag(match.home)}${match.home} <span style="color:var(--muted)">vs</span> ${flag(match.away)}${match.away}`
       :`${flag(match.home)}${match.home} <span style="color:var(--muted)">vs</span> ${flag(match.away)}${match.away}`;
@@ -363,8 +370,8 @@ function renderHistory(g){
     }).join('');
     return`<tr>
       <td style="color:var(--muted);font-size:11px">${parseInt(idx)+1}</td>
-      <td class="match-name">${roundBadge} ${matchLabel}<br><span style="font-size:10px;color:var(--muted)">${r.home}–${r.away} · ${actual==='home'?match.home:actual==='away'?match.away:'Draw'}</span></td>
-      <td class="result">${r.home}–${r.away}</td>
+      <td class="match-name">${roundBadge} ${matchLabel}<br><span style="font-size:10px;color:var(--muted)">${r.home}–${r.away}${r.penWinner?' (pens)':''} · ${actual==='home'?match.home:actual==='away'?match.away:'Draw'}</span></td>
+      <td class="result">${r.home}–${r.away}${r.penWinner?'<br><span style="font-size:10px;color:var(--muted)">pens</span>':''}</td>
       ${predCells}
     </tr>`;
   }).join('');
