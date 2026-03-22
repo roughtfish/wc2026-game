@@ -679,6 +679,35 @@ async function loadGameByCode(code){
   return loadGame(code.toUpperCase().trim());
 }
 
+async function saveDraft(draft){
+  const base=getFirebaseUrl();
+  if(!base||!me.code||!me.name)return;
+  try{
+    await fetchWithTimeout(`${base}/games/${me.code}/drafts/${encodeURIComponent(me.name)}.json`,{
+      method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(draft)
+    });
+  }catch(e){console.warn('saveDraft failed',e);}
+}
+
+async function loadDraft(){
+  const base=getFirebaseUrl();
+  if(!base||!me.code||!me.name)return {};
+  try{
+    const r=await fetchWithTimeout(`${base}/games/${me.code}/drafts/${encodeURIComponent(me.name)}.json`);
+    if(!r.ok)return{};
+    const d=await r.json();
+    return d||{};
+  }catch(e){return{};}
+}
+
+async function clearDraft(){
+  const base=getFirebaseUrl();
+  if(!base||!me.code||!me.name)return;
+  try{
+    await fetchWithTimeout(`${base}/games/${me.code}/drafts/${encodeURIComponent(me.name)}.json`,{method:'DELETE'});
+  }catch(e){console.warn('clearDraft failed',e);}
+}
+
 function genCode(){const c='ABCDEFGHJKLMNPQRSTUVWXYZ';let s='';for(let i=0;i<4;i++)s+=c[Math.floor(Math.random()*c.length)];return s;}
 
 // ─── LOCAL STATE ─────────────────────────────────────────────────────────────
@@ -849,10 +878,20 @@ async function pollPlayerLobby(){
 }
 
 // ─── BULK PREDICTION ─────────────────────────────────────────────────────────
-function startBulk(g){
+async function startBulk(g){
   bulkDraft={};
   document.getElementById('bulk-player-name').textContent=me.name+(me.role==='host'?' (Host)':'');
   show('screen-bulk');
+  // Silently restore any partial draft saved previously
+  const saved=await loadDraft();
+  if(saved&&Object.keys(saved).length>0){
+    // Only restore picks for matches not yet submitted
+    const submitted=g.predictions||{};
+    Object.entries(saved).forEach(([k,v])=>{
+      const idx=parseInt(k);
+      if(!submitted[idx]||!submitted[idx][me.name]) bulkDraft[idx]=v;
+    });
+  }
   renderBulkForm(g);
 }
 
@@ -942,6 +981,7 @@ function renderBulkForm(g){
   area.querySelectorAll('.bulk-toggle button').forEach(btn=>{
     btn.addEventListener('click',()=>{
       bulkDraft[parseInt(btn.dataset.idx)]=btn.dataset.val;
+      saveDraft(bulkDraft); // persist immediately — fire and forget
       renderBulkForm(g);
     });
   });
@@ -967,6 +1007,7 @@ async function commitBulk(g){
     const allDone=fresh.players.every(p=>fresh.bulkSubmitted[p.name]);
     if(allDone)fresh.status='playing';
     await saveGame(fresh);
+    clearDraft(); // no longer needed
     if(fresh.status==='playing'){stopPolling();if(me.role==='host')enterGame(fresh);else watchGame(fresh);}
     else{show('screen-bulk-done');startPolling(pollBulkDone);}
   }catch(e){
