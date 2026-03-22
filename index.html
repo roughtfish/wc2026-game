@@ -1240,9 +1240,8 @@ async function renderGameHost(g){
       </div>
       ${!myPred?`
         <div style="text-align:center;font-size:13px;font-weight:600;color:var(--accent);margin-bottom:12px;">🎯 Your prediction (host)</div>
-        <div class="prediction-buttons">
+        <div class="prediction-buttons" style="grid-template-columns:1fr 1fr">
           <button class="pred-btn" data-pred="home"><span>${flag(match.home,24)}</span>${match.home} win</button>
-          <button class="pred-btn" data-pred="draw"><span style="font-weight:900;font-size:20px">=</span>Draw</button>
           <button class="pred-btn" data-pred="away"><span>${flag(match.away,24)}</span>${match.away} win</button>
         </div>
       `:''}
@@ -1289,9 +1288,8 @@ function renderKOPredCollect(g,match,area,preds,alive){
       <div class="team-block"><div class="team-flag-emoji">${flag(match.away,48)}</div><div class="team-name">${match.away}</div></div>
     </div>
     <div style="text-align:center;margin-bottom:12px;font-size:12px;font-weight:600;color:var(--accent)">🎯 ${pending.name}'s prediction</div>
-    <div class="prediction-buttons">
+    <div class="prediction-buttons" style="grid-template-columns:1fr 1fr">
       <button class="pred-btn" data-pred="home"><span>${flag(match.home,24)}</span>${match.home} win</button>
-      <button class="pred-btn" data-pred="draw"><span style="font-weight:900;font-size:20px">=</span>Draw</button>
       <button class="pred-btn" data-pred="away"><span>${flag(match.away,24)}</span>${match.away} win</button>
     </div>
     ${done.length?`<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);">
@@ -1535,9 +1533,8 @@ async function renderWatchScreen(g){
       </div>
       ${canPredict?`
         <div style="text-align:center;font-size:13px;font-weight:600;color:var(--accent);margin-bottom:12px;">🎯 Make your prediction</div>
-        <div class="prediction-buttons">
+        <div class="prediction-buttons" style="grid-template-columns:1fr 1fr">
           <button class="pred-btn" data-pred="home"><span>${flag(match.home,24)}</span>${match.home} win</button>
-          <button class="pred-btn" data-pred="draw"><span style="font-weight:900;font-size:20px">=</span>Draw</button>
           <button class="pred-btn" data-pred="away"><span>${flag(match.away,24)}</span>${match.away} win</button>
         </div>
       `:myPred?`
