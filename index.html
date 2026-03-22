@@ -396,42 +396,95 @@ function flag(t,size=32){
 
 
 const GROUP_MATCHES=[
-  {group:'A',home:'Mexico',away:'South Africa'},{group:'A',home:'South Korea',away:'UEFA Path D'},
-  {group:'A',home:'Mexico',away:'South Korea'},{group:'A',home:'UEFA Path D',away:'South Africa'},
-  {group:'A',home:'Mexico',away:'UEFA Path D'},{group:'A',home:'South Africa',away:'South Korea'},
-  {group:'B',home:'Canada',away:'UEFA Path A'},{group:'B',home:'Qatar',away:'Switzerland'},
-  {group:'B',home:'Canada',away:'Qatar'},{group:'B',home:'Switzerland',away:'UEFA Path A'},
-  {group:'B',home:'Switzerland',away:'Canada'},{group:'B',home:'UEFA Path A',away:'Qatar'},
-  {group:'C',home:'Brazil',away:'Morocco'},{group:'C',home:'Scotland',away:'Haiti'},
-  {group:'C',home:'Brazil',away:'Haiti'},{group:'C',home:'Morocco',away:'Scotland'},
-  {group:'C',home:'Brazil',away:'Scotland'},{group:'C',home:'Haiti',away:'Morocco'},
-  {group:'D',home:'USA',away:'Paraguay'},{group:'D',home:'Australia',away:'UEFA Path C'},
-  {group:'D',home:'USA',away:'Australia'},{group:'D',home:'UEFA Path C',away:'Paraguay'},
-  {group:'D',home:'USA',away:'UEFA Path C'},{group:'D',home:'Paraguay',away:'Australia'},
-  {group:'E',home:'Germany',away:'Ivory Coast'},{group:'E',home:'Ecuador',away:'Curacao'},
-  {group:'E',home:'Germany',away:'Ecuador'},{group:'E',home:'Curacao',away:'Ivory Coast'},
-  {group:'E',home:'Germany',away:'Curacao'},{group:'E',home:'Ivory Coast',away:'Ecuador'},
-  {group:'F',home:'Albania/Poland/Sweden/Ukraine',away:'Tunisia'},{group:'F',home:'Japan',away:'Tunisia'},
-  {group:'F',home:'Albania/Poland/Sweden/Ukraine',away:'Japan'},{group:'F',home:'Tunisia',away:'Albania/Poland/Sweden/Ukraine'},
-  {group:'F',home:'Japan',away:'Albania/Poland/Sweden/Ukraine'},{group:'F',home:'Tunisia',away:'Japan'},
-  {group:'G',home:'Belgium',away:'Egypt'},{group:'G',home:'Iran',away:'New Zealand'},
-  {group:'G',home:'Belgium',away:'Iran'},{group:'G',home:'New Zealand',away:'Egypt'},
-  {group:'G',home:'Belgium',away:'New Zealand'},{group:'G',home:'Egypt',away:'Iran'},
-  {group:'H',home:'Spain',away:'Cape Verde'},{group:'H',home:'Saudi Arabia',away:'Uruguay'},
-  {group:'H',home:'Spain',away:'Saudi Arabia'},{group:'H',home:'Uruguay',away:'Cape Verde'},
-  {group:'H',home:'Spain',away:'Uruguay'},{group:'H',home:'Cape Verde',away:'Saudi Arabia'},
-  {group:'I',home:'France',away:'Senegal'},{group:'I',home:'Bolivia/Iraq/Suriname',away:'Norway'},
-  {group:'I',home:'France',away:'Bolivia/Iraq/Suriname'},{group:'I',home:'Norway',away:'Senegal'},
-  {group:'I',home:'France',away:'Norway'},{group:'I',home:'Senegal',away:'Bolivia/Iraq/Suriname'},
-  {group:'J',home:'Argentina',away:'Algeria'},{group:'J',home:'Austria',away:'Jordan'},
-  {group:'J',home:'Argentina',away:'Austria'},{group:'J',home:'Jordan',away:'Algeria'},
-  {group:'J',home:'Argentina',away:'Jordan'},{group:'J',home:'Algeria',away:'Austria'},
-  {group:'K',home:'Portugal',away:'Congo/Jamaica/New Caledonia'},{group:'K',home:'Uzbekistan',away:'Colombia'},
-  {group:'K',home:'Portugal',away:'Uzbekistan'},{group:'K',home:'Colombia',away:'Congo/Jamaica/New Caledonia'},
-  {group:'K',home:'Portugal',away:'Colombia'},{group:'K',home:'Congo/Jamaica/New Caledonia',away:'Uzbekistan'},
-  {group:'L',home:'England',away:'Croatia'},{group:'L',home:'Ghana',away:'Panama'},
-  {group:'L',home:'England',away:'Ghana'},{group:'L',home:'Panama',away:'Croatia'},
-  {group:'L',home:'England',away:'Panama'},{group:'L',home:'Croatia',away:'Ghana'},
+  // June 11 — Match 1 & 2
+  {group:'A',home:'Mexico',away:'South Africa'},
+  {group:'A',home:'South Korea',away:'UEFA Path D'},
+  // June 12 — Match 3 & 4
+  {group:'B',home:'Canada',away:'UEFA Path A'},
+  {group:'D',home:'USA',away:'Paraguay'},
+  // June 13 — Match 5, 6, 7, 8
+  {group:'D',home:'Australia',away:'UEFA Path C'},
+  {group:'B',home:'Qatar',away:'Switzerland'},
+  {group:'C',home:'Brazil',away:'Morocco'},
+  {group:'C',home:'Haiti',away:'Scotland'},
+  // June 14 — Match 9, 10, 11, 12
+  {group:'E',home:'Germany',away:'Curacao'},
+  {group:'F',home:'Albania/Poland/Sweden/Ukraine',away:'Japan'},
+  {group:'E',home:'Ivory Coast',away:'Ecuador'},
+  {group:'F',home:'UEFA Path B',away:'Tunisia'},
+  // June 15 — Match 13, 14, 15, 16
+  {group:'H',home:'Spain',away:'Cape Verde'},
+  {group:'G',home:'Belgium',away:'Egypt'},
+  {group:'H',home:'Saudi Arabia',away:'Uruguay'},
+  {group:'G',home:'Iran',away:'New Zealand'},
+  // June 16 — Match 17, 18, 19, 20
+  {group:'I',home:'France',away:'Senegal'},
+  {group:'I',home:'Bolivia/Iraq/Suriname',away:'Norway'},
+  {group:'J',home:'Argentina',away:'Algeria'},
+  {group:'J',home:'Austria',away:'Jordan'},
+  // June 17 — Match 21, 22, 23, 24
+  {group:'K',home:'Portugal',away:'Congo/Jamaica/New Caledonia'},
+  {group:'L',home:'England',away:'Croatia'},
+  {group:'L',home:'Ghana',away:'Panama'},
+  {group:'K',home:'Uzbekistan',away:'Colombia'},
+  // June 18 — Match 25, 26, 27, 28
+  {group:'A',home:'UEFA Path D',away:'South Africa'},
+  {group:'B',home:'Switzerland',away:'UEFA Path A'},
+  {group:'B',home:'Canada',away:'Qatar'},
+  {group:'A',home:'Mexico',away:'South Korea'},
+  // June 19 — Match 29, 30, 31, 32
+  {group:'D',home:'UEFA Path C',away:'Paraguay'},
+  {group:'D',home:'USA',away:'Australia'},
+  {group:'C',home:'Scotland',away:'Morocco'},
+  {group:'C',home:'Brazil',away:'Haiti'},
+  // June 20 — Match 33, 34, 35, 36
+  {group:'F',home:'Tunisia',away:'Japan'},
+  {group:'F',home:'Albania/Poland/Sweden/Ukraine',away:'UEFA Path B'},
+  {group:'E',home:'Germany',away:'Ivory Coast'},
+  {group:'E',home:'Ecuador',away:'Curacao'},
+  // June 21 — Match 37, 38, 39, 40
+  {group:'H',home:'Spain',away:'Saudi Arabia'},
+  {group:'G',home:'Belgium',away:'Iran'},
+  {group:'H',home:'Uruguay',away:'Cape Verde'},
+  {group:'G',home:'New Zealand',away:'Egypt'},
+  // June 22 — Match 41, 42, 43, 44
+  {group:'J',home:'Argentina',away:'Austria'},
+  {group:'I',home:'France',away:'Bolivia/Iraq/Suriname'},
+  {group:'I',home:'Norway',away:'Senegal'},
+  {group:'J',home:'Jordan',away:'Algeria'},
+  // June 23 — Match 45, 46, 47, 48
+  {group:'K',home:'Portugal',away:'Uzbekistan'},
+  {group:'L',home:'England',away:'Ghana'},
+  {group:'L',home:'Panama',away:'Croatia'},
+  {group:'K',home:'Colombia',away:'Congo/Jamaica/New Caledonia'},
+  // June 24 — Match 49-54 (final matchday groups A, B, C)
+  {group:'B',home:'Switzerland',away:'Canada'},
+  {group:'B',home:'UEFA Path A',away:'Qatar'},
+  {group:'C',home:'Scotland',away:'Brazil'},
+  {group:'C',home:'Morocco',away:'Haiti'},
+  {group:'A',home:'UEFA Path D',away:'Mexico'},
+  {group:'A',home:'South Africa',away:'South Korea'},
+  // June 25 — Match 55-60 (final matchday groups D, E, F)
+  {group:'E',home:'Curacao',away:'Ivory Coast'},
+  {group:'E',home:'Ecuador',away:'Germany'},
+  {group:'F',home:'Japan',away:'UEFA Path B'},
+  {group:'F',home:'Tunisia',away:'Albania/Poland/Sweden/Ukraine'},
+  {group:'D',home:'UEFA Path C',away:'USA'},
+  {group:'D',home:'Paraguay',away:'Australia'},
+  // June 26 — Match 61-66 (final matchday groups G, H, I)
+  {group:'I',home:'Norway',away:'France'},
+  {group:'I',home:'Senegal',away:'Bolivia/Iraq/Suriname'},
+  {group:'H',home:'Cape Verde',away:'Saudi Arabia'},
+  {group:'H',home:'Uruguay',away:'Spain'},
+  {group:'G',home:'Egypt',away:'Iran'},
+  {group:'G',home:'New Zealand',away:'Belgium'},
+  // June 27 — Match 67-72 (final matchday groups J, K, L)
+  {group:'L',home:'Panama',away:'England'},
+  {group:'L',home:'Croatia',away:'Ghana'},
+  {group:'K',home:'Colombia',away:'Portugal'},
+  {group:'K',home:'Congo/Jamaica/New Caledonia',away:'Uzbekistan'},
+  {group:'J',home:'Algeria',away:'Austria'},
+  {group:'J',home:'Jordan',away:'Argentina'},
 ];
 
 const KO_ROUNDS=[
@@ -490,22 +543,22 @@ function getGroupFinishers(g){
 // Official R32 bracket — 16 fixed slots based on group positions
 // Slots are keyed by match number (73-88), value is [home descriptor, away descriptor]
 const R32_FIXED=[
-  ['2A','2B'],   // M73
-  ['1E','3ABCDF'], // M74 — 3rd team TBD by table
-  ['1F','2C'],   // M75
-  ['1C','2F'],   // M76
-  ['1I','3CDFGH'], // M77
-  ['2E','2I'],   // M78
-  ['1A','3CEFHI'], // M79
-  ['1L','3EHIJK'], // M80
-  ['1D','3BEFIJ'], // M81
-  ['1G','3AEHIJ'], // M82
-  ['2K','2L'],   // M83
-  ['1H','2J'],   // M84
-  ['1B','3EFGIJ'], // M85
-  ['1J','2H'],   // M86
-  ['1K','3DEIJL'], // M87
-  ['2D','2G'],   // M88
+  ['2A','2B'],    // M73 Jun 28
+  ['1C','2F'],    // M74 Jun 29
+  ['1E','3ABCDF'],// M75 Jun 29
+  ['1F','2C'],    // M76 Jun 29
+  ['1I','3CDFGH'],// M77 Jun 30
+  ['2E','2I'],    // M78 Jun 30
+  ['1A','3CEFHI'],// M79 Jun 30
+  ['1L','3EHIJK'],// M80 Jul 1
+  ['1D','3BEFIJ'],// M81 Jul 1
+  ['1G','3AEHIJ'],// M82 Jul 1
+  ['2K','2L'],    // M83 Jul 2
+  ['1H','2J'],    // M84 Jul 2
+  ['1B','3EFGIJ'],// M85 Jul 2
+  ['1J','2H'],    // M86 Jul 3
+  ['1K','3DEIJL'],// M87 Jul 3
+  ['2D','2G'],    // M88 Jul 3
 ];
 
 // The 495-combination table is complex — we implement a lookup for the most common
@@ -533,27 +586,38 @@ function resolveTeam(desc,winners,runners,thirds){
 
 function populateKnockoutBracket(g){
   const{winners,runners,thirds}=getGroupFinishers(g);
-  // Sort thirds by points/gd/gf, assign to R32 slots
-  const thirdsRemaining=[...thirds];
-  const usedGroups=new Set();
-
-  // Find the start index of Round of 32 matches
   const r32Start=g.matches.findIndex(m=>m.round==='Round of 32');
   if(r32Start===-1)return;
+
+  // Collect the 3rd-place slots and their eligible groups
+  const thirdSlots=R32_FIXED.map((slot,i)=>slot[1].startsWith('3')?{i,eligible:slot[1].slice(1).split('')}:null).filter(Boolean);
+
+  // Use backtracking to find a valid assignment of 3rd-place teams to slots
+  // (greedy fails when early picks block later slots)
+  function assignThirds(slotIdx, remaining){
+    if(slotIdx===thirdSlots.length)return[];
+    const{i,eligible}=thirdSlots[slotIdx];
+    for(let j=0;j<remaining.length;j++){
+      if(eligible.includes(remaining[j].group)){
+        const rest=[...remaining.slice(0,j),...remaining.slice(j+1)];
+        const sub=assignThirds(slotIdx+1,rest);
+        if(sub!==null)return[{i,team:remaining[j].team},...sub];
+      }
+    }
+    return null;
+  }
+
+  const assignment=assignThirds(0,[...thirds])||[];
+  const thirdMap={};
+  assignment.forEach(({i,team})=>thirdMap[i]=team);
 
   R32_FIXED.forEach((slot,i)=>{
     const match=g.matches[r32Start+i];
     if(!match)return;
-    const homeDesc=slot[0], awayDesc=slot[1];
-    match.home=resolveTeam(homeDesc,winners,runners,thirdsRemaining);
-    match.away=resolveTeam(awayDesc,winners,runners,thirdsRemaining);
+    const[homeDesc,awayDesc]=slot;
+    match.home=homeDesc.startsWith('3')?(thirdMap[i]||'TBD'):resolveTeam(homeDesc,winners,runners,[]);
+    match.away=awayDesc.startsWith('3')?(thirdMap[i]||'TBD'):resolveTeam(awayDesc,winners,runners,[]);
     match.koSlot=false;
-    // Remove used 3rd place team
-    if(awayDesc.startsWith('3')){
-      const eligible=awayDesc.slice(1).split('');
-      const idx=thirdsRemaining.findIndex(t=>eligible.includes(t.group)&&!usedGroups.has(t.group));
-      if(idx>=0){usedGroups.add(thirdsRemaining[idx].group);thirdsRemaining.splice(idx,1);}
-    }
   });
 }
 
@@ -568,8 +632,6 @@ function isLastGroupMatch(g, matchIdx){
 }
 
 function populateNextKORound(g, justFinishedMatchIdx){
-  // After a KO result, populate the next match in the bracket
-  // Find which R32 match this was and populate the corresponding R16 slot
   const r32Start=g.matches.findIndex(m=>m.round==='Round of 32');
   const r16Start=g.matches.findIndex(m=>m.round==='Round of 16');
   const qfStart=g.matches.findIndex(m=>m.round==='Quarter-final');
@@ -577,36 +639,52 @@ function populateNextKORound(g, justFinishedMatchIdx){
   const finalIdx=g.matches.findIndex(m=>m.round==='Final');
   const thirdIdx=g.matches.findIndex(m=>m.round==='3rd Place Play-off');
 
-  const winner=g.currentResult?.home>g.currentResult?.away
-    ?g.matches[justFinishedMatchIdx].home
-    :g.matches[justFinishedMatchIdx].away;
-
   const r=g.currentResult;
+  const winner=r?.home>r?.away?g.matches[justFinishedMatchIdx].home:g.matches[justFinishedMatchIdx].away;
   const loser=r?.home>r?.away?g.matches[justFinishedMatchIdx].away:g.matches[justFinishedMatchIdx].home;
 
-  // R32 → R16 (pairs: 0+1→0, 2+3→1, 4+5→2, 6+7→3, 8+9→4, 10+11→5, 12+13→6, 14+15→7)
+  // Official FIFA 2026 bracket — R32 → R16
+  // M73→R16[1]home, M74→R16[0]home, M75→R16[1]away, M76→R16[2]home
+  // M77→R16[0]away, M78→R16[2]away, M79→R16[3]home, M80→R16[3]away
+  // M81→R16[5]home, M82→R16[5]away, M83→R16[4]home, M84→R16[4]away
+  // M85→R16[7]home, M86→R16[6]home, M87→R16[7]away, M88→R16[6]away
+  const R32_TO_R16=[
+    {idx:1,slot:'home'},{idx:0,slot:'home'},{idx:1,slot:'away'},{idx:2,slot:'home'},
+    {idx:0,slot:'away'},{idx:2,slot:'away'},{idx:3,slot:'home'},{idx:3,slot:'away'},
+    {idx:5,slot:'home'},{idx:5,slot:'away'},{idx:4,slot:'home'},{idx:4,slot:'away'},
+    {idx:7,slot:'home'},{idx:6,slot:'home'},{idx:7,slot:'away'},{idx:6,slot:'away'},
+  ];
+
+  // Official FIFA 2026 bracket — R16 → QF
+  // M89→QF[0]home, M90→QF[0]away, M91→QF[2]home, M92→QF[2]away
+  // M93→QF[1]home, M94→QF[1]away, M95→QF[3]home, M96→QF[3]away
+  const R16_TO_QF=[
+    {idx:0,slot:'home'},{idx:0,slot:'away'},{idx:2,slot:'home'},{idx:2,slot:'away'},
+    {idx:1,slot:'home'},{idx:1,slot:'away'},{idx:3,slot:'home'},{idx:3,slot:'away'},
+  ];
+
+  // QF → SF (M97→SF[0]home, M98→SF[0]away, M99→SF[1]home, M100→SF[1]away)
+  const QF_TO_SF=[
+    {idx:0,slot:'home'},{idx:0,slot:'away'},{idx:1,slot:'home'},{idx:1,slot:'away'},
+  ];
+
   if(r32Start>=0&&justFinishedMatchIdx>=r32Start&&justFinishedMatchIdx<r32Start+16&&r16Start>=0){
     const pos=justFinishedMatchIdx-r32Start;
-    const r16Idx=r16Start+Math.floor(pos/2);
-    const slot=pos%2===0?'home':'away';
-    g.matches[r16Idx][slot]=winner;
-    g.matches[r16Idx].koSlot=false;
+    const {idx,slot}=R32_TO_R16[pos];
+    g.matches[r16Start+idx][slot]=winner;
+    g.matches[r16Start+idx].koSlot=false;
   }
-  // R16 → QF
   else if(r16Start>=0&&justFinishedMatchIdx>=r16Start&&justFinishedMatchIdx<r16Start+8&&qfStart>=0){
     const pos=justFinishedMatchIdx-r16Start;
-    const qfIdx=qfStart+Math.floor(pos/2);
-    const slot=pos%2===0?'home':'away';
-    g.matches[qfIdx][slot]=winner;
-    g.matches[qfIdx].koSlot=false;
+    const {idx,slot}=R16_TO_QF[pos];
+    g.matches[qfStart+idx][slot]=winner;
+    g.matches[qfStart+idx].koSlot=false;
   }
-  // QF → SF
   else if(qfStart>=0&&justFinishedMatchIdx>=qfStart&&justFinishedMatchIdx<qfStart+4&&sfStart>=0){
     const pos=justFinishedMatchIdx-qfStart;
-    const sfIdx=sfStart+Math.floor(pos/2);
-    const slot=pos%2===0?'home':'away';
-    g.matches[sfIdx][slot]=winner;
-    g.matches[sfIdx].koSlot=false;
+    const {idx,slot}=QF_TO_SF[pos];
+    g.matches[sfStart+idx][slot]=winner;
+    g.matches[sfStart+idx].koSlot=false;
   }
   // SF → Final (losers go to 3rd place play-off)
   else if(sfStart>=0&&justFinishedMatchIdx>=sfStart&&justFinishedMatchIdx<sfStart+2&&finalIdx>=0){
