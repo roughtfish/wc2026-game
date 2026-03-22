@@ -170,6 +170,7 @@
       <span class="pill-label">Game code</span>
       <span class="pill-code" id="pill-code-display" title="Click to copy"></span>
       <span class="pill-copy" id="pill-copy-btn">📋 copy</span>
+      <a id="pill-stats-link" href="#" target="_blank" style="font-size:11px;color:var(--accent2);text-decoration:none;padding:4px 8px;border-radius:6px;transition:color 0.2s" title="Open live stats">📊 stats</a>
     </div>
   </div>
 
@@ -810,7 +811,12 @@ function show(id){
   document.getElementById(id).classList.add('active');
   const pill=document.getElementById('game-code-pill');
   const pillCode=document.getElementById('pill-code-display');
-  if(me.code){pill.style.display='flex';pillCode.textContent=me.code;}
+  if(me.code){
+    pill.style.display='flex';
+    pillCode.textContent=me.code;
+    const statsLink=document.getElementById('pill-stats-link');
+    if(statsLink)statsLink.href=`wc2026-stats.html?code=${me.code}`;
+  }
   else{pill.style.display='none';}
 }
 function stopPolling(){if(pollTimer){clearInterval(pollTimer);pollTimer=null;}}
@@ -1134,7 +1140,24 @@ async function pollBulkDone(){
 async function enterGame(g){
   show('screen-game');
   renderGameHost(g);
-  startPolling(async()=>{const f=await loadGame(me.code);if(f)renderScoreboard(f,'players-grid');},4000);
+  startPolling(async()=>{
+    const f=await loadGame(me.code);
+    if(!f)return;
+    // During reveal, just refresh scoreboard — host controls advancing
+    if(f.status&&f.status.startsWith('reveal:')){
+      renderScoreboard(f,'players-grid');
+      return;
+    }
+    // During KO prediction collection, re-render so host sees incoming picks
+    // and automatically advances to result entry once all predictions are in
+    const match=f.matches[f.currentMatchIdx];
+    const isKO=match&&!match.group&&!match.koSlot&&match.home!=='TBD'&&match.away!=='TBD';
+    if(isKO){
+      renderGameHost(f);
+    } else {
+      renderScoreboard(f,'players-grid');
+    }
+  },2500);
 }
 
 async function renderGameHost(g){
