@@ -221,7 +221,7 @@
           <button class="btn btn-sm btn-teal mode-tab" data-mode="full">Full Tournament</button>
           <button class="btn btn-sm btn-secondary mode-tab" data-mode="group">Group Stage</button>
           <button class="btn btn-sm btn-secondary mode-tab" data-mode="knockouts">Knockouts Only</button>
-          <button class="btn btn-sm btn-secondary mode-tab" data-mode="demo">Demo (7)</button>
+          <button class="btn btn-sm btn-secondary mode-tab" data-mode="demo">Demo (8+KO)</button>
         </div>
       </div>
       <div style="display:flex;gap:9px;margin-top:18px;">
@@ -494,7 +494,7 @@ const KO_ROUNDS=[
 ];
 function buildKO(){const o=[];KO_ROUNDS.forEach(r=>{for(let i=0;i<r.count;i++)o.push({round:r.round,home:'TBD',away:'TBD',koSlot:true});});return o;}
 function buildMatches(mode){
-  return mode==='demo'?GROUP_MATCHES.slice(0,7).map(m=>({...m}))
+  return mode==='demo'?[...GROUP_MATCHES.slice(0,8).map(m=>({...m})),...buildKO()]
     :mode==='knockouts'?buildKO()
     :mode==='full'?[...GROUP_MATCHES.map(m=>({...m})),...buildKO()]
     :GROUP_MATCHES.map(m=>({...m}));
