@@ -833,6 +833,9 @@ async function hashPassword(pw){
 }
 
 // ─── LOCAL STATE ─────────────────────────────────────────────────────────────
+// Persist session across page refreshes
+function saveSession(){try{sessionStorage.setItem('kf_me',JSON.stringify(me));}catch(e){}}
+function loadSession(){try{const s=sessionStorage.getItem('kf_me');return s?JSON.parse(s):null;}catch(e){return null;}}
 let me={role:null,name:'',code:''};
 let pollTimer=null;
 let selectedMode='full';
@@ -930,7 +933,7 @@ document.getElementById('create-game-btn').addEventListener("click",async()=>{
   const lives=parseInt(document.getElementById('host-lives').value)||15;
   const maxP=parseInt(document.getElementById('host-max').value)||16;
   const code=genCode();
-  me.name=hostName;me.role='host';me.code=code;
+  me.name=hostName;me.role='host';me.code=code;saveSession();
   const g={
     code,hostName,lives,maxPlayers:maxP,mode:selectedMode,
     status:'lobby',
@@ -994,7 +997,7 @@ document.getElementById('join-game-btn').addEventListener("click",async()=>{
     if(existing.pwHash&&existing.pwHash!==pwHash){
       err.textContent='Wrong password for this name.';err.style.display='block';return;
     }
-    me.name=name;me.code=g.code;me.role=existing.isHost?'host':'player';
+    me.name=name;me.code=g.code;me.role=existing.isHost?'host':'player';saveSession();
     if(g.status==='lobby'){
       if(me.role==='host'){document.getElementById('lobby-code-display').textContent=g.code;show('screen-host-lobby');startPolling(pollHostLobby);}
       else{show('screen-player-lobby');startPolling(pollPlayerLobby);}
@@ -1016,7 +1019,7 @@ document.getElementById('join-game-btn').addEventListener("click",async()=>{
   // New player joining — store password hash
   if(g.status!=='lobby'){err.textContent='This game has already started. Use the same name you originally joined with to rejoin.';err.style.display='block';return;}
   if(g.players.length>=g.maxPlayers){err.textContent='Game is full.';err.style.display='block';return;}
-  me.name=name;me.code=g.code;me.role='player';
+  me.name=name;me.code=g.code;me.role='player';saveSession();
   g.players.push({name,pwHash,lives:g.lives,correct:0,eliminated:false,isHost:false});
   await saveGame(g);
   show('screen-player-lobby');
@@ -1922,7 +1925,35 @@ async function commitKOBulk(g, round) {
 }
 
 // ─── BOOT ────────────────────────────────────────────────────────────────────
-show('screen-landing');
+(async()=>{
+  const saved=loadSession();
+  if(saved&&saved.code&&saved.name&&saved.role){
+    me=saved;
+    const g=await loadGame(me.code);
+    if(g){
+      // Restore to the correct screen based on game status
+      if(g.status==='lobby'){
+        if(me.role==='host'){document.getElementById('lobby-code-display').textContent=g.code;show('screen-host-lobby');startPolling(pollHostLobby);}
+        else{show('screen-player-lobby');startPolling(pollPlayerLobby);}
+      } else if(g.status==='bulk'){
+        if(g.bulkSubmitted&&g.bulkSubmitted[me.name]){show('screen-bulk-done');startPolling(pollBulkDone);}
+        else startBulk(g);
+      } else if(g.status&&g.status.startsWith('ko-bulk:')){
+        const round=g.status.slice(8);
+        if(g.koBulkSubmitted&&g.koBulkSubmitted[me.name]){show('screen-bulk-done');startPolling(pollBulkDone);}
+        else startKOBulk(g,round);
+      } else if(g.status==='playing'||g.status.startsWith('reveal:')){
+        if(me.role==='host')enterGame(g);else watchGame(g);
+      } else if(g.status==='done'){
+        showWinner(g);
+      } else {
+        show('screen-landing');
+      }
+      return;
+    }
+  }
+  show('screen-landing');
+})();
 document.getElementById('pill-copy-btn').addEventListener('click',()=>{
   if(!me.code)return;
   navigator.clipboard.writeText(me.code).then(()=>{
