@@ -310,6 +310,10 @@
       <p style="font-size:13px;color:var(--muted);margin-bottom:18px;">Waiting for everyone else to submit…</p>
       <div class="player-roster" id="bulk-done-roster"></div>
       <div style="margin-top:14px;font-size:12px;color:var(--muted);" id="bulk-done-status"><span class="spinner"></span>Waiting…</div>
+      <div id="force-start-wrap" style="display:none;margin-top:16px">
+        <div class="warn-box" style="margin-bottom:10px;font-size:12px">Players who haven't submitted will lose 2 lives per unpredicted match.</div>
+        <button class="btn btn-primary" id="force-start-btn">⚡ Force Start</button>
+      </div>
     </div>
   </div>
 
@@ -1205,6 +1209,12 @@ async function pollBulkDone(){
   const submitted=isKOBulk?(g.koBulkSubmitted||{}):(g.bulkSubmitted||{});
   const sub=Object.keys(submitted).length;
   document.getElementById('bulk-done-status').innerHTML=`<span class="spinner"></span>${sub}/${g.players.length} players ready…`;
+  // Show force start button for host if not everyone has submitted
+  const forceWrap=document.getElementById('force-start-wrap');
+  if(forceWrap){
+    const pending=g.players.filter(p=>!submitted[p.name]);
+    forceWrap.style.display=(me.role==='host'&&pending.length>0)?'block':'none';
+  }
   if(g.status==='playing'){stopPolling();if(me.role==='host')enterGame(g);else watchGame(g);}
 }
 
@@ -1442,8 +1452,9 @@ function renderResultEntry(g,match,area){
     const mp=f.predictions[f.currentMatchIdx]||{};
     f.players.forEach(p=>{
       if(p.eliminated)return;
-      if(mp[p.name]===actual)p.correct++;
-      else{p.lives=Math.max(0,p.lives-1);if(p.lives===0)p.eliminated=true;}
+      if(mp[p.name]===actual){p.correct++;}
+      else if(mp[p.name]!==undefined){p.lives=Math.max(0,p.lives-1);if(p.lives===0)p.eliminated=true;}
+      else{p.lives=Math.max(0,p.lives-2);if(p.lives===0)p.eliminated=true;}
     });
     f.currentResult={home:h,away:a,penWinner:penWinner||undefined};
     // Store result for standings calculation
@@ -1488,10 +1499,13 @@ function reverseResult(g, matchIdx){
     if(v===actual){
       // Was correct — undo the correct count
       p.correct=Math.max(0,p.correct-1);
-    } else {
-      // Was wrong — restore 2 lives (but not beyond original max)
+    } else if(v!==undefined){
+      // Was wrong — restore 1 life
       p.lives=Math.min(g.lives,p.lives+1);
-      // Undo elimination if they were brought back
+      if(p.eliminated&&p.lives>0)p.eliminated=false;
+    } else {
+      // Had no prediction — restore 2 lives
+      p.lives=Math.min(g.lives,p.lives+2);
       if(p.eliminated&&p.lives>0)p.eliminated=false;
     }
   });
@@ -1843,7 +1857,8 @@ async function correctHistoricResult(g, targetIdx) {
       fresh.players.forEach(p => {
         if (p.eliminated) return;
         if (preds[p.name] === actual) { p.correct++; }
-        else { p.lives = Math.max(0, p.lives - 1); if (p.lives === 0) p.eliminated = true; }
+        else if(mp[p.name]!==undefined){ p.lives = Math.max(0, p.lives - 1); if (p.lives === 0) p.eliminated = true; }
+        else { p.lives = Math.max(0, p.lives - 2); if (p.lives === 0) p.eliminated = true; }
       });
 
       // Repopulate brackets
@@ -2039,6 +2054,29 @@ async function commitKOBulkFromWatch(g, round) {
     if (submitBtn) { submitBtn.textContent = 'Lock in my predictions ✓'; submitBtn.disabled = false; }
   }
 }
+
+// ─── FORCE START ─────────────────────────────────────────────────────────────
+document.getElementById('force-start-btn').addEventListener('click', async () => {
+  if(!confirm('Force start? Players who have not submitted predictions will lose 2 lives per unpredicted match.')) return;
+  const btn = document.getElementById('force-start-btn');
+  btn.textContent = 'Starting…'; btn.disabled = true;
+  const fresh = await loadGame(me.code);
+  if(!fresh){ btn.textContent='⚡ Force Start'; btn.disabled=false; return; }
+  const isKOBulk = fresh.status && fresh.status.startsWith('ko-bulk:');
+  // Mark all players as submitted (unsubmitted ones will just have no predictions)
+  if(isKOBulk){
+    if(!fresh.koBulkSubmitted) fresh.koBulkSubmitted={};
+    fresh.players.forEach(p=>{ fresh.koBulkSubmitted[p.name]=true; });
+    fresh.status='playing';
+  } else {
+    if(!fresh.bulkSubmitted) fresh.bulkSubmitted={};
+    fresh.players.forEach(p=>{ fresh.bulkSubmitted[p.name]=true; });
+    fresh.status='playing';
+  }
+  await saveGame(fresh);
+  stopPolling();
+  enterGame(fresh);
+});
 
 // ─── BOOT ────────────────────────────────────────────────────────────────────
 (async()=>{
