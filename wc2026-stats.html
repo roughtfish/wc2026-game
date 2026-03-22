@@ -76,6 +76,25 @@
     .lb-row{grid-template-columns:28px 1fr auto auto}
     .lb-pct{display:none}
   }
+
+  /* Player modal */
+  .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:100;display:flex;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(4px)}
+  .modal{background:var(--surface);border:1px solid var(--border);border-radius:16px;width:100%;max-width:520px;max-height:85vh;overflow-y:auto}
+  .modal-header{display:flex;align-items:center;justify-content:space-between;padding:18px 20px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--surface);z-index:1}
+  .modal-title{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:2px;color:var(--accent)}
+  .modal-close{background:none;border:none;color:var(--muted);font-size:22px;cursor:pointer;line-height:1;padding:4px 8px;border-radius:6px}
+  .modal-close:hover{color:var(--text);background:var(--surface2)}
+  .modal-body{padding:18px 20px}
+  .modal-stats{display:flex;gap:16px;margin-bottom:18px;flex-wrap:wrap}
+  .modal-stat{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 16px;flex:1;min-width:90px;text-align:center}
+  .modal-stat-val{font-family:'Bebas Neue',sans-serif;font-size:28px;letter-spacing:1px}
+  .modal-stat-label{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-top:2px}
+  .modal-match{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid rgba(255,255,255,0.05);font-size:12px}
+  .modal-match:last-child{border-bottom:none}
+  .modal-match-name{flex:1;line-height:1.4}
+  .modal-pred{font-weight:700;font-size:13px;min-width:28px;text-align:right}
+  .lb-name-btn{background:none;border:none;color:var(--text);font:inherit;font-weight:600;font-size:14px;cursor:pointer;text-align:left;padding:0;text-decoration:underline;text-decoration-color:rgba(255,255,255,0.2);text-underline-offset:2px}
+  .lb-name-btn:hover{color:var(--accent)}
 </style>
 </head>
 <body>
@@ -206,10 +225,66 @@ function updateTimestamp(){
   document.getElementById('last-updated').textContent='Updated '+new Date().toLocaleTimeString();
 }
 
+let currentGame=null;
 function render(g){
+  currentGame=g;
   updateTimestamp();
   renderLeaderboard(g);
   renderHistory(g);
+}
+
+function closeModal(){document.getElementById('player-modal').style.display='none';}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
+
+function showPlayerModal(playerName){
+  const g=currentGame;
+  if(!g)return;
+  const p=g.players.find(pl=>pl.name===playerName);
+  if(!p)return;
+  const results=g.results||{};
+  const playedIdxs=Object.keys(results).map(Number).sort((a,b)=>a-b);
+  const maxLives=g.lives;
+  const livePct=maxLives>0?Math.round(p.lives/maxLives*100):0;
+  const barCol=livePct>60?'var(--green)':livePct>30?'var(--accent)':'var(--red)';
+  const played=playedIdxs.length;
+  const accuracy=played>0?Math.round(p.correct/played*100):0;
+
+  document.getElementById('modal-player-name').textContent=playerName;
+  document.getElementById('modal-stats').innerHTML=`
+    <div class="modal-stat"><div class="modal-stat-val" style="color:${barCol}">❤️ ${p.lives}</div><div class="modal-stat-label">Lives left</div></div>
+    <div class="modal-stat"><div class="modal-stat-val" style="color:var(--accent2)">✓ ${p.correct}</div><div class="modal-stat-label">Correct</div></div>
+    <div class="modal-stat"><div class="modal-stat-val">${accuracy}%</div><div class="modal-stat-label">Accuracy</div></div>
+    <div class="modal-stat"><div class="modal-stat-val" style="color:${p.eliminated?'var(--red)':'var(--green)'}">${p.eliminated?'OUT':'LIVE'}</div><div class="modal-stat-label">Status</div></div>
+  `;
+
+  if(playedIdxs.length===0){
+    document.getElementById('modal-picks').innerHTML='<div style="color:var(--muted);font-size:13px;text-align:center;padding:20px">No matches played yet</div>';
+  } else {
+    document.getElementById('modal-picks').innerHTML=playedIdxs.map(idx=>{
+      const match=g.matches[idx];
+      if(!match)return'';
+      const r=results[idx];
+      const actual=r.home>r.away?'home':r.away>r.home?'away':'draw';
+      const preds=g.predictions[idx]||{};
+      const v=preds[playerName];
+      const correct=v&&v===actual;
+      const wrong=v&&v!==actual;
+      const roundBadge=match.group
+        ?`<span class="badge-group">Grp ${match.group}</span>`
+        :`<span class="badge-ko">${match.round||'KO'}</span>`;
+      const predLabel=v==='home'?flag(match.home)+match.home:v==='away'?flag(match.away)+match.away:v==='draw'?'Draw':'—';
+      const resultLabel=actual==='home'?match.home:actual==='away'?match.away:'Draw';
+      return`<div class="modal-match">
+        <div class="modal-match-name">
+          ${roundBadge}
+          <span style="margin-left:5px">${flag(match.home)}${match.home} vs ${flag(match.away)}${match.away}</span><br>
+          <span style="color:var(--muted);font-size:11px">${r.home}–${r.away} · ${resultLabel}</span>
+        </div>
+        <div class="modal-pred" style="color:${correct?'var(--green)':wrong?'var(--red)':'var(--muted)'}">${correct?'✅':wrong?'❌':'<span style="opacity:0.3">—</span>'} ${v?predLabel:''}</div>
+      </div>`;
+    }).join('');
+  }
+  document.getElementById('player-modal').style.display='flex';
 }
 
 function renderLeaderboard(g){
@@ -230,7 +305,7 @@ function renderLeaderboard(g){
     return`<div class="lb-row${p.eliminated?' eliminated':''}">
       <div class="lb-rank ${rankClass}">${p.eliminated?'💀':i+1}</div>
       <div>
-        <div class="lb-name">${p.name}${p.isHost?' <span style="font-size:10px;color:var(--accent);opacity:0.7">(host)</span>':''}</div>
+        <button class="lb-name-btn" onclick="showPlayerModal(${JSON.stringify(p.name)})">${p.name}${p.isHost?' <span style="font-size:10px;color:var(--accent);opacity:0.7">(host)</span>':''}</button>
         <div class="life-bar-wrap"><div class="life-bar" style="width:${livePct}%;background:${barCol}"></div></div>
       </div>
       <div class="lb-lives" style="color:${barCol}">❤️ ${p.lives}<span style="font-size:10px;color:var(--muted)">/${maxLives}</span></div>
@@ -291,5 +366,20 @@ function renderHistory(g){
   }).join('');
 }
 </script>
+
+  <!-- Player detail modal -->
+  <div class="modal-overlay" id="player-modal" style="display:none" onclick="if(event.target===this)closeModal()">
+    <div class="modal">
+      <div class="modal-header">
+        <div class="modal-title" id="modal-player-name"></div>
+        <button class="modal-close" onclick="closeModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="modal-stats" id="modal-stats"></div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:12px;letter-spacing:2px;color:var(--muted);margin-bottom:10px">MATCH PREDICTIONS</div>
+        <div id="modal-picks"></div>
+      </div>
+    </div>
+  </div>
 </body>
 </html>
