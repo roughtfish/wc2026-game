@@ -371,7 +371,7 @@ function renderHistory(g){
     return`<tr>
       <td style="color:var(--muted);font-size:11px">${parseInt(idx)+1}</td>
       <td class="match-name">${roundBadge} ${matchLabel}<br><span style="font-size:10px;color:var(--muted)">${r.home}–${r.away}${r.penWinner?' (pens)':''} · ${actual==='home'?match.home:actual==='away'?match.away:'Draw'}</span></td>
-      <td class="result">${r.home}–${r.away}${r.penWinner?'<br><span style="font-size:10px;color:var(--muted)">pens</span>':''}</td>
+      <td class="result">${r.home}–${r.away}${r.penWinner?`<br><span style="font-size:10px;color:var(--accent2)">${r.penWinner==='home'?'← pens':'pens →'}</span>`:''}</td>
       ${predCells}
     </tr>`;
   }).join('');
