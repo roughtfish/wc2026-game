@@ -1340,6 +1340,40 @@ function renderResultEntry(g,match,area){
   });
 }
 
+function reverseResult(g, matchIdx){
+  // Undo the scoring for this match so we can re-apply with a corrected score
+  const preds=g.predictions[matchIdx]||{};
+  const r=g.results[matchIdx];
+  if(!r)return;
+  const actual=r.home>r.away?'home':r.away>r.home?'away':'draw';
+  g.players.forEach(p=>{
+    const v=preds[p.name];
+    if(v===actual){
+      // Was correct — undo the correct count
+      p.correct=Math.max(0,p.correct-1);
+    } else {
+      // Was wrong — restore 2 lives (but not beyond original max)
+      p.lives=Math.min(g.lives,p.lives+2);
+      // Undo elimination if they were brought back
+      if(p.eliminated&&p.lives>0)p.eliminated=false;
+    }
+  });
+  // Remove stored result
+  delete g.results[matchIdx];
+  g.currentResult=null;
+  // If this was the match that triggered KO bracket population, we'd need to re-populate
+  // For simplicity, re-populate bracket from scratch after correction
+  const groupMatches=g.matches.filter(m=>m.group);
+  const hasAllGroupResults=groupMatches.every((_,i)=>{
+    const idx=g.matches.indexOf(groupMatches[i]);
+    return g.results&&g.results[idx];
+  });
+  if(!hasAllGroupResults){
+    // Reset KO bracket slots back to TBD
+    g.matches.forEach(m=>{if(!m.group){m.home='TBD';m.away='TBD';m.koSlot=true;}});
+  }
+}
+
 async function renderReveal(g){
   renderScoreboard(g,'players-grid');
   const match=g.matches[g.currentMatchIdx];
@@ -1359,7 +1393,10 @@ async function renderReveal(g){
     </div>
     <div style="text-align:center;margin-bottom:16px;"><span style="font-size:12px;color:var(--muted)">Result: </span><span style="font-weight:600;font-size:14px;">${lbl}</span></div>
     <div>${g.players.map(p=>{const v=preds[p.name];const ok=v===actual;return`<div class="pred-recap-item"><span class="pred-name">${p.name}</span><span class="pred-choice">${v==='home'?flag(match.home,16)+' '+match.home:v==='away'?flag(match.away,16)+' '+match.away:'<span style="font-weight:900">=</span> Draw'}</span><span>${ok?'✅':'❌'}</span></div>`;}).join('')}</div>
-    <button class="btn-next" id="next-match-btn">${alive.length<=1?'SEE RESULTS 🏆':'NEXT MATCH →'}</button>
+    <div style="display:flex;gap:9px;margin-top:12px;">
+      <button class="btn-next" id="correct-result-btn" style="flex:0 0 auto;width:auto;padding:12px 16px;font-size:13px;color:var(--muted);border-color:rgba(255,255,255,0.1)">✎ Correct result</button>
+      <button class="btn-next" id="next-match-btn" style="flex:1">${alive.length<=1?'SEE RESULTS 🏆':'NEXT MATCH →'}</button>
+    </div>
   </div>`;
   area.querySelector('#next-match-btn').addEventListener("click",async()=>{
     const f=await loadGame(me.code);
@@ -1369,6 +1406,14 @@ async function renderReveal(g){
     if(f.currentMatchIdx>=f.matches.length){await saveGame(f);showFinalLeaderboard(f);return;}
     f.currentResult=null;f.status='playing';
     await saveGame(f);renderGameHost(f);
+  });
+  area.querySelector('#correct-result-btn').addEventListener("click",async()=>{
+    if(!confirm('Correct this result? Player lives and scores will be recalculated.'))return;
+    const f=await loadGame(me.code);
+    reverseResult(f, f.currentMatchIdx);
+    f.status='playing';
+    await saveGame(f);
+    renderGameHost(f);
   });
 }
 
