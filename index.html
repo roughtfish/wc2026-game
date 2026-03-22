@@ -151,6 +151,8 @@
   .game-code-pill .pill-code{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:6px;color:var(--accent);background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:3px 14px;cursor:pointer;transition:border-color 0.2s}
   .game-code-pill .pill-code:hover{border-color:var(--accent)}
   .game-code-pill .pill-copy{font-size:11px;color:var(--muted);cursor:pointer;padding:4px 8px;border-radius:6px;transition:color 0.2s}
+  .rules-link{font-size:11px;color:var(--muted);text-decoration:none;letter-spacing:1px;transition:color 0.2s}
+  .rules-link:hover{color:var(--accent)}
   .game-code-pill .pill-copy:hover{color:var(--accent2)}
   .history-match-row{display:grid;grid-template-columns:1fr auto auto;align-items:center;gap:12px;padding:11px 14px;background:var(--surface2);border-radius:8px;margin-bottom:7px;border:1px solid var(--border);cursor:pointer;transition:border-color 0.2s}
   .history-match-row:hover{border-color:var(--accent)}
@@ -180,7 +182,7 @@
       <div class="flag-stripe" style="background:#cf142b"></div>
     </div>
     <h1>KAMIKAZE FOOTBALL WC'26</h1>
-    <p class="sub">Prediction Survival Game</p>
+    <p class="sub">Prediction Survival Game &nbsp;·&nbsp; <a href="wc2026-rules.html" target="_blank" class="rules-link">📖 Rules</a></p>
     <div class="game-code-pill" id="game-code-pill">
       <span class="pill-label">Game code</span>
       <span class="pill-code" id="pill-code-display" title="Click to copy"></span>
@@ -294,7 +296,7 @@
   <!-- BULK PREDICTION -->
   <div id="screen-bulk" class="screen">
     <div class="card" style="padding:14px 18px;margin-bottom:12px;">
-      <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:3px;">Predicting all group stage matches</div>
+      <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:3px;" id="bulk-round-label">Predicting all group stage matches</div>
       <div id="bulk-player-name" style="font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:2px;color:var(--accent);"></div>
     </div>
     <div id="bulk-area"></div>
@@ -999,6 +1001,10 @@ document.getElementById('join-game-btn').addEventListener("click",async()=>{
     } else if(g.status==='bulk'){
       if(g.bulkSubmitted&&g.bulkSubmitted[me.name]){show('screen-bulk-done');startPolling(pollBulkDone);}
       else startBulk(g);
+    } else if(g.status&&g.status.startsWith('ko-bulk:')){
+      const round=g.status.slice(8);
+      if(g.koBulkSubmitted&&g.koBulkSubmitted[me.name]){show('screen-bulk-done');startPolling(pollBulkDone);}
+      else startKOBulk(g,round);
     } else if(g.status==='playing'||g.status.startsWith('reveal:')){
       if(me.role==='host')enterGame(g);else watchGame(g);
     } else if(g.status==='done'){
@@ -1021,6 +1027,7 @@ async function pollPlayerLobby(){
   const g=await loadGame(me.code);if(!g)return;
   renderRoster(g,'player-lobby-roster');
   if(g.status==='bulk'){stopPolling();startBulk(g);}
+  else if(g.status&&g.status.startsWith('ko-bulk:')){stopPolling();startKOBulk(g,g.status.slice(8));}
   else if(g.status==='playing'){stopPolling();watchGame(g);}
 }
 
@@ -1177,7 +1184,9 @@ async function commitBulk(g){
 async function pollBulkDone(){
   const g=await loadGame(me.code);if(!g)return;
   renderRoster(g,'bulk-done-roster');
-  const sub=Object.keys(g.bulkSubmitted||{}).length;
+  const isKOBulk=g.status&&g.status.startsWith('ko-bulk:');
+  const submitted=isKOBulk?(g.koBulkSubmitted||{}):(g.bulkSubmitted||{});
+  const sub=Object.keys(submitted).length;
   document.getElementById('bulk-done-status').innerHTML=`<span class="spinner"></span>${sub}/${g.players.length} players ready…`;
   if(g.status==='playing'){stopPolling();if(me.role==='host')enterGame(g);else watchGame(g);}
 }
@@ -1192,6 +1201,11 @@ async function enterGame(g){
     // During reveal, just refresh scoreboard — host controls advancing
     if(f.status&&f.status.startsWith('reveal:')){
       renderScoreboard(f,'players-grid');
+      return;
+    }
+    if(f.status&&f.status.startsWith('ko-bulk:')){
+      stopPolling();
+      startKOBulk(f,f.status.slice(8));
       return;
     }
     // Don't re-render if host is mid result-entry (score inputs are visible)
@@ -1375,7 +1389,7 @@ function renderResultEntry(g,match,area){
     f.players.forEach(p=>{
       if(p.eliminated)return;
       if(mp[p.name]===actual)p.correct++;
-      else{p.lives=Math.max(0,p.lives-2);if(p.lives===0)p.eliminated=true;}
+      else{p.lives=Math.max(0,p.lives-1);if(p.lives===0)p.eliminated=true;}
     });
     f.currentResult={home:h,away:a,penWinner:penWinner||undefined};
     // Store result for standings calculation
@@ -1422,7 +1436,7 @@ function reverseResult(g, matchIdx){
       p.correct=Math.max(0,p.correct-1);
     } else {
       // Was wrong — restore 2 lives (but not beyond original max)
-      p.lives=Math.min(g.lives,p.lives+2);
+      p.lives=Math.min(g.lives,p.lives+1);
       // Undo elimination if they were brought back
       if(p.eliminated&&p.lives>0)p.eliminated=false;
     }
@@ -1464,7 +1478,12 @@ async function renderReveal(g){
     <div>${g.players.map(p=>{const v=preds[p.name];const ok=v===actual;return`<div class="pred-recap-item"><span class="pred-name">${p.name}</span><span class="pred-choice">${v==='home'?flag(match.home,16)+' '+match.home:v==='away'?flag(match.away,16)+' '+match.away:'<span style="font-weight:900">=</span> Draw'}</span><span>${ok?'✅':'❌'}</span></div>`;}).join('')}</div>
     <div style="display:flex;gap:9px;margin-top:12px;">
       <button class="btn-next" id="correct-result-btn" style="flex:0 0 auto;width:auto;padding:12px 16px;font-size:13px;color:var(--muted);border-color:rgba(255,255,255,0.1)">✎ Correct result</button>
-      <button class="btn-next" id="next-match-btn" style="flex:1">${alive.length<=1?'SEE RESULTS 🏆':'NEXT MATCH →'}</button>
+      <button class="btn-next" id="next-match-btn" style="flex:1">${alive.length<=1?'SEE RESULTS 🏆':(()=>{
+        const nx=g.matches[g.currentMatchIdx+1];
+        const cur=g.matches[g.currentMatchIdx];
+        const isNewRound=nx&&!nx.group&&cur&&!cur.group&&nx.round!==cur.round&&nx.home!=='TBD';
+        return isNewRound?'START '+nx.round.toUpperCase()+' PREDICTIONS →':'NEXT MATCH →';
+      })()}</button>
     </div>
   </div>`;
   area.querySelector('#next-match-btn').addEventListener("click",async()=>{
@@ -1473,6 +1492,22 @@ async function renderReveal(g){
     if(al.length<=1){showWinner(f);return;}
     f.currentMatchIdx++;
     if(f.currentMatchIdx>=f.matches.length){await saveGame(f);showFinalLeaderboard(f);return;}
+    // Check if we're starting a new KO round — if so, trigger KO bulk predictions
+    const nextMatch=f.matches[f.currentMatchIdx];
+    const prevMatch=f.matches[f.currentMatchIdx-1];
+    const isNewKORound=nextMatch&&!nextMatch.group&&prevMatch&&
+      (!prevMatch.group)&&nextMatch.round!==prevMatch.round&&
+      nextMatch.home!=='TBD'&&nextMatch.away!=='TBD';
+    if(isNewKORound){
+      f.status='ko-bulk:'+nextMatch.round;
+      f.koBulkSubmitted={};
+      f.currentResult=null;
+      await saveGame(f);
+      stopPolling();
+      startKOBulk(f,nextMatch.round);
+      return;
+    }
+    // Also check: if nextMatch is a TBD KO slot, just advance normally
     f.currentResult=null;f.status='playing';
     await saveGame(f);renderGameHost(f);
   });
@@ -1490,7 +1525,16 @@ async function renderReveal(g){
 async function watchGame(g){
   show('screen-watch');
   renderWatchScreen(g);
-  startPolling(async()=>{const f=await loadGame(me.code);if(f)renderWatchScreen(f);},2200);
+  startPolling(async()=>{
+    const f=await loadGame(me.code);if(!f)return;
+    if(f.status&&f.status.startsWith('ko-bulk:')){
+      stopPolling();
+      if(f.koBulkSubmitted&&f.koBulkSubmitted[me.name]){show('screen-bulk-done');startPolling(pollBulkDone);}
+      else{startKOBulk(f,f.status.slice(8));}
+      return;
+    }
+    renderWatchScreen(f);
+  },2200);
 }
 
 async function renderWatchScreen(g){
@@ -1708,7 +1752,7 @@ async function correctHistoricResult(g, targetIdx) {
       fresh.players.forEach(p => {
         if (p.eliminated) return;
         if (preds[p.name] === actual) { p.correct++; }
-        else { p.lives = Math.max(0, p.lives - 2); if (p.lives === 0) p.eliminated = true; }
+        else { p.lives = Math.max(0, p.lives - 1); if (p.lives === 0) p.eliminated = true; }
       });
 
       // Repopulate brackets
@@ -1752,6 +1796,129 @@ async function correctHistoricResult(g, targetIdx) {
     document.getElementById('history-match-list').prepend(successMsg);
     setTimeout(() => successMsg.remove(), 4000);
   });
+}
+
+
+// ─── KO BULK PREDICTION ───────────────────────────────────────────────────────
+let koBulkDraft = {};
+
+async function startKOBulk(g, round) {
+  koBulkDraft = {};
+  document.getElementById('bulk-player-name').textContent = me.name + (me.role === 'host' ? ' (Host)' : '');
+  document.getElementById('bulk-round-label').textContent = 'Predicting ' + round + ' matches';
+  show('screen-bulk');
+  // Restore any saved draft
+  const saved = await loadDraft();
+  if (saved && Object.keys(saved).length > 0) {
+    const submitted = g.predictions || {};
+    Object.entries(saved).forEach(([k, v]) => {
+      const idx = parseInt(k);
+      if (!submitted[idx] || !submitted[idx][me.name]) koBulkDraft[idx] = v;
+    });
+  }
+  renderKOBulkForm(g, round);
+}
+
+function renderKOBulkForm(g, round) {
+  const MAX_PICKS = 5;
+  // Get all matches for this round that aren't TBD
+  const gms = g.matches.reduce((acc, m, i) => {
+    if (m.round === round && m.home !== 'TBD' && m.away !== 'TBD') acc.push({ m, i });
+    return acc;
+  }, []);
+
+  const done = Object.keys(koBulkDraft).length;
+  const rem = gms.length - done;
+
+  // Count picks across ALL matches (group + all KO rounds) for all other players
+  const teamPicks = {};
+  g.matches.forEach((m, i) => {
+    const matchPreds = g.predictions[i] || {};
+    Object.entries(matchPreds).forEach(([player, pred]) => {
+      if (player === me.name) return; // exclude current player's already-submitted picks
+      const winner = pred === 'home' ? m.home : pred === 'away' ? m.away : null;
+      if (winner) teamPicks[winner] = (teamPicks[winner] || 0) + 1;
+    });
+  });
+  // Add current player's own draft picks
+  gms.forEach(({ m, i }) => {
+    const sel = koBulkDraft[i];
+    if (sel === 'home') teamPicks[m.home] = (teamPicks[m.home] || 0) + 1;
+    else if (sel === 'away') teamPicks[m.away] = (teamPicks[m.away] || 0) + 1;
+  });
+
+  let html = `<div class="bulk-progress-info"><span><span class="bulk-done-count">${done}</span>/${gms.length} predicted</span><span>${rem > 0 ? rem + ' left' : '✓ All done!'}</span></div>
+  <div class="card" style="padding:14px 18px;margin-bottom:12px;">
+  <div class="bulk-group-header">${round.toUpperCase()}</div>`;
+
+  gms.forEach(({ m, i: idx }) => {
+    const sel = koBulkDraft[idx];
+    const homeCount = teamPicks[m.home] || 0;
+    const awayCount = teamPicks[m.away] || 0;
+    const homeAtLimit = homeCount >= MAX_PICKS && sel !== 'home';
+    const awayAtLimit = awayCount >= MAX_PICKS && sel !== 'away';
+    html += `<div class="bulk-match-row${sel === undefined ? ' unpredicted' : ''}">
+      <div class="bulk-team"><span class="bulk-team-flag">${flag(m.home, 20)}</span><span>${m.home}${homeAtLimit ? ` <span style="font-size:10px;color:var(--red)">(full)</span>` : homeCount >= MAX_PICKS - 1 && sel !== 'home' ? ` <span style="font-size:10px;color:var(--accent)">(${homeCount}/${MAX_PICKS})</span>` : ''}</span></div>
+      <div class="bulk-toggle">
+        <button data-idx="${idx}" data-val="home" class="${sel === 'home' ? 'active-home' : ''}" title="${m.home} win${homeAtLimit ? ' — limit reached' : ''}" style="font-size:16px;padding:5px 9px;${homeAtLimit ? 'opacity:0.3;cursor:not-allowed;' : ''}" ${homeAtLimit ? 'disabled' : ''}>${flag(m.home, 20)}</button>
+        <button data-idx="${idx}" data-val="away" class="${sel === 'away' ? 'active-away' : ''}" title="${m.away} win${awayAtLimit ? ' — limit reached' : ''}" style="font-size:16px;padding:5px 9px;${awayAtLimit ? 'opacity:0.3;cursor:not-allowed;' : ''}" ${awayAtLimit ? 'disabled' : ''}>${flag(m.away, 20)}</button>
+      </div>
+      <div class="bulk-team away"><span>${m.away}${awayAtLimit ? ` <span style="font-size:10px;color:var(--red)">(full)</span>` : awayCount >= MAX_PICKS - 1 && sel !== 'away' ? ` <span style="font-size:10px;color:var(--accent)">(${awayCount}/${MAX_PICKS})</span>` : ''}</span><span class="bulk-team-flag">${flag(m.away, 20)}</span></div>
+    </div>`;
+  });
+
+  html += `</div>
+    <div style="padding:12px 0 6px;border-top:0.5px solid var(--border);margin-top:10px;">
+      <div style="font-size:10px;color:var(--muted);text-align:center;margin-bottom:7px;letter-spacing:1px;">Each team can only win <b>${MAX_PICKS}</b> times across all predictions · No draws in knockout rounds</div>
+      <button class="btn btn-primary" id="ko-bulk-submit-btn">
+        ${rem > 0 ? 'Predict ' + rem + ' more to continue' : 'Lock in my predictions ✓'}
+      </button>
+      ${done > 0 ? `<button class="btn btn-secondary" id="ko-bulk-clear-btn" style="margin-top:8px;font-size:13px;letter-spacing:1px;opacity:0.7;">↺ Reset Picks!</button>` : ''}
+    </div>`;
+
+  const area = document.getElementById('bulk-area');
+  area.innerHTML = html;
+
+  const sb = area.querySelector('#ko-bulk-submit-btn');
+  if (rem > 0) { sb.disabled = true; sb.style.opacity = '0.42'; sb.style.cursor = 'not-allowed'; }
+  else { sb.disabled = false; sb.style.opacity = '1'; sb.style.cursor = 'pointer'; sb.addEventListener('click', () => commitKOBulk(g, round)); }
+
+  const cb = area.querySelector('#ko-bulk-clear-btn');
+  if (cb) cb.addEventListener('click', () => { koBulkDraft = {}; saveDraft(koBulkDraft); renderKOBulkForm(g, round); });
+
+  area.querySelectorAll('.bulk-toggle button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      koBulkDraft[parseInt(btn.dataset.idx)] = btn.dataset.val;
+      saveDraft(koBulkDraft);
+      renderKOBulkForm(g, round);
+    });
+  });
+}
+
+async function commitKOBulk(g, round) {
+  const submitBtn = document.getElementById('ko-bulk-submit-btn');
+  if (submitBtn) { submitBtn.textContent = 'Saving…'; submitBtn.disabled = true; }
+  try {
+    const fresh = await loadGame(me.code);
+    if (!fresh) { alert('Could not load game — check your connection.'); if (submitBtn) { submitBtn.textContent = 'Lock in my predictions ✓'; submitBtn.disabled = false; } return; }
+    Object.entries(koBulkDraft).forEach(([i, v]) => {
+      const idx = parseInt(i);
+      if (!fresh.predictions[idx]) fresh.predictions[idx] = {};
+      fresh.predictions[idx][me.name] = v;
+    });
+    if (!fresh.koBulkSubmitted) fresh.koBulkSubmitted = {};
+    fresh.koBulkSubmitted[me.name] = true;
+    const allDone = fresh.players.every(p => fresh.koBulkSubmitted[p.name]);
+    if (allDone) fresh.status = 'playing';
+    await saveGame(fresh);
+    clearDraft();
+    if (fresh.status === 'playing') { stopPolling(); if (me.role === 'host') enterGame(fresh); else watchGame(fresh); }
+    else { show('screen-bulk-done'); startPolling(pollBulkDone); }
+  } catch(e) {
+    console.error('commitKOBulk failed', e);
+    alert('Failed to save predictions: ' + e.message);
+    if (submitBtn) { submitBtn.textContent = 'Lock in my predictions ✓'; submitBtn.disabled = false; }
+  }
 }
 
 // ─── BOOT ────────────────────────────────────────────────────────────────────
