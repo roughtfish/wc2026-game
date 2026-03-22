@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kamikaze Football WC'26 — Stats</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0a0f1a;--surface:#111827;--surface2:#1a2436;
+    --border:rgba(255,255,255,0.08);--accent:#e8b84b;--accent2:#2dd4bf;
+    --red:#ef4444;--green:#22c55e;--text:#f1f5f9;--muted:#64748b;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min-height:100vh;padding:20px 16px 60px}
+  .app{max-width:900px;margin:0 auto}
+  .header{text-align:center;padding:20px 0 18px}
+  .header h1{font-family:'Bebas Neue',sans-serif;font-size:clamp(28px,6vw,52px);letter-spacing:4px;line-height:1;
+    background:linear-gradient(135deg,#fff 0%,var(--accent) 60%,#fff 100%);
+    -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+  .header .sub{font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);margin-top:4px}
+  .code-pill{display:inline-flex;align-items:center;gap:8px;margin-top:10px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:5px 14px}
+  .code-pill .label{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--muted)}
+  .code-pill .code{font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:5px;color:var(--accent)}
+  .setup{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:24px;max-width:400px;margin:0 auto}
+  .setup h2{font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:2px;color:var(--accent);margin-bottom:14px}
+  .field label{display:block;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:5px}
+  .field input{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 13px;color:var(--text);font-family:'Bebas Neue',sans-serif;font-size:28px;letter-spacing:8px;text-transform:uppercase;text-align:center;outline:none;transition:border-color 0.2s}
+  .field input:focus{border-color:var(--accent)}
+  .btn{display:block;width:100%;padding:12px;border:none;border-radius:10px;font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:3px;cursor:pointer;transition:all 0.2s;margin-top:12px}
+  .btn-primary{background:var(--accent);color:#0a0f1a}
+  .btn-primary:hover{background:#f5ca6a}
+  .error{color:var(--red);font-size:12px;margin-top:8px;display:none}
+  .spinner-wrap{text-align:center;padding:40px;color:var(--muted);font-size:13px}
+  .spinner{display:inline-block;width:18px;height:18px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.7s linear infinite;margin-right:8px;vertical-align:middle}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .refresh-note{text-align:center;font-size:11px;color:var(--muted);margin-bottom:16px;letter-spacing:1px}
+  /* Leaderboard */
+  .section-title{font-family:'Bebas Neue',sans-serif;font-size:14px;letter-spacing:3px;color:var(--accent2);margin:22px 0 10px}
+  .leaderboard{background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;margin-bottom:22px}
+  .lb-row{display:grid;grid-template-columns:36px 1fr auto auto auto;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--border)}
+  .lb-row:last-child{border-bottom:none}
+  .lb-row.eliminated{opacity:0.35;filter:grayscale(1)}
+  .lb-rank{font-family:'Bebas Neue',sans-serif;font-size:20px;color:var(--muted);text-align:center}
+  .lb-rank.gold{color:var(--accent)}
+  .lb-rank.silver{color:#94a3b8}
+  .lb-rank.bronze{color:#b45309}
+  .lb-name{font-weight:600;font-size:14px}
+  .lb-lives{font-family:'Bebas Neue',sans-serif;font-size:16px;text-align:right}
+  .lb-correct{font-size:12px;color:var(--accent2);text-align:right;white-space:nowrap}
+  .lb-pct{font-size:11px;color:var(--muted);text-align:right}
+  .life-bar-wrap{height:4px;background:var(--surface2);border-radius:2px;margin-top:3px;overflow:hidden}
+  .life-bar{height:100%;border-radius:2px;transition:width 0.4s ease}
+  /* Match history table */
+  .history-wrap{overflow-x:auto;margin-bottom:24px}
+  table{width:100%;border-collapse:collapse;font-size:12px;min-width:600px}
+  thead th{font-family:'Bebas Neue',sans-serif;font-size:11px;letter-spacing:2px;color:var(--muted);text-align:left;padding:6px 10px;border-bottom:1px solid var(--border);white-space:nowrap}
+  thead th.center{text-align:center}
+  tbody tr{border-bottom:1px solid rgba(255,255,255,0.04)}
+  tbody tr:last-child{border-bottom:none}
+  tbody tr:hover{background:rgba(255,255,255,0.02)}
+  td{padding:8px 10px;vertical-align:middle}
+  td.match-name{font-weight:600;color:var(--text)}
+  td.result{font-family:'Bebas Neue',sans-serif;font-size:14px;color:var(--accent);text-align:center}
+  td.pred-cell{text-align:center}
+  .pred-hit{color:var(--green);font-weight:700}
+  .pred-miss{color:var(--red)}
+  .pred-none{color:var(--muted);opacity:0.4}
+  .badge-group{font-size:10px;background:rgba(45,212,191,0.1);color:var(--accent2);border:1px solid rgba(45,212,191,0.2);border-radius:4px;padding:1px 5px}
+  .badge-ko{font-size:10px;background:rgba(232,184,75,0.1);color:var(--accent);border:1px solid rgba(232,184,75,0.2);border-radius:4px;padding:1px 5px}
+  .status-chip{display:inline-block;font-size:10px;padding:3px 9px;border-radius:20px;font-weight:600;letter-spacing:1px}
+  .status-live{background:rgba(34,197,94,0.13);color:var(--green)}
+  .status-done{background:rgba(100,116,139,0.15);color:var(--muted)}
+  .status-lobby{background:rgba(232,184,75,0.13);color:var(--accent)}
+  @media(max-width:500px){
+    .lb-row{grid-template-columns:28px 1fr auto auto}
+    .lb-pct{display:none}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="header">
+    <h1>KAMIKAZE FOOTBALL WC'26</h1>
+    <p class="sub">Live Stats</p>
+    <div id="code-display" style="display:none" class="code-pill">
+      <span class="label">Game</span>
+      <span class="code" id="code-label"></span>
+    </div>
+  </div>
+
+  <div id="setup-area">
+    <div class="setup">
+      <h2>ENTER GAME CODE</h2>
+      <div class="field">
+        <label>Game Code</label>
+        <input type="text" id="code-input" placeholder="ABCD" maxlength="6" autocomplete="off">
+      </div>
+      <div class="error" id="setup-error">Game not found — check the code.</div>
+      <button class="btn btn-primary" id="load-btn">LOAD STATS</button>
+    </div>
+  </div>
+
+  <div id="stats-area" style="display:none">
+    <div class="refresh-note"><span class="spinner"></span>Auto-refreshing every 10s &nbsp;·&nbsp; <span id="last-updated"></span></div>
+    <div class="section-title">STANDINGS</div>
+    <div class="leaderboard" id="leaderboard"></div>
+    <div class="section-title">MATCH HISTORY</div>
+    <div class="history-wrap"><table id="history-table"><thead id="history-head"></thead><tbody id="history-body"></tbody></table></div>
+  </div>
+</div>
+
+<script>
+const FIREBASE_URL = 'https://wc2026-4b84a-default-rtdb.europe-west1.firebasedatabase.app';
+const FLAGS={
+  'Mexico':'mx','South Africa':'za','South Korea':'kr','Canada':'ca','Qatar':'qa',
+  'Switzerland':'ch','USA':'us','Paraguay':'py','Australia':'au','Scotland':'gb-sct',
+  'Brazil':'br','Morocco':'ma','Haiti':'ht','Netherlands':'nl','Germany':'de',
+  'Ivory Coast':'ci','Ecuador':'ec','Curacao':'cw','Tunisia':'tn','Japan':'jp',
+  'Spain':'es','Cape Verde':'cv','Saudi Arabia':'sa','Uruguay':'uy','Belgium':'be',
+  'Egypt':'eg','Iran':'ir','New Zealand':'nz','France':'fr','Senegal':'sn',
+  'Norway':'no','Argentina':'ar','Algeria':'dz','Austria':'at','Jordan':'jo',
+  'Portugal':'pt','Uzbekistan':'uz','Colombia':'co','England':'gb-eng','Croatia':'hr',
+  'Ghana':'gh','Panama':'pa','Poland':'pl','Albania':'al','Sweden':'se','Ukraine':'ua',
+  'Italy':'it','Wales':'gb-wls','Bosnia':'ba','Turkey':'tr','Romania':'ro',
+  'Slovakia':'sk','DR Congo':'cd','Jamaica':'jm','New Caledonia':'nc','Iraq':'iq',
+  'Bolivia':'bo','Suriname':'sr',
+};
+function flag(t,size=16){
+  const code=FLAGS[t];
+  if(!code)return'';
+  return`<img src="https://flagcdn.com/w${size}/${code}.png" width="${size}" alt="${t}" style="display:inline-block;vertical-align:middle;border-radius:2px;margin-right:3px">`;
+}
+
+let gameCode='';
+let pollTimer=null;
+
+// Read code from URL if present
+const urlCode=new URLSearchParams(location.search).get('code');
+if(urlCode){
+  document.getElementById('code-input').value=urlCode.toUpperCase();
+  document.getElementById('load-btn').click();
+}
+
+async function fetchGame(code){
+  try{
+    const [stateRes,predsRes]=await Promise.all([
+      fetch(`${FIREBASE_URL}/games/${code}/state.json`),
+      fetch(`${FIREBASE_URL}/games/${code}/predictions.json`)
+    ]);
+    if(!stateRes.ok)return null;
+    const state=await stateRes.json();
+    if(!state)return null;
+    state.predictions=predsRes.ok?(await predsRes.json()||{}):{};
+    return state;
+  }catch(e){return null;}
+}
+
+document.getElementById('load-btn').addEventListener('click',async()=>{
+  const code=document.getElementById('code-input').value.trim().toUpperCase();
+  if(code.length<3){showError('Enter a valid game code');return;}
+  hideError();
+  document.getElementById('load-btn').textContent='Loading…';
+  const g=await fetchGame(code);
+  document.getElementById('load-btn').textContent='LOAD STATS';
+  if(!g){showError('Game not found — check the code.');return;}
+  gameCode=code;
+  document.getElementById('setup-area').style.display='none';
+  document.getElementById('stats-area').style.display='block';
+  document.getElementById('code-display').style.display='inline-flex';
+  document.getElementById('code-label').textContent=code;
+  // Update page title and URL
+  document.title=`WC'26 Stats — ${code}`;
+  history.replaceState({},'',`?code=${code}`);
+  render(g);
+  startAutoRefresh();
+});
+
+document.getElementById('code-input').addEventListener('keydown',e=>{
+  if(e.key==='Enter')document.getElementById('load-btn').click();
+});
+
+function showError(msg){const el=document.getElementById('setup-error');el.textContent=msg;el.style.display='block';}
+function hideError(){document.getElementById('setup-error').style.display='none';}
+
+function startAutoRefresh(){
+  if(pollTimer)clearInterval(pollTimer);
+  pollTimer=setInterval(async()=>{
+    const g=await fetchGame(gameCode);
+    if(g)render(g);
+    updateTimestamp();
+  },10000);
+}
+
+function updateTimestamp(){
+  document.getElementById('last-updated').textContent='Updated '+new Date().toLocaleTimeString();
+}
+
+function render(g){
+  updateTimestamp();
+  renderLeaderboard(g);
+  renderHistory(g);
+}
+
+function renderLeaderboard(g){
+  const sorted=[...g.players].sort((a,b)=>{
+    if(a.eliminated&&!b.eliminated)return 1;
+    if(!a.eliminated&&b.eliminated)return-1;
+    return b.lives-a.lives||b.correct-a.correct;
+  });
+  const maxLives=g.lives;
+  // Count played matches
+  const played=Object.keys(g.results||{}).length;
+  const el=document.getElementById('leaderboard');
+  el.innerHTML=sorted.map((p,i)=>{
+    const rankClass=i===0&&!p.eliminated?'gold':i===1&&!p.eliminated?'silver':i===2&&!p.eliminated?'bronze':'';
+    const livePct=maxLives>0?Math.round(p.lives/maxLives*100):0;
+    const barCol=livePct>60?'var(--green)':livePct>30?'var(--accent)':'var(--red)';
+    const accuracy=played>0?Math.round(p.correct/played*100):0;
+    return`<div class="lb-row${p.eliminated?' eliminated':''}">
+      <div class="lb-rank ${rankClass}">${p.eliminated?'💀':i+1}</div>
+      <div>
+        <div class="lb-name">${p.name}${p.isHost?' <span style="font-size:10px;color:var(--accent);opacity:0.7">(host)</span>':''}</div>
+        <div class="life-bar-wrap"><div class="life-bar" style="width:${livePct}%;background:${barCol}"></div></div>
+      </div>
+      <div class="lb-lives" style="color:${barCol}">❤️ ${p.lives}<span style="font-size:10px;color:var(--muted)">/${maxLives}</span></div>
+      <div class="lb-correct">✓ ${p.correct}</div>
+      <div class="lb-pct">${accuracy}%</div>
+    </div>`;
+  }).join('');
+}
+
+function renderHistory(g){
+  const players=[...g.players].sort((a,b)=>{
+    if(a.eliminated&&!b.eliminated)return 1;
+    if(!a.eliminated&&b.eliminated)return-1;
+    return b.lives-a.lives||b.correct-a.correct;
+  });
+  const results=g.results||{};
+  const playedIdxs=Object.keys(results).map(Number).sort((a,b)=>a-b);
+  if(playedIdxs.length===0){
+    document.getElementById('history-body').innerHTML=`<tr><td colspan="${players.length+3}" style="text-align:center;color:var(--muted);padding:24px">No matches played yet</td></tr>`;
+    document.getElementById('history-head').innerHTML='';
+    return;
+  }
+
+  // Header
+  document.getElementById('history-head').innerHTML=`<tr>
+    <th>#</th>
+    <th>Match</th>
+    <th class="center">Result</th>
+    ${players.map(p=>`<th class="center">${p.name}</th>`).join('')}
+  </tr>`;
+
+  // Rows
+  document.getElementById('history-body').innerHTML=playedIdxs.map(idx=>{
+    const match=g.matches[idx];
+    if(!match)return'';
+    const r=results[idx];
+    const actual=r.home>r.away?'home':r.away>r.home?'away':'draw';
+    const matchLabel=match.group
+      ?`${flag(match.home)}${match.home} <span style="color:var(--muted)">vs</span> ${flag(match.away)}${match.away}`
+      :`${flag(match.home)}${match.home} <span style="color:var(--muted)">vs</span> ${flag(match.away)}${match.away}`;
+    const roundBadge=match.group
+      ?`<span class="badge-group">Grp ${match.group}</span>`
+      :`<span class="badge-ko">${match.round||'KO'}</span>`;
+    const preds=g.predictions[idx]||{};
+    const predCells=players.map(p=>{
+      const v=preds[p.name];
+      if(!v)return`<td class="pred-cell"><span class="pred-none">—</span></td>`;
+      const correct=v===actual;
+      const label=v==='home'?'H':v==='away'?'A':'=';
+      return`<td class="pred-cell ${correct?'pred-hit':'pred-miss'}">${correct?'✅':'❌'} ${label}</td>`;
+    }).join('');
+    return`<tr>
+      <td style="color:var(--muted);font-size:11px">${parseInt(idx)+1}</td>
+      <td class="match-name">${roundBadge} ${matchLabel}<br><span style="font-size:10px;color:var(--muted)">${r.home}–${r.away} · ${actual==='home'?match.home:actual==='away'?match.away:'Draw'}</span></td>
+      <td class="result">${r.home}–${r.away}</td>
+      ${predCells}
+    </tr>`;
+  }).join('');
+}
+</script>
+</body>
+</html>
