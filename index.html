@@ -1072,6 +1072,7 @@ async function startBulk(g){
   document.getElementById('bulk-player-name').textContent=me.name+(me.role==='host'?' (Host)':'');
   const bulkQuitBtn=document.getElementById('bulk-quit-btn');
   if(bulkQuitBtn) bulkQuitBtn.style.display=me.role==='host'?'inline-block':'none';
+  const _ba=document.getElementById('bulk-area'); if(_ba) _ba._watchCommit=null;
   show('screen-bulk');
   // Silently restore any partial draft saved previously
   const saved=await loadDraft();
@@ -1307,9 +1308,9 @@ async function renderGameHost(g){
         document.getElementById('bulk-player-name').textContent=me.name+' (Host)';
         document.getElementById('bulk-round-label').textContent='Predicting '+match.round+' matches';
         show('screen-bulk');
-        renderKOBulkForm(g,match.round);
         const area2=document.getElementById('bulk-area');
         area2._watchCommit=()=>commitKOBulkFromWatch(g,match.round);
+        renderKOBulkForm(g,match.round);
       };
     }
   }
@@ -1358,10 +1359,10 @@ async function renderGameHost(g){
         document.getElementById('bulk-player-name').textContent=me.name+' (Host)';
         document.getElementById('bulk-round-label').textContent='Predicting '+match.round+' matches';
         show('screen-bulk');
-        renderKOBulkForm(g,match.round);
         // On submit, save and return to host game screen
         const area2=document.getElementById('bulk-area');
         area2._watchCommit=()=>commitKOBulkFromWatch(g,match.round);
+        renderKOBulkForm(g,match.round);
       });
     }
     const hostForceBtn=area.querySelector('#host-force-start-btn');
@@ -1683,9 +1684,9 @@ async function renderWatchScreen(g){
         document.getElementById('bulk-player-name').textContent=me.name;
         document.getElementById('bulk-round-label').textContent='Predicting '+curMatch.round+' matches';
         show('screen-bulk');
-        renderKOBulkForm(g,curMatch.round);
         const area2=document.getElementById('bulk-area');
         area2._watchCommit=()=>commitKOBulkFromWatch(g,curMatch.round);
+        renderKOBulkForm(g,curMatch.round);
       };
     }
   }
@@ -1753,11 +1754,11 @@ async function renderWatchScreen(g){
         document.getElementById('bulk-player-name').textContent=me.name;
         document.getElementById('bulk-round-label').textContent='Predicting '+match.round+' matches';
         show('screen-bulk');
-        renderKOBulkForm(g, match.round);
         // Override commit to return to watch screen after saving
         const area2=document.getElementById('bulk-area');
         const origCommit=()=>commitKOBulkFromWatch(g, match.round);
         area2._watchCommit=origCommit;
+        renderKOBulkForm(g, match.round);
       });
     }
   }
@@ -1983,6 +1984,7 @@ async function startKOBulk(g, round) {
   document.getElementById('bulk-round-label').textContent = 'Predicting ' + round + ' matches';
   const bulkQuitBtnKO=document.getElementById('bulk-quit-btn');
   if(bulkQuitBtnKO) bulkQuitBtnKO.style.display=me.role==='host'?'inline-block':'none';
+  const _baKO=document.getElementById('bulk-area'); if(_baKO) _baKO._watchCommit=null;
   show('screen-bulk');
   // Restore any saved draft
   const saved = await loadDraft();
