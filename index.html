@@ -1325,6 +1325,8 @@ async function renderGameHost(g){
         ${pending.map(p=>`<div class="collected-item"><span style="font-weight:600">${p.name}</span><span class="badge badge-wait">⏳ pending</span></div>`).join('')}
         ${done.map(p=>`<div class="collected-item"><span style="font-weight:600">${p.name}</span><span class="badge badge-ready">✓ ready</span></div>`).join('')}
       </div>
+      <div class="warn-box" style="font-size:12px;margin-top:14px;margin-bottom:10px">Players who haven\'t predicted will lose 2 lives per unpredicted match.</div>
+      <button class="btn btn-primary" id="host-force-start-btn" style="margin-top:2px">⚡ Force Start Round</button>
     </div>`;
     const hostPredBtn=area.querySelector('#host-predict-round-btn');
     if(hostPredBtn){
@@ -1342,6 +1344,31 @@ async function renderGameHost(g){
         // On submit, save and return to host game screen
         const area2=document.getElementById('bulk-area');
         area2._watchCommit=()=>commitKOBulkFromWatch(g,match.round);
+      });
+    }
+    const hostForceBtn=area.querySelector('#host-force-start-btn');
+    if(hostForceBtn){
+      hostForceBtn.addEventListener('click',async()=>{
+        if(!confirm('Force start this round? Players who haven\'t predicted will lose 2 lives per unpredicted match.')) return;
+        hostForceBtn.textContent='Starting…'; hostForceBtn.disabled=true;
+        const fresh=await loadGame(me.code);
+        if(!fresh){hostForceBtn.textContent='⚡ Force Start Round';hostForceBtn.disabled=false;return;}
+        const curRound=fresh.matches[fresh.currentMatchIdx].round;
+        const roundMatchIndices=fresh.matches.reduce((acc,m,i)=>{
+          if(m.round===curRound&&!m.koSlot&&m.home!=='TBD'&&m.away!=='TBD') acc.push(i);
+          return acc;
+        },[]);
+        fresh.players.forEach(p=>{
+          if(p.eliminated) return;
+          roundMatchIndices.forEach(idx=>{
+            if(!fresh.predictions[idx]||!fresh.predictions[idx][p.name]){
+              p.lives=Math.max(0,p.lives-2);
+              if(p.lives===0) p.eliminated=true;
+            }
+          });
+        });
+        await saveGame(fresh);
+        renderGameHost(fresh);
       });
     }
     return;
