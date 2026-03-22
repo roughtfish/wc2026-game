@@ -343,7 +343,7 @@ const FLAGS={
 function flag(t,size=32){
   const code=FLAGS[t];
   if(!code)return`<span style="font-size:${Math.round(size*0.75)}px;opacity:0.5">🏴</span>`;
-  return`<img src="https://flagcdn.com/w${size}/${code}.png" srcset="https://flagcdn.com/w${size*2}/${code}.png 2x" width="${size}" alt="${t}" style="border-radius:3px;display:inline-block;vertical-align:middle;max-width:${size}px">`;
+  return`<img src="https://flagcdn.com/w${size}/${code}.png" srcset="https://flagcdn.com/w${size*2}/${code}.png 2x" alt="${t}" style="width:${size}px;height:auto;border-radius:3px;display:inline-block;vertical-align:middle;flex-shrink:0">`;
 }
 
 const GROUP_MATCHES=[
