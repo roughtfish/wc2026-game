@@ -543,18 +543,17 @@ function populateNextKORound(g, justFinishedMatchIdx){
     const slot=pos%2===0?'home':'away';
     g.matches[sfIdx][slot]=winner;
     g.matches[sfIdx].koSlot=false;
-    // Losers go to 3rd place play-off
-    if(thirdIdx>=0){
-      g.matches[thirdIdx][slot]=loser;
-      g.matches[thirdIdx].koSlot=false;
-    }
   }
-  // SF → Final
+  // SF → Final (losers go to 3rd place play-off)
   else if(sfStart>=0&&justFinishedMatchIdx>=sfStart&&justFinishedMatchIdx<sfStart+2&&finalIdx>=0){
     const pos=justFinishedMatchIdx-sfStart;
     const slot=pos===0?'home':'away';
     g.matches[finalIdx][slot]=winner;
     g.matches[finalIdx].koSlot=false;
+    if(thirdIdx>=0){
+      g.matches[thirdIdx][slot]=loser;
+      g.matches[thirdIdx].koSlot=false;
+    }
   }
 }
 
