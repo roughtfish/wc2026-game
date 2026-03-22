@@ -1925,79 +1925,82 @@ async function correctHistoricResult(g, targetIdx) {
     const btn = document.getElementById('correct-confirm-btn');
     btn.textContent = 'Saving…'; btn.disabled = true;
 
-    const fresh = await loadGame(me.code);
+    try {
+      const fresh = await loadGame(me.code);
+      if (!fresh) { btn.textContent = 'CONFIRM CORRECTION'; btn.disabled = false; alert('Could not load game — check your connection.'); return; }
 
-    // Full recalculation: reset all players to starting state
-    fresh.players.forEach(p => {
-      p.lives = fresh.lives;
-      p.correct = 0;
-      p.eliminated = false;
-    });
-
-    // Apply correction to stored results
-    fresh.results[targetIdx] = { home: newHome, away: newAway, ...(newPenWinner?{penWinner:newPenWinner}:{}) };
-
-    // Reset KO bracket to TBD before re-populating
-    fresh.matches.forEach(m => { if (!m.group) { m.home = 'TBD'; m.away = 'TBD'; m.koSlot = true; } });
-
-    // Re-apply ALL results in match order
-    const playedIdxs = Object.keys(fresh.results).map(Number).sort((a, b) => a - b);
-    let groupStageComplete = false;
-
-    playedIdxs.forEach(idx => {
-      const match = fresh.matches[idx];
-      const res = fresh.results[idx];
-      const actual = actualOutcome(res);
-      const preds = fresh.predictions[idx] || {};
-
-      // Score players
+      // Full recalculation: reset all players to starting state
       fresh.players.forEach(p => {
-        if (p.eliminated) return;
-        if (preds[p.name] === actual) { p.correct++; }
-        else if(preds[p.name]!==undefined){ p.lives = Math.max(0, p.lives - 1); if (p.lives === 0) p.eliminated = true; }
-        else { p.lives = Math.max(0, p.lives - 2); if (p.lives === 0) p.eliminated = true; }
+        p.lives = fresh.lives;
+        p.correct = 0;
+        p.eliminated = false;
       });
 
-      // Repopulate brackets
-      if (match && match.group) {
-        const groupMatches = fresh.matches.filter(m => m.group);
-        const resultsCount = groupMatches.filter((_, i) => {
-          const gIdx = fresh.matches.indexOf(groupMatches[i]);
-          return fresh.results[gIdx];
-        }).length;
-        if (resultsCount >= groupMatches.length && !groupStageComplete) {
-          groupStageComplete = true;
-          populateKnockoutBracket(fresh);
+      // Apply correction to stored results
+      fresh.results[targetIdx] = { home: newHome, away: newAway, ...(newPenWinner?{penWinner:newPenWinner}:{}) };
+
+      // Reset KO bracket to TBD before re-populating
+      fresh.matches.forEach(m => { if (!m.group) { m.home = 'TBD'; m.away = 'TBD'; m.koSlot = true; } });
+
+      // Re-apply ALL results in match order
+      const playedIdxs = Object.keys(fresh.results).map(Number).sort((a, b) => a - b);
+      let groupStageComplete = false;
+
+      playedIdxs.forEach(idx => {
+        const match = fresh.matches[idx];
+        if (!match) return;
+        const res = fresh.results[idx];
+        const actual = actualOutcome(res);
+        const preds = fresh.predictions[idx] || {};
+
+        // Score players
+        fresh.players.forEach(p => {
+          if (p.eliminated) return;
+          if (preds[p.name] === actual) { p.correct++; }
+          else if (preds[p.name] !== undefined) { p.lives = Math.max(0, p.lives - 1); if (p.lives === 0) p.eliminated = true; }
+          else { p.lives = Math.max(0, p.lives - 2); if (p.lives === 0) p.eliminated = true; }
+        });
+
+        // Repopulate brackets — must set currentResult before calling populateNextKORound
+        if (match.group) {
+          const groupMatches = fresh.matches.filter(m => m.group);
+          const resultsCount = groupMatches.filter((_, i) => {
+            const gIdx = fresh.matches.indexOf(groupMatches[i]);
+            return fresh.results[gIdx];
+          }).length;
+          if (resultsCount >= groupMatches.length && !groupStageComplete) {
+            groupStageComplete = true;
+            populateKnockoutBracket(fresh);
+          }
+        } else if (match.round) {
+          fresh.currentResult = res;
+          populateNextKORound(fresh, idx);
         }
-      } else if (match && match.round) {
-        populateNextKORound(fresh, idx);
+      });
+
+      // Update currentResult to the current match's result
+      fresh.currentResult = fresh.results[fresh.currentMatchIdx] || null;
+
+      // Keep reveal status if currently revealing, otherwise set playing
+      if (!fresh.status || !fresh.status.startsWith('reveal:')) {
+        fresh.status = 'playing';
       }
-    });
 
-    // Update currentResult to whatever the current match's result is
-    const curResult = fresh.results[fresh.currentMatchIdx];
-    fresh.currentResult = curResult || null;
+      await saveGame(fresh);
+      renderHistoryList(fresh);
+      btn.textContent = 'CONFIRM CORRECTION'; btn.disabled = false;
 
-    // Status: if we're past the corrected match, stay at current reveal/playing state
-    // Just set status back to playing so host can continue
-    if (fresh.status && fresh.status.startsWith('reveal:')) {
-      // keep reveal status
-    } else {
-      fresh.status = 'playing';
+      const successMsg = document.createElement('div');
+      successMsg.className = 'info-box';
+      successMsg.style.marginTop = '12px';
+      successMsg.textContent = `✓ Result corrected to ${newHome}–${newAway}. All scores recalculated.`;
+      document.getElementById('history-match-list').prepend(successMsg);
+      setTimeout(() => successMsg.remove(), 4000);
+    } catch(e) {
+      console.error('correctHistoricResult failed', e);
+      btn.textContent = 'CONFIRM CORRECTION'; btn.disabled = false;
+      alert('Failed to save correction: ' + e.message + '\nPlease try again.');
     }
-
-    await saveGame(fresh);
-    // Return to history list with updated data
-    renderHistoryList(fresh);
-    btn.textContent = 'CONFIRM CORRECTION'; btn.disabled = false;
-
-    // Show success
-    const successMsg = document.createElement('div');
-    successMsg.className = 'info-box';
-    successMsg.style.marginTop = '12px';
-    successMsg.textContent = `✓ Result corrected to ${newHome}–${newAway}. All scores recalculated.`;
-    document.getElementById('history-match-list').prepend(successMsg);
-    setTimeout(() => successMsg.remove(), 4000);
   });
 }
 
