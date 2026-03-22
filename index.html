@@ -235,12 +235,13 @@
   <div id="screen-player-join" class="screen">
     <div class="card">
       <h2>JOIN OR REJOIN</h2>
-      <div class="info-box" style="margin-bottom:14px;">Already in a game? Enter the same name and paste the game code to rejoin from any device.</div>
+      <div class="info-box" style="margin-bottom:14px;">New player? Pick a password — you'll need it to rejoin from any device. Already in? Enter your name, code and password.</div>
       <div class="field"><label>Your name</label><input type="text" id="player-name" placeholder="e.g. Jordan" maxlength="20"></div>
       <div class="field">
         <label>Game code</label>
         <input type="text" id="player-code" placeholder="e.g. ABCD" maxlength="6" style="font-family:'Bebas Neue',sans-serif;font-size:30px;letter-spacing:10px;text-transform:uppercase;text-align:center;">
       </div>
+      <div class="field"><label>Password</label><input type="password" id="player-password" placeholder="Choose a password" maxlength="50" autocomplete="current-password"></div>
       <div class="error-msg" id="join-error"></div>
       <div style="display:flex;gap:9px;">
         <button class="btn btn-secondary" id="back-to-landing2" style="width:auto;padding:13px 18px;">← Back</button>
@@ -710,6 +711,11 @@ async function clearDraft(){
 
 function genCode(){const c='ABCDEFGHJKLMNPQRSTUVWXYZ';let s='';for(let i=0;i<4;i++)s+=c[Math.floor(Math.random()*c.length)];return s;}
 
+async function hashPassword(pw){
+  const buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(pw));
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+
 // ─── LOCAL STATE ─────────────────────────────────────────────────────────────
 let me={role:null,name:'',code:''};
 let pollTimer=null;
@@ -832,19 +838,25 @@ document.getElementById('start-game-btn').addEventListener("click",async()=>{
 document.getElementById('join-game-btn').addEventListener("click",async()=>{
   const name=document.getElementById('player-name').value.trim();
   const code=document.getElementById('player-code').value.trim().toUpperCase();
+  const pw=document.getElementById('player-password').value;
   const err=document.getElementById('join-error');
   err.style.display='none';
   if(!name){err.textContent='Enter your name';err.style.display='block';return;}
   if(code.length<3){err.textContent='Enter a valid game code';err.style.display='block';return;}
+  if(!pw){err.textContent='Enter a password';err.style.display='block';return;}
   err.textContent='Looking up game…';err.style.display='block';
   const g=await loadGameByCode(code);
   err.style.display='none';
   if(!g){err.textContent='Game not found — check the code and try again.';err.style.display='block';return;}
 
+  const pwHash=await hashPassword(pw);
   const existing=g.players.find(p=>p.name===name);
 
-  // Player already in the game — rejoin regardless of status
+  // Player already in the game — verify password then rejoin
   if(existing){
+    if(existing.pwHash&&existing.pwHash!==pwHash){
+      err.textContent='Wrong password for this name.';err.style.display='block';return;
+    }
     me.name=name;me.code=g.code;me.role=existing.isHost?'host':'player';
     if(g.status==='lobby'){
       if(me.role==='host'){document.getElementById('lobby-code-display').textContent=g.code;show('screen-host-lobby');startPolling(pollHostLobby);}
@@ -860,11 +872,11 @@ document.getElementById('join-game-btn').addEventListener("click",async()=>{
     return;
   }
 
-  // New player joining
+  // New player joining — store password hash
   if(g.status!=='lobby'){err.textContent='This game has already started. Use the same name you originally joined with to rejoin.';err.style.display='block';return;}
   if(g.players.length>=g.maxPlayers){err.textContent='Game is full.';err.style.display='block';return;}
   me.name=name;me.code=g.code;me.role='player';
-  g.players.push({name,lives:g.lives,correct:0,eliminated:false,isHost:false});
+  g.players.push({name,pwHash,lives:g.lives,correct:0,eliminated:false,isHost:false});
   await saveGame(g);
   show('screen-player-lobby');
   startPolling(pollPlayerLobby);
