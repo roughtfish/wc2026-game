@@ -1317,7 +1317,7 @@ async function renderGameHost(g){
   const area=document.getElementById('match-area');
   if(match.koSlot||(match.home==='TBD'&&match.away==='TBD')){renderKOWaiting(g,match,area);return;}
   const preds=g.predictions[g.currentMatchIdx]||{};
-  const allDone=match.group||alive.every(p=>preds[p.name]!==undefined);
+  const allDone=match.group||alive.every(p=>preds[p.name]!=null);
   if(!allDone){
     const isKO=!match.group;
     // For KO matches, check if host has unpredicted matches in this round
@@ -1326,8 +1326,8 @@ async function renderGameHost(g){
       return acc;
     },[]):[];
     const hostUnpredicted=roundMatches.filter(({i})=>!(g.predictions[i]&&g.predictions[i][me.name]));
-    const done=alive.filter(p=>preds[p.name]!==undefined);
-    const pending=alive.filter(p=>preds[p.name]===undefined);
+    const done=alive.filter(p=>preds[p.name]!=null);
+    const pending=alive.filter(p=>preds[p.name]==null);
     area.innerHTML=`<div class="round-label"><span class="step-dot"></span>${match.round}</div>
     <div class="match-card">
       <div class="match-header"><span class="group-badge">${match.round}</span><span class="match-num">Match ${g.currentMatchIdx+1}/${g.matches.length}</span></div>
@@ -1386,6 +1386,13 @@ async function renderGameHost(g){
             }
           });
         });
+        // Fill missing predictions with null so allDone check passes and result entry is shown
+        roundMatchIndices.forEach(idx=>{
+          if(!fresh.predictions[idx]) fresh.predictions[idx]={};
+          fresh.players.forEach(p=>{
+            if(fresh.predictions[idx][p.name]===undefined) fresh.predictions[idx][p.name]=null;
+          });
+        });
         await saveGame(fresh);
         renderGameHost(fresh);
       });
@@ -1409,7 +1416,7 @@ function renderKOWaiting(g,match,area){
 
 function renderKOPredCollect(g,match,area,preds,alive){
   const pending=alive.find(p=>preds[p.name]===undefined);
-  const done=alive.filter(p=>preds[p.name]!==undefined);
+  const done=alive.filter(p=>preds[p.name]!=null);
   area.innerHTML=`<div class="round-label"><span class="step-dot"></span>${match.round}</div>
   <div class="match-card">
     <div class="match-header"><span class="group-badge">${match.round}</span><span class="match-num">Match ${g.currentMatchIdx+1}/${g.matches.length}</span></div>
@@ -1507,7 +1514,7 @@ function renderResultEntry(g,match,area){
     f.players.forEach(p=>{
       if(p.eliminated)return;
       if(mp[p.name]===actual){p.correct++;}
-      else if(mp[p.name]!==undefined){p.lives=Math.max(0,p.lives-1);if(p.lives===0)p.eliminated=true;}
+      else if(mp[p.name]!=null){p.lives=Math.max(0,p.lives-1);if(p.lives===0)p.eliminated=true;}
       else{p.lives=Math.max(0,p.lives-2);if(p.lives===0)p.eliminated=true;}
     });
     f.currentResult={home:h,away:a,penWinner:penWinner||undefined};
@@ -1553,7 +1560,7 @@ function reverseResult(g, matchIdx){
     if(v===actual){
       // Was correct — undo the correct count
       p.correct=Math.max(0,p.correct-1);
-    } else if(v!==undefined){
+    } else if(v!=null){
       // Was wrong — restore 1 life
       p.lives=Math.min(g.lives,p.lives+1);
       if(p.eliminated&&p.lives>0)p.eliminated=false;
@@ -1957,7 +1964,7 @@ async function correctHistoricResult(g, targetIdx) {
         fresh.players.forEach(p => {
           if (p.eliminated) return;
           if (preds[p.name] === actual) { p.correct++; }
-          else if (preds[p.name] !== undefined) { p.lives = Math.max(0, p.lives - 1); if (p.lives === 0) p.eliminated = true; }
+          else if (preds[p.name] != null) { p.lives = Math.max(0, p.lives - 1); if (p.lives === 0) p.eliminated = true; }
           else { p.lives = Math.max(0, p.lives - 2); if (p.lives === 0) p.eliminated = true; }
         });
 
@@ -2205,6 +2212,11 @@ document.getElementById('force-start-btn').addEventListener('click', async () =>
         fresh.koBulkSubmitted[p.name] = true;
       }
     });
+    // Fill missing predictions with null so scoring treats them as missing (not wrong)
+    roundMatchIndices.forEach(idx=>{
+      if(!fresh.predictions[idx]) fresh.predictions[idx]={};
+      fresh.players.forEach(p=>{ if(fresh.predictions[idx][p.name]===undefined) fresh.predictions[idx][p.name]=null; });
+    });
     fresh.status = 'playing';
   } else {
     if(!fresh.bulkSubmitted) fresh.bulkSubmitted={};
@@ -2224,6 +2236,11 @@ document.getElementById('force-start-btn').addEventListener('click', async () =>
         });
         fresh.bulkSubmitted[p.name] = true;
       }
+    });
+    // Fill missing predictions with null so scoring treats them as missing (not wrong)
+    groupMatchIndices.forEach(idx=>{
+      if(!fresh.predictions[idx]) fresh.predictions[idx]={};
+      fresh.players.forEach(p=>{ if(fresh.predictions[idx][p.name]===undefined) fresh.predictions[idx][p.name]=null; });
     });
     fresh.status = 'playing';
   }
