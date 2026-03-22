@@ -583,7 +583,7 @@ function renderBulkForm(g){
   const rem=gms.length-done;
 
   let html=`<div class="bulk-progress-info"><span><span class="bulk-done-count">${done}</span>/${gms.length} predicted</span><span>${rem>0?rem+' left':'✓ All done!'}</span></div>
-  <div class="card" style="padding:14px 18px;margin-bottom:72px;">`;
+  <div class="card" style="padding:14px 18px;margin-bottom:12px;">`;
 
   groups.forEach(grp=>{
     html+=`<div class="bulk-group-header">GROUP ${grp}</div>`;
@@ -602,11 +602,13 @@ function renderBulkForm(g){
     });
   });
 
-  html+=`</div><div class="sticky-submit">
-    <div style="font-size:10px;color:var(--muted);text-align:center;margin-bottom:7px;letter-spacing:1px;">Tap home flag · 🤝 Draw · away flag</div>
-    <button class="btn btn-primary" id="bulk-submit-btn" ${rem>0?'disabled style="opacity:0.42;cursor:not-allowed;"':''}>
-      ${rem>0?'PREDICT '+rem+' MORE TO CONTINUE':'LOCK IN MY PREDICTIONS ✓'}
-    </button></div>`;
+  html+=`</div>
+    <div style="padding:12px 0 6px;border-top:0.5px solid var(--border);margin-top:10px;">
+      <div style="font-size:10px;color:var(--muted);text-align:center;margin-bottom:7px;letter-spacing:1px;">Tap home flag · 🤝 Draw · away flag</div>
+      <button class="btn btn-primary" id="bulk-submit-btn" ${rem>0?'disabled style="opacity:0.42;cursor:not-allowed;"':''}>
+        ${rem>0?'Predict '+rem+' more to continue':'Lock in my predictions ✓'}
+      </button>
+    </div>`;
 
   const area=document.getElementById('bulk-area');
   area.innerHTML=html;
