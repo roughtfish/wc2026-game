@@ -305,7 +305,7 @@ function renderLeaderboard(g){
     return`<div class="lb-row${p.eliminated?' eliminated':''}">
       <div class="lb-rank ${rankClass}">${p.eliminated?'💀':i+1}</div>
       <div>
-        <button class="lb-name-btn" onclick="showPlayerModal(${JSON.stringify(p.name)})">${p.name}${p.isHost?' <span style="font-size:10px;color:var(--accent);opacity:0.7">(host)</span>':''}</button>
+        <button class="lb-name-btn" data-player="${p.name.replace(/"/g,'&quot;')}">${p.name}${p.isHost?' <span style="font-size:10px;color:var(--accent);opacity:0.7">(host)</span>':''}</button>
         <div class="life-bar-wrap"><div class="life-bar" style="width:${livePct}%;background:${barCol}"></div></div>
       </div>
       <div class="lb-lives" style="color:${barCol}">❤️ ${p.lives}<span style="font-size:10px;color:var(--muted)">/${maxLives}</span></div>
@@ -313,6 +313,9 @@ function renderLeaderboard(g){
       <div class="lb-pct">${accuracy}%</div>
     </div>`;
   }).join('');
+  el.querySelectorAll('.lb-name-btn').forEach(btn=>{
+    btn.addEventListener('click',()=>showPlayerModal(btn.dataset.player));
+  });
 }
 
 function renderHistory(g){
