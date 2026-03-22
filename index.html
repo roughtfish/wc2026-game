@@ -1865,6 +1865,7 @@ async function correctHistoricResult(g, targetIdx) {
   const list = document.getElementById('history-match-list');
   const m = g.matches[targetIdx];
   const r = g.results[targetIdx];
+  const isKOMatch = !m.group;
 
   list.innerHTML = `
     <div class="card">
@@ -1878,6 +1879,13 @@ async function correctHistoricResult(g, targetIdx) {
           <input type="number" id="correct-away" min="0" max="20" value="${r.away}">
           <div class="team-label">${flag(m.away, 40)}<div style="margin-top:5px">${m.away}</div></div>
         </div>
+        ${isKOMatch ? `<div class="pen-section" id="correct-pen-section" style="display:none">
+          <h3>WHO WON ON PENALTIES?</h3>
+          <div class="pen-buttons">
+            <button class="pen-btn${r.penWinner==='home'?' active':''}" data-pen="home">${flag(m.home,20)} ${m.home}</button>
+            <button class="pen-btn${r.penWinner==='away'?' active':''}" data-pen="away">${flag(m.away,20)} ${m.away}</button>
+          </div>
+        </div>` : ''}
         <div style="display:flex;gap:9px;margin-top:4px">
           <button class="btn btn-secondary" id="correct-cancel-btn">← Cancel</button>
           <button class="btn btn-teal" id="correct-confirm-btn">CONFIRM CORRECTION</button>
@@ -1889,6 +1897,25 @@ async function correctHistoricResult(g, targetIdx) {
     const fresh = await loadGame(me.code);
     renderHistoryList(fresh);
   });
+
+  if(isKOMatch){
+    const penSection = document.getElementById('correct-pen-section');
+    const checkDraw = () => {
+      const h = parseInt(document.getElementById('correct-home').value)||0;
+      const a = parseInt(document.getElementById('correct-away').value)||0;
+      penSection.style.display = h===a ? 'block' : 'none';
+      if(h!==a) list.querySelectorAll('.pen-btn').forEach(b=>b.classList.remove('active'));
+    };
+    document.getElementById('correct-home').addEventListener('input', checkDraw);
+    document.getElementById('correct-away').addEventListener('input', checkDraw);
+    list.querySelectorAll('.pen-btn').forEach(btn=>{
+      btn.addEventListener('click',()=>{
+        list.querySelectorAll('.pen-btn').forEach(b=>b.classList.remove('active'));
+        btn.classList.add('active');
+      });
+    });
+    checkDraw(); // run immediately in case existing score is a draw
+  }
 
   document.getElementById('correct-confirm-btn').addEventListener('click', async () => {
     const newHome = parseInt(document.getElementById('correct-home').value) || 0;
