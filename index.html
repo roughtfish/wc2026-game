@@ -138,6 +138,12 @@
   .btn-next{display:block;width:100%;margin-top:12px;padding:12px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);color:var(--text);font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:2px;cursor:pointer;transition:all 0.2s}
   .btn-next:hover{border-color:var(--accent2);color:var(--accent2)}
   .error-msg{color:var(--red);font-size:12px;margin-bottom:11px;display:none}
+  .game-code-pill{display:none;align-items:center;gap:7px;justify-content:center;margin-top:10px}
+  .game-code-pill .pill-label{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--muted)}
+  .game-code-pill .pill-code{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:6px;color:var(--accent);background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:3px 14px;cursor:pointer;transition:border-color 0.2s}
+  .game-code-pill .pill-code:hover{border-color:var(--accent)}
+  .game-code-pill .pill-copy{font-size:11px;color:var(--muted);cursor:pointer;padding:4px 8px;border-radius:6px;transition:color 0.2s}
+  .game-code-pill .pill-copy:hover{color:var(--accent2)}
   @media(max-width:500px){
     .teams-row{gap:5px}.team-flag-emoji{font-size:24px}.team-name{font-size:14px}
     .prediction-buttons{grid-template-columns:1fr}.role-grid{grid-template-columns:1fr}
@@ -160,6 +166,11 @@
     </div>
     <h1>WORLD CUP 2026</h1>
     <p class="sub">Prediction Survival Game</p>
+    <div class="game-code-pill" id="game-code-pill">
+      <span class="pill-label">Game code</span>
+      <span class="pill-code" id="pill-code-display" title="Click to copy"></span>
+      <span class="pill-copy" id="pill-copy-btn">📋 copy</span>
+    </div>
   </div>
 
   <!-- FIREBASE SETUP -->
@@ -633,7 +644,14 @@ let bulkDraft={};
 
 
 // ─── UTILS ───────────────────────────────────────────────────────────────────
-function show(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active');}
+function show(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  const pill=document.getElementById('game-code-pill');
+  const pillCode=document.getElementById('pill-code-display');
+  if(me.code){pill.style.display='flex';pillCode.textContent=me.code;}
+  else{pill.style.display='none';}
+}
 function stopPolling(){if(pollTimer){clearInterval(pollTimer);pollTimer=null;}}
 function startPolling(fn,ms=2500){stopPolling();fn();pollTimer=setInterval(fn,ms);}
 
@@ -664,7 +682,18 @@ document.getElementById('role-host').addEventListener("click",async()=>{
   me.role='host'; show('screen-host-setup');
 });
 document.getElementById('role-player').addEventListener("click",async()=>{me.role='player';show('screen-player-join');});
-document.getElementById('back-to-landing').addEventListener("click",async()=>{ show('screen-landing'); });
+document.getElementById('back-to-landing').addEventListener("click",async()=>{ show('screen-landing');
+document.getElementById('pill-copy-btn').addEventListener('click',()=>{
+  if(!me.code)return;
+  navigator.clipboard.writeText(me.code).then(()=>{
+    const btn=document.getElementById('pill-copy-btn');
+    btn.textContent='✓ copied!';btn.style.color='var(--green)';
+    setTimeout(()=>{btn.textContent='📋 copy';btn.style.color='';},2000);
+  }).catch(()=>prompt('Game code:',me.code));
+});
+document.getElementById('pill-code-display').addEventListener('click',()=>{
+  document.getElementById('pill-copy-btn').click();
+}); });
 document.getElementById('back-to-landing2').addEventListener("click",async()=>show('screen-landing'));
 
 
@@ -1209,6 +1238,17 @@ document.getElementById('play-again-btn').addEventListener("click",async()=>loca
 
 // ─── BOOT ────────────────────────────────────────────────────────────────────
 show('screen-landing');
+document.getElementById('pill-copy-btn').addEventListener('click',()=>{
+  if(!me.code)return;
+  navigator.clipboard.writeText(me.code).then(()=>{
+    const btn=document.getElementById('pill-copy-btn');
+    btn.textContent='✓ copied!';btn.style.color='var(--green)';
+    setTimeout(()=>{btn.textContent='📋 copy';btn.style.color='';},2000);
+  }).catch(()=>prompt('Game code:',me.code));
+});
+document.getElementById('pill-code-display').addEventListener('click',()=>{
+  document.getElementById('pill-copy-btn').click();
+});
 </script>
 </body>
 </html>
