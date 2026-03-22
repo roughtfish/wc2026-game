@@ -48,7 +48,7 @@
 <div class="app">
   <div class="header">
     <h1>KAMIKAZE FOOTBALL WC'26</h1>
-    <p class="sub">Rules & How to Play</p>
+    <p class="sub">Rules & How to Play<span id="rules-player-name" style="display:none"> &nbsp;·&nbsp; <span style="color:var(--accent)"></span></span></p>
   </div>
 
   <a href="javascript:history.back()" class="back-btn">← Back to game</a>
@@ -193,5 +193,12 @@
     </div>
   </div>
 </div>
+<script>
+try{
+  const s=JSON.parse(sessionStorage.getItem('kf_me')||'{}');
+  const el=document.getElementById('rules-player-name');
+  if(el&&s.name){el.style.display='inline';el.querySelector('span').textContent=s.name;}
+}catch(e){}
+</script>
 </body>
 </html>
