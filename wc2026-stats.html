@@ -357,8 +357,9 @@ function renderHistory(g){
       const v=preds[p.name];
       if(!v)return`<td class="pred-cell"><span class="pred-none">—</span></td>`;
       const correct=v===actual;
-      const label=v==='home'?'H':v==='away'?'A':'=';
-      return`<td class="pred-cell ${correct?'pred-hit':'pred-miss'}">${correct?'✅':'❌'} ${label}</td>`;
+      const pickedTeam=v==='home'?match.home:v==='away'?match.away:'Draw';
+      const pickedFlag=v==='draw'?'':flag(pickedTeam);
+      return`<td class="pred-cell ${correct?'pred-hit':'pred-miss'}" style="white-space:nowrap">${correct?'✅':'❌'} ${pickedFlag}${pickedTeam}</td>`;
     }).join('');
     return`<tr>
       <td style="color:var(--muted);font-size:11px">${parseInt(idx)+1}</td>
