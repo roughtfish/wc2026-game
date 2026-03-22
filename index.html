@@ -577,8 +577,8 @@ function startBulk(g){
 }
 
 function renderBulkForm(g){
-  const gms=g.matches.filter(m=>m.group);
-  const groups=[...new Set(gms.map(m=>m.group))];
+  const gms=g.matches.reduce((acc,m,i)=>{if(m.group)acc.push({m,i});return acc;},[]);
+  const groups=[...new Set(gms.map(({m})=>m.group))];
   const done=Object.keys(bulkDraft).length;
   const rem=gms.length-done;
 
@@ -587,8 +587,7 @@ function renderBulkForm(g){
 
   groups.forEach(grp=>{
     html+=`<div class="bulk-group-header">GROUP ${grp}</div>`;
-    gms.filter(m=>m.group===grp).forEach(m=>{
-      const idx=g.matches.indexOf(m);
+    gms.filter(({m})=>m.group===grp).forEach(({m,i:idx})=>{
       const sel=bulkDraft[idx];
       html+=`<div class="bulk-match-row${sel===undefined?' unpredicted':''}">
         <div class="bulk-team"><span class="bulk-team-flag">${flag(m.home)}</span><span>${m.home}</span></div>
@@ -634,7 +633,14 @@ function renderBulkForm(g){
 }
 
 async function commitBulk(g){
-  const fresh=await loadGame(me.code);if(!fresh)return;
+  const submitBtn=document.getElementById('bulk-submit-btn');
+  if(submitBtn){submitBtn.textContent='Saving…';submitBtn.disabled=true;}
+  const fresh=await loadGame(me.code);
+  if(!fresh){
+    alert('Could not load game — check your connection.');
+    if(submitBtn){submitBtn.textContent='Lock in my predictions ✓';submitBtn.disabled=false;}
+    return;
+  }
   Object.entries(bulkDraft).forEach(([i,v])=>{
     const idx=parseInt(i);
     if(!fresh.predictions[idx])fresh.predictions[idx]={};
