@@ -311,25 +311,29 @@
 <script>
 // ─── DATA ────────────────────────────────────────────────────────────────────
 const FLAGS={
-  'Mexico':'🇲🇽','South Africa':'🇿🇦','South Korea':'🇰🇷','UEFA Path D':'🏴',
-  'Canada':'🇨🇦','UEFA Path A':'🏴','Qatar':'🇶🇦','Switzerland':'🇨🇭',
-  'USA':'🇺🇸','Paraguay':'🇵🇾','Australia':'🇦🇺','UEFA Path C':'🏴',
-  'Scotland':'🏴󠁧󠁢󠁳󠁣󠁴󠁿','Brazil':'🇧🇷','Morocco':'🇲🇦','Haiti':'🇭🇹',
-  'Netherlands':'🇳🇱','UEFA Path B':'🏴','Germany':'🇩🇪','Ivory Coast':'🇨🇮',
-  'Ecuador':'🇪🇨','Curacao':'🏴','Albania/Poland/Sweden/Ukraine':'🏴','Tunisia':'🇹🇳',
-  'Japan':'🇯🇵','Spain':'🇪🇸','Cape Verde':'🇨🇻','Saudi Arabia':'🇸🇦',
-  'Uruguay':'🇺🇾','Belgium':'🇧🇪','Egypt':'🇪🇬','Iran':'🇮🇷','New Zealand':'🇳🇿',
-  'France':'🇫🇷','Senegal':'🇸🇳','Bolivia/Iraq/Suriname':'🏴','Norway':'🇳🇴',
-  'Argentina':'🇦🇷','Algeria':'🇩🇿','Austria':'🇦🇹','Jordan':'🇯🇴',
-  'Portugal':'🇵🇹','Congo/Jamaica/New Caledonia':'🏴','Uzbekistan':'🇺🇿','Colombia':'🇨🇴',
-  'England':'🏴󠁧󠁢󠁥󠁮󠁧󠁿','Croatia':'🇭🇷','Ghana':'🇬🇭','Panama':'🇵🇦',
-  'Poland':'🇵🇱','Albania':'🇦🇱','Sweden':'🇸🇪','Ukraine':'🇺🇦',
-  'Italy':'🇮🇹','Wales':'🏴󠁧󠁢󠁷󠁬󠁳󠁿','Bosnia':'🇧🇦','Northern Ireland':'🏴',
-  'Turkey':'🇹🇷','Romania':'🇷🇴','Slovakia':'🇸🇰','Kosovo':'🏴',
-  'DR Congo':'🇨🇩','Jamaica':'🇯🇲','New Caledonia':'🏴','Iraq':'🇮🇶',
-  'Bolivia':'🇧🇴','Suriname':'🇸🇷',
+  'Mexico':'mx','South Africa':'za','South Korea':'kr','UEFA Path D':null,
+  'Canada':'ca','UEFA Path A':null,'Qatar':'qa','Switzerland':'ch',
+  'USA':'us','Paraguay':'py','Australia':'au','UEFA Path C':null,
+  'Scotland':'gb-sct','Brazil':'br','Morocco':'ma','Haiti':'ht',
+  'Netherlands':'nl','UEFA Path B':null,'Germany':'de','Ivory Coast':'ci',
+  'Ecuador':'ec','Curacao':'cw','Albania/Poland/Sweden/Ukraine':null,'Tunisia':'tn',
+  'Japan':'jp','Spain':'es','Cape Verde':'cv','Saudi Arabia':'sa',
+  'Uruguay':'uy','Belgium':'be','Egypt':'eg','Iran':'ir','New Zealand':'nz',
+  'France':'fr','Senegal':'sn','Bolivia/Iraq/Suriname':null,'Norway':'no',
+  'Argentina':'ar','Algeria':'dz','Austria':'at','Jordan':'jo',
+  'Portugal':'pt','Congo/Jamaica/New Caledonia':null,'Uzbekistan':'uz','Colombia':'co',
+  'England':'gb-eng','Croatia':'hr','Ghana':'gh','Panama':'pa',
+  'Poland':'pl','Albania':'al','Sweden':'se','Ukraine':'ua',
+  'Italy':'it','Wales':'gb-wls','Bosnia':'ba','Northern Ireland':'gb-nir',
+  'Turkey':'tr','Romania':'ro','Slovakia':'sk','Kosovo':'xk',
+  'DR Congo':'cd','Jamaica':'jm','New Caledonia':'nc','Iraq':'iq',
+  'Bolivia':'bo','Suriname':'sr',
 };
-const flag=t=>FLAGS[t]||'🏳️';
+function flag(t,size=32){
+  const code=FLAGS[t];
+  if(!code)return`<span style="font-size:${Math.round(size*0.75)}px;opacity:0.5">🏴</span>`;
+  return`<img src="https://flagcdn.com/w${size}/${code}.png" srcset="https://flagcdn.com/w${size*2}/${code}.png 2x" width="${size}" height="${Math.round(size*0.67)}" alt="${t}" style="border-radius:3px;object-fit:cover;display:inline-block;vertical-align:middle">`;
+}
 
 const GROUP_MATCHES=[
   {group:'A',home:'Mexico',away:'South Africa'},{group:'A',home:'South Korea',away:'UEFA Path D'},
@@ -823,16 +827,16 @@ function renderBulkForm(g){
       // A team is at limit if it already has MAX_PICKS wins — unless the current pick IS that team (so you can change your mind)
       const homeAtLimit = homeCount >= MAX_PICKS && sel!=='home';
       const awayAtLimit = awayCount >= MAX_PICKS && sel!=='away';
-      const homeLabel = homeAtLimit ? `${flag(m.home)} <small style="font-size:10px">(${MAX_PICKS}/${MAX_PICKS})</small>` : flag(m.home);
-      const awayLabel = awayAtLimit ? `${flag(m.away)} <small style="font-size:10px">(${MAX_PICKS}/${MAX_PICKS})</small>` : flag(m.away);
+      const homeLabel = homeAtLimit ? `${flag(m.home,20)} <small style="font-size:10px">(${MAX_PICKS}/${MAX_PICKS})</small>` : flag(m.home,20);
+      const awayLabel = awayAtLimit ? `${flag(m.away,20)} <small style="font-size:10px">(${MAX_PICKS}/${MAX_PICKS})</small>` : flag(m.away,20);
       html+=`<div class="bulk-match-row${sel===undefined?' unpredicted':''}">
-        <div class="bulk-team"><span class="bulk-team-flag">${flag(m.home)}</span><span>${m.home}${homeAtLimit?` <span style="font-size:10px;color:var(--red)">(full)</span>`:homeCount>=MAX_PICKS-1&&sel!=='home'?` <span style="font-size:10px;color:var(--accent)">(${homeCount}/${MAX_PICKS})</span>`:''}</span></div>
+        <div class="bulk-team"><span class="bulk-team-flag">${flag(m.home,20)}</span><span>${m.home}${homeAtLimit?` <span style="font-size:10px;color:var(--red)">(full)</span>`:homeCount>=MAX_PICKS-1&&sel!=='home'?` <span style="font-size:10px;color:var(--accent)">(${homeCount}/${MAX_PICKS})</span>`:''}</span></div>
         <div class="bulk-toggle">
-          <button data-idx="${idx}" data-val="home" class="${sel==='home'?'active-home':''}" title="${m.home} win${homeAtLimit?' — limit reached':''}" style="font-size:16px;padding:5px 9px;${homeAtLimit?'opacity:0.3;cursor:not-allowed;':''}" ${homeAtLimit?'disabled':''}>${flag(m.home)}</button>
+          <button data-idx="${idx}" data-val="home" class="${sel==='home'?'active-home':''}" title="${m.home} win${homeAtLimit?' — limit reached':''}" style="font-size:16px;padding:5px 9px;${homeAtLimit?'opacity:0.3;cursor:not-allowed;':''}" ${homeAtLimit?'disabled':''}>${flag(m.home,20)}</button>
           <button data-idx="${idx}" data-val="draw" class="${sel==='draw'?'active-draw':''}" title="Draw" style="font-size:14px;padding:5px 8px;"><span style="font-weight:900">=</span></button>
-          <button data-idx="${idx}" data-val="away" class="${sel==='away'?'active-away':''}" title="${m.a} win${awayAtLimit?' — limit reached':''}" style="font-size:16px;padding:5px 9px;${awayAtLimit?'opacity:0.3;cursor:not-allowed;':''}" ${awayAtLimit?'disabled':''}>${flag(m.away)}</button>
+          <button data-idx="${idx}" data-val="away" class="${sel==='away'?'active-away':''}" title="${m.a} win${awayAtLimit?' — limit reached':''}" style="font-size:16px;padding:5px 9px;${awayAtLimit?'opacity:0.3;cursor:not-allowed;':''}" ${awayAtLimit?'disabled':''}>${flag(m.away,20)}</button>
         </div>
-        <div class="bulk-team away"><span>${m.away}${awayAtLimit?` <span style="font-size:10px;color:var(--red)">(full)</span>`:awayCount>=MAX_PICKS-1&&sel!=='away'?` <span style="font-size:10px;color:var(--accent)">(${awayCount}/${MAX_PICKS})</span>`:''}</span><span class="bulk-team-flag">${flag(m.away)}</span></div>
+        <div class="bulk-team away"><span>${m.away}${awayAtLimit?` <span style="font-size:10px;color:var(--red)">(full)</span>`:awayCount>=MAX_PICKS-1&&sel!=='away'?` <span style="font-size:10px;color:var(--accent)">(${awayCount}/${MAX_PICKS})</span>`:''}</span><span class="bulk-team-flag">${flag(m.away,20)}</span></div>
       </div>`;
     });
   });
@@ -933,16 +937,16 @@ async function renderGameHost(g){
     <div class="match-card">
       <div class="match-header"><span class="group-badge">${match.round}</span><span class="match-num">Match ${g.currentMatchIdx+1}/${g.matches.length}</span></div>
       <div class="teams-row">
-        <div class="team-block"><div class="team-flag-emoji">${flag(match.home)}</div><div class="team-name">${match.home}</div></div>
+        <div class="team-block"><div class="team-flag-emoji">${flag(match.home,48)}</div><div class="team-name">${match.home}</div></div>
         <div class="vs-badge">VS</div>
-        <div class="team-block"><div class="team-flag-emoji">${flag(match.away)}</div><div class="team-name">${match.away}</div></div>
+        <div class="team-block"><div class="team-flag-emoji">${flag(match.away,48)}</div><div class="team-name">${match.away}</div></div>
       </div>
       ${!myPred?`
         <div style="text-align:center;font-size:13px;font-weight:600;color:var(--accent);margin-bottom:12px;">🎯 Your prediction (host)</div>
         <div class="prediction-buttons">
-          <button class="pred-btn" data-pred="home"><span>${flag(match.home)}</span>${match.home} win</button>
+          <button class="pred-btn" data-pred="home"><span>${flag(match.home,24)}</span>${match.home} win</button>
           <button class="pred-btn" data-pred="draw"><span style="font-weight:900;font-size:20px">=</span>Draw</button>
-          <button class="pred-btn" data-pred="away"><span>${flag(match.away)}</span>${match.away} win</button>
+          <button class="pred-btn" data-pred="away"><span>${flag(match.away,24)}</span>${match.away} win</button>
         </div>
       `:''}
       <div style="margin-top:14px;padding-top:14px;border-top:0.5px solid var(--border);">
@@ -983,19 +987,19 @@ function renderKOPredCollect(g,match,area,preds,alive){
   <div class="match-card">
     <div class="match-header"><span class="group-badge">${match.round}</span><span class="match-num">Match ${g.currentMatchIdx+1}/${g.matches.length}</span></div>
     <div class="teams-row">
-      <div class="team-block"><div class="team-flag-emoji">${flag(match.home)}</div><div class="team-name">${match.home}</div></div>
+      <div class="team-block"><div class="team-flag-emoji">${flag(match.home,48)}</div><div class="team-name">${match.home}</div></div>
       <div class="vs-badge">VS</div>
-      <div class="team-block"><div class="team-flag-emoji">${flag(match.away)}</div><div class="team-name">${match.away}</div></div>
+      <div class="team-block"><div class="team-flag-emoji">${flag(match.away,48)}</div><div class="team-name">${match.away}</div></div>
     </div>
     <div style="text-align:center;margin-bottom:12px;font-size:12px;font-weight:600;color:var(--accent)">🎯 ${pending.name}'s prediction</div>
     <div class="prediction-buttons">
-      <button class="pred-btn" data-pred="home"><span>${flag(match.home)}</span>${match.home} win</button>
+      <button class="pred-btn" data-pred="home"><span>${flag(match.home,24)}</span>${match.home} win</button>
       <button class="pred-btn" data-pred="draw"><span style="font-weight:900;font-size:20px">=</span>Draw</button>
-      <button class="pred-btn" data-pred="away"><span>${flag(match.away)}</span>${match.away} win</button>
+      <button class="pred-btn" data-pred="away"><span>${flag(match.away,24)}</span>${match.away} win</button>
     </div>
     ${done.length?`<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);">
       <div style="font-size:10px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-bottom:7px;">Locked in</div>
-      ${done.map(p=>`<div class="collected-item"><span style="font-weight:600">${p.name}</span><span class="badge badge-${preds[p.name]}">${preds[p.name]==='home'?flag(match.home)+' '+match.home:preds[p.name]==='away'?flag(match.away)+' '+match.away:'<span style="font-weight:900">=</span> Draw'}</span></div>`).join('')}
+      ${done.map(p=>`<div class="collected-item"><span style="font-weight:600">${p.name}</span><span class="badge badge-${preds[p.name]}">${preds[p.name]==='home'?flag(match.home,16)+' '+match.home:preds[p.name]==='away'?flag(match.away,16)+' '+match.away:'<span style="font-weight:900">=</span> Draw'}</span></div>`).join('')}
     </div>`:''}
   </div>`;
   area.querySelectorAll('.pred-btn').forEach(btn=>{
@@ -1014,24 +1018,24 @@ function renderResultEntry(g,match,area){
   <div class="match-card">
     <div class="match-header"><span class="group-badge">${match.group?'Group '+match.group:match.round}</span><span class="match-num">Match ${g.currentMatchIdx+1}/${g.matches.length}</span></div>
     <div class="teams-row">
-      <div class="team-block"><div class="team-flag-emoji">${flag(match.home)}</div><div class="team-name">${match.home}</div></div>
+      <div class="team-block"><div class="team-flag-emoji">${flag(match.home,48)}</div><div class="team-name">${match.home}</div></div>
       <div class="vs-badge">VS</div>
-      <div class="team-block"><div class="team-flag-emoji">${flag(match.away)}</div><div class="team-name">${match.away}</div></div>
+      <div class="team-block"><div class="team-flag-emoji">${flag(match.away,48)}</div><div class="team-name">${match.away}</div></div>
     </div>
     <div style="background:var(--surface2);border-radius:8px;padding:10px 13px;margin-bottom:13px;">
       <div style="font-size:10px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-bottom:6px;">Predictions</div>
       <div style="display:flex;flex-wrap:wrap;gap:6px;">
-        ${g.players.map(p=>{const v=preds[p.name];const lbl=v==='home'?flag(match.home):v==='away'?flag(match.away):v==='draw'?'<span style="font-weight:900">=</span>':'?';return`<div style="font-size:11px;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:4px 9px;" title="${v==='home'?match.home:v==='away'?match.away:v==='draw'?'Draw':'No prediction'}"><span style="color:var(--muted)">${p.name}</span><span style="font-weight:600;margin-left:5px;color:${v==='home'?'var(--accent)':v==='away'?'var(--accent2)':'var(--muted)'}">${lbl}</span></div>`;}).join('')}
+        ${g.players.map(p=>{const v=preds[p.name];const lbl=v==='home'?flag(match.home,16):v==='away'?flag(match.away,16):v==='draw'?'<span style="font-weight:900">=</span>':'?';return`<div style="font-size:11px;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:4px 9px;" title="${v==='home'?match.home:v==='away'?match.away:v==='draw'?'Draw':'No prediction'}"><span style="color:var(--muted)">${p.name}</span><span style="font-weight:600;margin-left:5px;color:${v==='home'?'var(--accent)':v==='away'?'var(--accent2)':'var(--muted)'}">${lbl}</span></div>`;}).join('')}
       </div>
     </div>
     <div class="result-section">
       <h3>ENTER FULL-TIME RESULT</h3>
       <div class="score-input-row">
-        <div class="team-label"><div style="font-size:28px;line-height:1;margin-bottom:4px">${flag(match.home)}</div>${match.home}</div>
+        <div class="team-label">${flag(match.home,40)}<div style="margin-top:5px">${match.home}</div></div>
         <input type="number" id="score-home" min="0" max="20" value="0">
         <div class="score-dash">—</div>
         <input type="number" id="score-away" min="0" max="20" value="0">
-        <div class="team-label"><div style="font-size:28px;line-height:1;margin-bottom:4px">${flag(match.away)}</div>${match.away}</div>
+        <div class="team-label">${flag(match.away,40)}<div style="margin-top:5px">${match.away}</div></div>
       </div>
       <button class="btn btn-teal" id="submit-result-btn">CONFIRM RESULT & REVEAL</button>
     </div>
@@ -1075,7 +1079,7 @@ async function renderReveal(g){
   const match=g.matches[g.currentMatchIdx];
   const r=g.currentResult;
   const actual=r.home>r.away?'home':r.away>r.home?'away':'draw';
-  const lbl=actual==='home'?flag(match.home)+' '+match.home:actual==='away'?flag(match.away)+' '+match.away:'<span style="font-weight:900">=</span> Draw';
+  const lbl=actual==='home'?flag(match.home,16)+' '+match.home:actual==='away'?flag(match.away,16)+' '+match.away:'<span style="font-weight:900">=</span> Draw';
   const preds=g.predictions[g.currentMatchIdx]||{};
   const area=document.getElementById('match-area');
   const alive=g.players.filter(p=>!p.eliminated);
@@ -1083,12 +1087,12 @@ async function renderReveal(g){
   <div class="match-card">
     <div class="match-header"><span class="group-badge">${match.group?'Group '+match.group:match.round}</span><span class="match-num">Match ${g.currentMatchIdx+1}/${g.matches.length}</span></div>
     <div class="teams-row">
-      <div class="team-block"><div class="team-flag-emoji">${flag(match.home)}</div><div class="team-name">${match.home}</div></div>
+      <div class="team-block"><div class="team-flag-emoji">${flag(match.home,48)}</div><div class="team-name">${match.home}</div></div>
       <div class="vs-badge">${r.home}–${r.away}</div>
-      <div class="team-block"><div class="team-flag-emoji">${flag(match.away)}</div><div class="team-name">${match.away}</div></div>
+      <div class="team-block"><div class="team-flag-emoji">${flag(match.away,48)}</div><div class="team-name">${match.away}</div></div>
     </div>
     <div style="text-align:center;margin-bottom:16px;"><span style="font-size:12px;color:var(--muted)">Result: </span><span style="font-weight:600;font-size:14px;">${lbl}</span></div>
-    <div>${g.players.map(p=>{const v=preds[p.name];const ok=v===actual;return`<div class="pred-recap-item"><span class="pred-name">${p.name}</span><span class="pred-choice">${v==='home'?flag(match.home)+' '+match.home:v==='away'?flag(match.away)+' '+match.away:'<span style="font-weight:900">=</span> Draw'}</span><span>${ok?'✅':'❌'}</span></div>`;}).join('')}</div>
+    <div>${g.players.map(p=>{const v=preds[p.name];const ok=v===actual;return`<div class="pred-recap-item"><span class="pred-name">${p.name}</span><span class="pred-choice">${v==='home'?flag(match.home,16)+' '+match.home:v==='away'?flag(match.away,16)+' '+match.away:'<span style="font-weight:900">=</span> Draw'}</span><span>${ok?'✅':'❌'}</span></div>`;}).join('')}</div>
     <button class="btn-next" id="next-match-btn">${alive.length<=1?'SEE RESULTS 🏆':'NEXT MATCH →'}</button>
   </div>`;
   area.querySelector('#next-match-btn').addEventListener("click",async()=>{
@@ -1123,17 +1127,17 @@ async function renderWatchScreen(g){
   if(isReveal&&g.currentResult){
     const r=g.currentResult;
     const actual=r.home>r.away?'home':r.away>r.home?'away':'draw';
-    const lbl=actual==='home'?flag(match.home)+' '+match.home:actual==='away'?flag(match.away)+' '+match.away:'<span style="font-weight:900">=</span> Draw';
+    const lbl=actual==='home'?flag(match.home,16)+' '+match.home:actual==='away'?flag(match.away,16)+' '+match.away:'<span style="font-weight:900">=</span> Draw';
     area.innerHTML=`<div class="round-label">${match.group?'Group '+match.group:match.round}</div>
     <div class="match-card">
       <div class="match-header"><span class="group-badge">${match.group?'Group '+match.group:match.round}</span><span class="match-num">Match ${g.currentMatchIdx+1}/${g.matches.length}</span></div>
       <div class="teams-row">
-        <div class="team-block"><div class="team-flag-emoji">${flag(match.home)}</div><div class="team-name">${match.home}</div></div>
+        <div class="team-block"><div class="team-flag-emoji">${flag(match.home,48)}</div><div class="team-name">${match.home}</div></div>
         <div class="vs-badge">${r.home}–${r.away}</div>
-        <div class="team-block"><div class="team-flag-emoji">${flag(match.away)}</div><div class="team-name">${match.away}</div></div>
+        <div class="team-block"><div class="team-flag-emoji">${flag(match.away,48)}</div><div class="team-name">${match.away}</div></div>
       </div>
       <div style="text-align:center;margin-bottom:16px;"><span style="font-size:12px;color:var(--muted)">Result: </span><span style="font-weight:600;font-size:14px;">${lbl}</span></div>
-      <div>${g.players.map(p=>{const v=preds[p.name];const ok=v===actual;return`<div class="pred-recap-item"><span class="pred-name" style="${p.name===me.name?'color:var(--accent);font-weight:700':''}>${p.name}</span><span class="pred-choice">${v==='home'?flag(match.home)+' '+match.home:v==='away'?flag(match.away)+' '+match.away:'<span style="font-weight:900">=</span> Draw'}</span><span>${ok?'✅':'❌'}</span></div>`;}).join('')}</div>
+      <div>${g.players.map(p=>{const v=preds[p.name];const ok=v===actual;return`<div class="pred-recap-item"><span class="pred-name" style="${p.name===me.name?'color:var(--accent);font-weight:700':''}>${p.name}</span><span class="pred-choice">${v==='home'?flag(match.home,16)+' '+match.home:v==='away'?flag(match.away,16)+' '+match.away:'<span style="font-weight:900">=</span> Draw'}</span><span>${ok?'✅':'❌'}</span></div>`;}).join('')}</div>
       <div style="text-align:center;margin-top:12px;font-size:11px;color:var(--muted)"><span class="spinner"></span>Waiting for host to advance…</div>
     </div>`;
   } else {
@@ -1143,19 +1147,19 @@ async function renderWatchScreen(g){
     <div class="match-card">
       <div class="match-header"><span class="group-badge">${match.group?'Group '+match.group:match.round}</span><span class="match-num">Match ${g.currentMatchIdx+1}/${g.matches.length}</span></div>
       <div class="teams-row">
-        <div class="team-block"><div class="team-flag-emoji">${flag(match.home)}</div><div class="team-name">${match.home}</div></div>
+        <div class="team-block"><div class="team-flag-emoji">${flag(match.home,48)}</div><div class="team-name">${match.home}</div></div>
         <div class="vs-badge">VS</div>
-        <div class="team-block"><div class="team-flag-emoji">${flag(match.away)}</div><div class="team-name">${match.away}</div></div>
+        <div class="team-block"><div class="team-flag-emoji">${flag(match.away,48)}</div><div class="team-name">${match.away}</div></div>
       </div>
       ${canPredict?`
         <div style="text-align:center;font-size:13px;font-weight:600;color:var(--accent);margin-bottom:12px;">🎯 Make your prediction</div>
         <div class="prediction-buttons">
-          <button class="pred-btn" data-pred="home"><span>${flag(match.home)}</span>${match.home} win</button>
+          <button class="pred-btn" data-pred="home"><span>${flag(match.home,24)}</span>${match.home} win</button>
           <button class="pred-btn" data-pred="draw"><span style="font-weight:900;font-size:20px">=</span>Draw</button>
-          <button class="pred-btn" data-pred="away"><span>${flag(match.away)}</span>${match.away} win</button>
+          <button class="pred-btn" data-pred="away"><span>${flag(match.away,24)}</span>${match.away} win</button>
         </div>
       `:myPred?`
-        <div style="text-align:center;margin-bottom:9px;font-size:12px;"><span style="color:var(--muted)">Your prediction: </span><span style="font-weight:600;color:${myPred==='home'?'var(--accent)':myPred==='away'?'var(--accent2)':'var(--muted)'}">${myPred==='home'?flag(match.home)+' '+match.home:myPred==='away'?flag(match.away)+' '+match.away:'<span style="font-weight:900">=</span> Draw'}</span></div>
+        <div style="text-align:center;margin-bottom:9px;font-size:12px;"><span style="color:var(--muted)">Your prediction: </span><span style="font-weight:600;color:${myPred==='home'?'var(--accent)':myPred==='away'?'var(--accent2)':'var(--muted)'}">${myPred==='home'?flag(match.home,16)+' '+match.home:myPred==='away'?flag(match.away,16)+' '+match.away:'<span style="font-weight:900">=</span> Draw'}</span></div>
         <div style="text-align:center;font-size:11px;color:var(--muted)"><span class="spinner"></span>Waiting for result…</div>
       `:`
         <div class="warn-box" style="text-align:center">No prediction recorded</div>
