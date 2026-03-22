@@ -50,6 +50,7 @@
   [data-tip]{position:relative;cursor:default}
   [data-tip]::after{content:attr(data-tip);position:absolute;top:calc(100% + 6px);left:50%;transform:translateX(-50%);background:#1e293b;color:var(--text);font-size:11px;font-family:'DM Sans',sans-serif;font-weight:400;white-space:nowrap;padding:5px 9px;border-radius:6px;border:1px solid var(--border);pointer-events:none;opacity:0;transition:opacity 0.15s;z-index:10}
   [data-tip]:hover::after{opacity:1}
+  .lb-pct-tip::after{left:auto;right:0;transform:none}
   .lb-correct{font-size:12px;color:var(--accent2);text-align:right;white-space:nowrap}
   .lb-pct{font-size:11px;color:var(--muted);text-align:right}
   .life-bar-wrap{height:4px;background:var(--surface2);border-radius:2px;margin-top:3px;overflow:hidden}
@@ -313,7 +314,7 @@ function renderLeaderboard(g){
       </div>
       <div class="lb-lives" style="color:${barCol}" data-tip="Lives remaining out of ${maxLives}">❤️ ${p.lives}<span style="font-size:10px;color:var(--muted)">/${maxLives}</span></div>
       <div class="lb-correct" data-tip="Correct predictions">✓ ${p.correct}</div>
-      <div class="lb-pct" data-tip="Prediction accuracy (correct / matches played)">${accuracy}%</div>
+      <div class="lb-pct lb-pct-tip" data-tip="Prediction accuracy (correct / matches played)">${accuracy}%</div>
     </div>`;
   }).join('');
   el.querySelectorAll('.lb-name-btn').forEach(btn=>{
