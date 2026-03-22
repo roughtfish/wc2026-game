@@ -146,6 +146,13 @@
   .game-code-pill .pill-code:hover{border-color:var(--accent)}
   .game-code-pill .pill-copy{font-size:11px;color:var(--muted);cursor:pointer;padding:4px 8px;border-radius:6px;transition:color 0.2s}
   .game-code-pill .pill-copy:hover{color:var(--accent2)}
+  .history-match-row{display:grid;grid-template-columns:1fr auto auto;align-items:center;gap:12px;padding:11px 14px;background:var(--surface2);border-radius:8px;margin-bottom:7px;border:1px solid var(--border);cursor:pointer;transition:border-color 0.2s}
+  .history-match-row:hover{border-color:var(--accent)}
+  .history-match-info{font-size:13px;font-weight:600}
+  .history-match-sub{font-size:11px;color:var(--muted);margin-top:2px}
+  .history-match-score{font-family:'Bebas Neue',sans-serif;font-size:22px;color:var(--accent);letter-spacing:2px}
+  .history-correct-btn{font-family:'Bebas Neue',sans-serif;font-size:12px;letter-spacing:1px;padding:6px 12px;border:1px solid var(--border);border-radius:7px;background:transparent;color:var(--muted);cursor:pointer;transition:all 0.2s;white-space:nowrap}
+  .history-correct-btn:hover{border-color:var(--accent);color:var(--accent)}
   @media(max-width:500px){
     .teams-row{gap:5px}.team-flag-emoji{font-size:24px}.team-name{font-size:14px}
     .prediction-buttons{grid-template-columns:1fr}.role-grid{grid-template-columns:1fr}
@@ -300,9 +307,27 @@
 
   <!-- GAME (host) -->
   <div id="screen-game" class="screen">
-    <div class="scoreboard"><div class="scoreboard-title">STANDINGS</div><div class="players-grid" id="players-grid"></div></div>
+    <div class="scoreboard">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div class="scoreboard-title" style="margin:0">STANDINGS</div>
+        <button class="btn btn-secondary btn-sm" id="open-history-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7">✎ Correct result</button>
+      </div>
+      <div class="players-grid" id="players-grid"></div>
+    </div>
     <div class="progress-bar-wrap"><div class="progress-bar-fill" id="progress-bar" style="width:0%"></div></div>
     <div id="match-area"></div>
+  </div>
+
+  <!-- HISTORY CORRECTION (host) -->
+  <div id="screen-history" class="screen">
+    <div class="card" style="margin-bottom:12px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+        <h2 style="margin:0">CORRECT A RESULT</h2>
+        <button class="btn btn-secondary btn-sm" id="history-back-btn">← Back</button>
+      </div>
+      <p style="font-size:12px;color:var(--muted)">Select a completed match to correct its score. Player lives and predictions will be fully recalculated.</p>
+    </div>
+    <div id="history-match-list"></div>
   </div>
 
   <!-- WATCHING (players) -->
@@ -1517,6 +1542,172 @@ function renderFinalLB(g){
 }
 
 document.getElementById('play-again-btn').addEventListener("click",async()=>location.reload());
+
+// ─── HISTORY CORRECTION ──────────────────────────────────────────────────────
+let historyReturnFn = null; // function to call when returning from history screen
+
+document.getElementById('open-history-btn').addEventListener('click', async () => {
+  const g = await loadGame(me.code);
+  if (!g) return;
+  stopPolling();
+  historyReturnFn = () => { enterGame(g); };
+  show('screen-history');
+  renderHistoryList(g);
+});
+
+document.getElementById('history-back-btn').addEventListener('click', () => {
+  if (historyReturnFn) historyReturnFn();
+  else show('screen-game');
+});
+
+function renderHistoryList(g) {
+  const results = g.results || {};
+  const playedIdxs = Object.keys(results).map(Number).sort((a, b) => a - b);
+  const list = document.getElementById('history-match-list');
+
+  if (playedIdxs.length === 0) {
+    list.innerHTML = '<div class="warn-box">No completed matches to correct yet.</div>';
+    return;
+  }
+
+  list.innerHTML = playedIdxs.map(idx => {
+    const m = g.matches[idx];
+    if (!m) return '';
+    const r = results[idx];
+    const round = m.group ? 'Group ' + m.group : (m.round || 'KO');
+    return `<div class="history-match-row" data-idx="${idx}">
+      <div>
+        <div class="history-match-info">${flag(m.home, 16)}${m.home} vs ${flag(m.away, 16)}${m.away}</div>
+        <div class="history-match-sub">${round} · Match ${parseInt(idx) + 1}</div>
+      </div>
+      <div class="history-match-score">${r.home}–${r.away}</div>
+      <button class="history-correct-btn" data-idx="${idx}">✎ Correct</button>
+    </div>`;
+  }).join('');
+
+  list.querySelectorAll('.history-correct-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const idx = parseInt(btn.dataset.idx);
+      const m = g.matches[idx];
+      const r = g.results[idx];
+      if (!confirm(`Correct the result for ${m.home} vs ${m.away} (${r.home}–${r.away})?
+
+All player lives and scores will be fully recalculated from scratch.`)) return;
+      await correctHistoricResult(g, idx);
+    });
+  });
+}
+
+async function correctHistoricResult(g, targetIdx) {
+  // Show inline score entry for the target match
+  const list = document.getElementById('history-match-list');
+  const m = g.matches[targetIdx];
+  const r = g.results[targetIdx];
+
+  list.innerHTML = `
+    <div class="card">
+      <h2 style="margin-bottom:16px">CORRECT: ${m.home} vs ${m.away}</h2>
+      <div class="result-section">
+        <h3>ENTER CORRECTED SCORE</h3>
+        <div class="score-input-row">
+          <div class="team-label">${flag(m.home, 40)}<div style="margin-top:5px">${m.home}</div></div>
+          <input type="number" id="correct-home" min="0" max="20" value="${r.home}">
+          <div class="score-dash">—</div>
+          <input type="number" id="correct-away" min="0" max="20" value="${r.away}">
+          <div class="team-label">${flag(m.away, 40)}<div style="margin-top:5px">${m.away}</div></div>
+        </div>
+        <div style="display:flex;gap:9px;margin-top:4px">
+          <button class="btn btn-secondary" id="correct-cancel-btn">← Cancel</button>
+          <button class="btn btn-teal" id="correct-confirm-btn">CONFIRM CORRECTION</button>
+        </div>
+      </div>
+    </div>`;
+
+  document.getElementById('correct-cancel-btn').addEventListener('click', async () => {
+    const fresh = await loadGame(me.code);
+    renderHistoryList(fresh);
+  });
+
+  document.getElementById('correct-confirm-btn').addEventListener('click', async () => {
+    const newHome = parseInt(document.getElementById('correct-home').value) || 0;
+    const newAway = parseInt(document.getElementById('correct-away').value) || 0;
+    const btn = document.getElementById('correct-confirm-btn');
+    btn.textContent = 'Saving…'; btn.disabled = true;
+
+    const fresh = await loadGame(me.code);
+
+    // Full recalculation: reset all players to starting state
+    fresh.players.forEach(p => {
+      p.lives = fresh.lives;
+      p.correct = 0;
+      p.eliminated = false;
+    });
+
+    // Apply correction to stored results
+    fresh.results[targetIdx] = { home: newHome, away: newAway };
+
+    // Reset KO bracket to TBD before re-populating
+    fresh.matches.forEach(m => { if (!m.group) { m.home = 'TBD'; m.away = 'TBD'; m.koSlot = true; } });
+
+    // Re-apply ALL results in match order
+    const playedIdxs = Object.keys(fresh.results).map(Number).sort((a, b) => a - b);
+    let groupStageComplete = false;
+
+    playedIdxs.forEach(idx => {
+      const match = fresh.matches[idx];
+      const res = fresh.results[idx];
+      const actual = res.home > res.away ? 'home' : res.away > res.home ? 'away' : 'draw';
+      const preds = fresh.predictions[idx] || {};
+
+      // Score players
+      fresh.players.forEach(p => {
+        if (p.eliminated) return;
+        if (preds[p.name] === actual) { p.correct++; }
+        else { p.lives = Math.max(0, p.lives - 2); if (p.lives === 0) p.eliminated = true; }
+      });
+
+      // Repopulate brackets
+      if (match && match.group) {
+        const groupMatches = fresh.matches.filter(m => m.group);
+        const resultsCount = groupMatches.filter((_, i) => {
+          const gIdx = fresh.matches.indexOf(groupMatches[i]);
+          return fresh.results[gIdx];
+        }).length;
+        if (resultsCount >= groupMatches.length && !groupStageComplete) {
+          groupStageComplete = true;
+          populateKnockoutBracket(fresh);
+        }
+      } else if (match && match.round) {
+        populateNextKORound(fresh, idx);
+      }
+    });
+
+    // Update currentResult to whatever the current match's result is
+    const curResult = fresh.results[fresh.currentMatchIdx];
+    fresh.currentResult = curResult || null;
+
+    // Status: if we're past the corrected match, stay at current reveal/playing state
+    // Just set status back to playing so host can continue
+    if (fresh.status && fresh.status.startsWith('reveal:')) {
+      // keep reveal status
+    } else {
+      fresh.status = 'playing';
+    }
+
+    await saveGame(fresh);
+    // Return to history list with updated data
+    renderHistoryList(fresh);
+    btn.textContent = 'CONFIRM CORRECTION'; btn.disabled = false;
+
+    // Show success
+    const successMsg = document.createElement('div');
+    successMsg.className = 'info-box';
+    successMsg.style.marginTop = '12px';
+    successMsg.textContent = `✓ Result corrected to ${newHome}–${newAway}. All scores recalculated.`;
+    document.getElementById('history-match-list').prepend(successMsg);
+    setTimeout(() => successMsg.remove(), 4000);
+  });
+}
 
 // ─── BOOT ────────────────────────────────────────────────────────────────────
 show('screen-landing');
