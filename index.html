@@ -201,7 +201,7 @@
       <h2>CREATE GAME</h2>
       <div class="field"><label>Your name (host)</label><input type="text" id="host-name" placeholder="e.g. Alex" maxlength="20"></div>
       <div class="field-row">
-        <div class="field"><label>Lives per player</label><input type="number" id="host-lives" value="15" min="1" max="30"></div>
+        <div class="field"><label>Lives per player</label><input type="number" id="host-lives" value="40" min="1" max="99"></div>
         <div class="field"><label>Max players</label><input type="number" id="host-max" value="16" min="2" max="16"></div>
       </div>
       <div class="field">
@@ -375,12 +375,187 @@ const KO_ROUNDS=[
   {round:'Quarter-final',count:4},{round:'Semi-final',count:2},
   {round:'3rd Place Play-off',count:1},{round:'Final',count:1},
 ];
-function buildKO(){const o=[];KO_ROUNDS.forEach(r=>{for(let i=0;i<r.count;i++)o.push({round:r.round,home:'TBD',away:'TBD',knockoutEditable:true});});return o;}
+function buildKO(){const o=[];KO_ROUNDS.forEach(r=>{for(let i=0;i<r.count;i++)o.push({round:r.round,home:'TBD',away:'TBD',koSlot:true});});return o;}
 function buildMatches(mode){
   return mode==='demo'?GROUP_MATCHES.slice(0,7).map(m=>({...m}))
     :mode==='knockouts'?buildKO()
     :mode==='full'?[...GROUP_MATCHES.map(m=>({...m})),...buildKO()]
     :GROUP_MATCHES.map(m=>({...m}));
+}
+
+// ─── GROUP STANDINGS ─────────────────────────────────────────────────────────
+function calcGroupStandings(g){
+  // Returns {A:[{team,p,w,d,l,gf,ga,gd},...],...}
+  const groups={};
+  GROUP_MATCHES.forEach(m=>{if(!groups[m.group])groups[m.group]={}; [m.home,m.away].forEach(t=>{if(!groups[m.group][t])groups[m.group][t]={team:t,p:0,w:0,d:0,l:0,gf:0,ga:0,gd:0};});});
+  // Apply results from game state
+  g.matches.forEach((m,idx)=>{
+    if(!m.group||!g.results||!g.results[idx])return;
+    const r=g.results[idx];
+    const h=groups[m.group][m.home], a=groups[m.group][m.away];
+    if(!h||!a)return;
+    h.gf+=r.home;h.ga+=r.away;h.gd+=r.home-r.away;
+    a.gf+=r.away;a.ga+=r.home;a.gd+=r.away-r.home;
+    if(r.home>r.away){h.p+=3;h.w++;a.l++;}
+    else if(r.away>r.home){a.p+=3;a.w++;h.l++;}
+    else{h.p+=1;a.p+=1;h.d++;a.d++;}
+  });
+  const standings={};
+  Object.keys(groups).forEach(grp=>{
+    standings[grp]=Object.values(groups[grp]).sort((a,b)=>b.p-a.p||b.gd-a.gd||b.gf-a.gf);
+  });
+  return standings;
+}
+
+function getGroupFinishers(g){
+  const st=calcGroupStandings(g);
+  const winners={},runners={},thirds=[];
+  Object.keys(st).forEach(grp=>{
+    const sorted=st[grp];
+    winners[grp]=sorted[0]?.team||'TBD';
+    runners[grp]=sorted[1]?.team||'TBD';
+    if(sorted[2])thirds.push({...sorted[2],group:grp});
+  });
+  // Best 8 third-place teams
+  thirds.sort((a,b)=>b.p-a.p||b.gd-a.gd||b.gf-a.gf);
+  const best8thirds=thirds.slice(0,8);
+  const best8groups=best8thirds.map(t=>t.group).sort().join('');
+  return{winners,runners,thirds:best8thirds,best8groups};
+}
+
+// Official R32 bracket — 16 fixed slots based on group positions
+// Slots are keyed by match number (73-88), value is [home descriptor, away descriptor]
+const R32_FIXED=[
+  ['2A','2B'],   // M73
+  ['1E','3ABCDF'], // M74 — 3rd team TBD by table
+  ['1F','2C'],   // M75
+  ['1C','2F'],   // M76
+  ['1I','3CDFGH'], // M77
+  ['2E','2I'],   // M78
+  ['1A','3CEFHI'], // M79
+  ['1L','3EHIJK'], // M80
+  ['1D','3BEFIJ'], // M81
+  ['1G','3AEHIJ'], // M82
+  ['2K','2L'],   // M83
+  ['1H','2J'],   // M84
+  ['1B','3EFGIJ'], // M85
+  ['1J','2H'],   // M86
+  ['1K','3DEIJL'], // M87
+  ['2D','2G'],   // M88
+];
+
+// The 495-combination table is complex — we implement a lookup for the most common
+// combinations by checking which 8 groups provided 3rd-place teams
+// For simplicity in this game, we assign the 8 best 3rd-place teams to their
+// designated slots using the official slot assignments from the regulations
+const THIRD_PLACE_SLOTS={
+  // key = sorted group letters of 8 qualifying 3rd place teams
+  // value = [slot for M74, M77, M79, M80, M81, M82, M85, M87]
+  // Using the full official table would be huge — instead we resolve each
+  // "3rd from groups X/Y/Z" slot dynamically
+};
+
+function resolveTeam(desc,winners,runners,thirds){
+  if(desc.startsWith('1'))return winners[desc[1]]||'TBD';
+  if(desc.startsWith('2'))return runners[desc[1]]||'TBD';
+  if(desc.startsWith('3')){
+    // desc like "3ABCDF" — pick the best 3rd place team from those groups
+    const eligible=desc.slice(1).split('');
+    const match=thirds.find(t=>eligible.includes(t.group));
+    return match?match.team:'TBD';
+  }
+  return'TBD';
+}
+
+function populateKnockoutBracket(g){
+  const{winners,runners,thirds}=getGroupFinishers(g);
+  // Sort thirds by points/gd/gf, assign to R32 slots
+  const thirdsRemaining=[...thirds];
+  const usedGroups=new Set();
+
+  // Find the start index of Round of 32 matches
+  const r32Start=g.matches.findIndex(m=>m.round==='Round of 32');
+  if(r32Start===-1)return;
+
+  R32_FIXED.forEach((slot,i)=>{
+    const match=g.matches[r32Start+i];
+    if(!match)return;
+    const homeDesc=slot[0], awayDesc=slot[1];
+    match.home=resolveTeam(homeDesc,winners,runners,thirdsRemaining);
+    match.away=resolveTeam(awayDesc,winners,runners,thirdsRemaining);
+    match.koSlot=false;
+    // Remove used 3rd place team
+    if(awayDesc.startsWith('3')){
+      const eligible=awayDesc.slice(1).split('');
+      const idx=thirdsRemaining.findIndex(t=>eligible.includes(t.group)&&!usedGroups.has(t.group));
+      if(idx>=0){usedGroups.add(thirdsRemaining[idx].group);thirdsRemaining.splice(idx,1);}
+    }
+  });
+}
+
+function isLastGroupMatch(g, matchIdx){
+  // Check if all group stage matches have results after this one
+  const groupMatches=g.matches.filter(m=>m.group);
+  const resultsCount=groupMatches.filter((m,i)=>{
+    const idx=g.matches.indexOf(m);
+    return g.results&&g.results[idx];
+  }).length;
+  return resultsCount>=groupMatches.length;
+}
+
+function populateNextKORound(g, justFinishedMatchIdx){
+  // After a KO result, populate the next match in the bracket
+  // Find which R32 match this was and populate the corresponding R16 slot
+  const r32Start=g.matches.findIndex(m=>m.round==='Round of 32');
+  const r16Start=g.matches.findIndex(m=>m.round==='Round of 16');
+  const qfStart=g.matches.findIndex(m=>m.round==='Quarter-final');
+  const sfStart=g.matches.findIndex(m=>m.round==='Semi-final');
+  const finalIdx=g.matches.findIndex(m=>m.round==='Final');
+  const thirdIdx=g.matches.findIndex(m=>m.round==='3rd Place Play-off');
+
+  const winner=g.currentResult?.home>g.currentResult?.away
+    ?g.matches[justFinishedMatchIdx].home
+    :g.matches[justFinishedMatchIdx].away;
+
+  const r=g.currentResult;
+  const loser=r?.home>r?.away?g.matches[justFinishedMatchIdx].away:g.matches[justFinishedMatchIdx].home;
+
+  // R32 → R16 (pairs: 0+1→0, 2+3→1, 4+5→2, 6+7→3, 8+9→4, 10+11→5, 12+13→6, 14+15→7)
+  if(r32Start>=0&&justFinishedMatchIdx>=r32Start&&justFinishedMatchIdx<r32Start+16&&r16Start>=0){
+    const pos=justFinishedMatchIdx-r32Start;
+    const r16Idx=r16Start+Math.floor(pos/2);
+    const slot=pos%2===0?'home':'away';
+    g.matches[r16Idx][slot]=winner;
+    g.matches[r16Idx].koSlot=false;
+  }
+  // R16 → QF
+  else if(r16Start>=0&&justFinishedMatchIdx>=r16Start&&justFinishedMatchIdx<r16Start+8&&qfStart>=0){
+    const pos=justFinishedMatchIdx-r16Start;
+    const qfIdx=qfStart+Math.floor(pos/2);
+    const slot=pos%2===0?'home':'away';
+    g.matches[qfIdx][slot]=winner;
+    g.matches[qfIdx].koSlot=false;
+  }
+  // QF → SF
+  else if(qfStart>=0&&justFinishedMatchIdx>=qfStart&&justFinishedMatchIdx<qfStart+4&&sfStart>=0){
+    const pos=justFinishedMatchIdx-qfStart;
+    const sfIdx=sfStart+Math.floor(pos/2);
+    const slot=pos%2===0?'home':'away';
+    g.matches[sfIdx][slot]=winner;
+    g.matches[sfIdx].koSlot=false;
+    // Losers go to 3rd place play-off
+    if(thirdIdx>=0){
+      g.matches[thirdIdx][slot]=loser;
+      g.matches[thirdIdx].koSlot=false;
+    }
+  }
+  // SF → Final
+  else if(sfStart>=0&&justFinishedMatchIdx>=sfStart&&justFinishedMatchIdx<sfStart+2&&finalIdx>=0){
+    const pos=justFinishedMatchIdx-sfStart;
+    const slot=pos===0?'home':'away';
+    g.matches[finalIdx][slot]=winner;
+    g.matches[finalIdx].koSlot=false;
+  }
 }
 
 
@@ -746,33 +921,60 @@ async function renderGameHost(g){
   if(g.currentMatchIdx>=g.matches.length){showFinalLeaderboard(g);return;}
   const match=g.matches[g.currentMatchIdx];
   const area=document.getElementById('match-area');
-  if(match.knockoutEditable&&(match.home==='TBD'||match.away==='TBD')){renderKOEntry(g,match,area);return;}
+  if(match.koSlot||(match.home==='TBD'&&match.away==='TBD')){renderKOWaiting(g,match,area);return;}
   const preds=g.predictions[g.currentMatchIdx]||{};
   const allDone=match.group||alive.every(p=>preds[p.name]!==undefined);
-  if(!allDone){renderKOPredCollect(g,match,area,preds,alive);return;}
+  if(!allDone){
+    // Show who has and hasn't predicted yet, with host able to also predict
+    const myPred=preds[me.name];
+    const done=alive.filter(p=>preds[p.name]!==undefined);
+    const pending=alive.filter(p=>preds[p.name]===undefined);
+    const area=document.getElementById('match-area');
+    area.innerHTML=`<div class="round-label"><span class="step-dot"></span>${match.round}</div>
+    <div class="match-card">
+      <div class="match-header"><span class="group-badge">${match.round}</span><span class="match-num">Match ${g.currentMatchIdx+1}/${g.matches.length}</span></div>
+      <div class="teams-row">
+        <div class="team-block"><div class="team-flag-emoji">${flag(match.home)}</div><div class="team-name">${match.home}</div></div>
+        <div class="vs-badge">VS</div>
+        <div class="team-block"><div class="team-flag-emoji">${flag(match.away)}</div><div class="team-name">${match.away}</div></div>
+      </div>
+      ${!myPred?`
+        <div style="text-align:center;font-size:13px;font-weight:600;color:var(--accent);margin-bottom:12px;">🎯 Your prediction (host)</div>
+        <div class="prediction-buttons">
+          <button class="pred-btn" data-pred="home"><span>${flag(match.home)}</span>${match.home} win</button>
+          <button class="pred-btn" data-pred="draw"><span>🤝</span>Draw</button>
+          <button class="pred-btn" data-pred="away"><span>${flag(match.away)}</span>${match.away} win</button>
+        </div>
+      `:''}
+      <div style="margin-top:14px;padding-top:14px;border-top:0.5px solid var(--border);">
+        <div style="font-size:11px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-bottom:8px;">Waiting for predictions (${pending.length} remaining)</div>
+        ${pending.map(p=>`<div class="collected-item"><span style="font-weight:600">${p.name}</span><span class="badge badge-wait">⏳ pending</span></div>`).join('')}
+        ${done.map(p=>`<div class="collected-item"><span style="font-weight:600">${p.name}</span><span class="badge badge-ready">✓ ready</span></div>`).join('')}
+      </div>
+    </div>`;
+    area.querySelectorAll('.pred-btn').forEach(btn=>{
+      btn.addEventListener('click',async()=>{
+        const f=await loadGame(me.code);
+        if(!f.predictions[f.currentMatchIdx])f.predictions[f.currentMatchIdx]={};
+        f.predictions[f.currentMatchIdx][me.name]=btn.dataset.pred;
+        await saveGame(f);renderGameHost(f);
+      });
+    });
+    return;
+  }
   renderResultEntry(g,match,area);
 }
 
-function renderKOEntry(g,match,area){
+function renderKOWaiting(g,match,area){
   area.innerHTML=`<div class="round-label">${match.round}</div>
   <div class="match-card">
     <div class="match-header"><span class="group-badge">${match.round}</span><span class="match-num">Match ${g.currentMatchIdx+1}/${g.matches.length}</span></div>
-    <div class="warn-box">Enter the two teams playing in this ${match.round} match.</div>
-    <div style="display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:11px;margin-bottom:14px;">
-      <input type="text" id="ko-home" placeholder="Home team" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px;color:var(--text);font-family:inherit;font-size:13px;text-align:center;outline:none;">
-      <span style="font-family:'Bebas Neue',sans-serif;font-size:18px;color:var(--muted)">VS</span>
-      <input type="text" id="ko-away" placeholder="Away team" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px;color:var(--text);font-family:inherit;font-size:13px;text-align:center;outline:none;">
+    <div class="warn-box" style="text-align:center;padding:24px;">
+      <div style="font-size:32px;margin-bottom:10px">⏳</div>
+      <div style="font-weight:600;margin-bottom:6px">Teams not yet determined</div>
+      <div style="font-size:12px;color:var(--muted)">This ${match.round} fixture will be auto-populated once the preceding round results are entered.</div>
     </div>
-    <button class="btn btn-teal" id="ko-confirm-btn">CONFIRM TEAMS →</button>
   </div>`;
-  area.querySelector('#ko-confirm-btn').addEventListener("click",async()=>{
-    const h=document.getElementById('ko-home').value.trim();
-    const a=document.getElementById('ko-away').value.trim();
-    if(!h||!a){alert('Enter both team names');return;}
-    const f=await loadGame(me.code);
-    f.matches[f.currentMatchIdx].home=h;f.matches[f.currentMatchIdx].away=a;f.matches[f.currentMatchIdx].knockoutEditable=false;
-    await saveGame(f);renderGameHost(f);
-  });
 }
 
 function renderKOPredCollect(g,match,area,preds,alive){
@@ -847,6 +1049,22 @@ function renderResultEntry(g,match,area){
       else{p.lives=Math.max(0,p.lives-2);if(p.lives===0)p.eliminated=true;}
     });
     f.currentResult={home:h,away:a};
+    // Store result for standings calculation
+    if(!f.results)f.results={};
+    f.results[f.currentMatchIdx]={home:h,away:a};
+    // Auto-populate KO bracket
+    const curMatch=f.matches[f.currentMatchIdx];
+    if(curMatch.group){
+      // Check if this was the last group match → populate R32
+      const groupMatches=f.matches.filter(m=>m.group);
+      const resultsSoFar=Object.keys(f.results).filter(idx=>f.matches[idx]?.group).length;
+      if(resultsSoFar>=groupMatches.length){
+        populateKnockoutBracket(f);
+      }
+    } else if(curMatch.round){
+      // Propagate KO winner to next round
+      populateNextKORound(f, f.currentMatchIdx);
+    }
     f.status='reveal:'+f.currentMatchIdx;
     await saveGame(f);
     renderReveal(f);
@@ -920,6 +1138,8 @@ async function renderWatchScreen(g){
       <div style="text-align:center;margin-top:12px;font-size:11px;color:var(--muted)"><span class="spinner"></span>Waiting for host to advance…</div>
     </div>`;
   } else {
+    const isKO = !match.group;
+    const canPredict = isKO && !myPred && match.home !== 'TBD' && match.away !== 'TBD';
     area.innerHTML=`<div class="round-label">${match.group?'Group '+match.group:match.round||''}</div>
     <div class="match-card">
       <div class="match-header"><span class="group-badge">${match.group?'Group '+match.group:match.round}</span><span class="match-num">Match ${g.currentMatchIdx+1}/${g.matches.length}</span></div>
@@ -928,9 +1148,32 @@ async function renderWatchScreen(g){
         <div class="vs-badge">VS</div>
         <div class="team-block"><div class="team-flag-emoji">${flag(match.away)}</div><div class="team-name">${match.away}</div></div>
       </div>
-      ${myPred?`<div style="text-align:center;margin-bottom:9px;font-size:12px;"><span style="color:var(--muted)">Your prediction: </span><span style="font-weight:600;color:${myPred==='home'?'var(--accent)':myPred==='away'?'var(--accent2)':'var(--muted)'}">${myPred==='home'?flag(match.home)+' '+match.home:myPred==='away'?flag(match.away)+' '+match.away:'🤝 Draw'}</span></div>`:'<div class="warn-box" style="text-align:center">No prediction recorded</div>'}
-      <div style="text-align:center;font-size:11px;color:var(--muted)"><span class="spinner"></span>Waiting for result…</div>
+      ${canPredict?`
+        <div style="text-align:center;font-size:13px;font-weight:600;color:var(--accent);margin-bottom:12px;">🎯 Make your prediction</div>
+        <div class="prediction-buttons">
+          <button class="pred-btn" data-pred="home"><span>${flag(match.home)}</span>${match.home} win</button>
+          <button class="pred-btn" data-pred="draw"><span>🤝</span>Draw</button>
+          <button class="pred-btn" data-pred="away"><span>${flag(match.away)}</span>${match.away} win</button>
+        </div>
+      `:myPred?`
+        <div style="text-align:center;margin-bottom:9px;font-size:12px;"><span style="color:var(--muted)">Your prediction: </span><span style="font-weight:600;color:${myPred==='home'?'var(--accent)':myPred==='away'?'var(--accent2)':'var(--muted)'}">${myPred==='home'?flag(match.home)+' '+match.home:myPred==='away'?flag(match.away)+' '+match.away:'🤝 Draw'}</span></div>
+        <div style="text-align:center;font-size:11px;color:var(--muted)"><span class="spinner"></span>Waiting for result…</div>
+      `:`
+        <div class="warn-box" style="text-align:center">No prediction recorded</div>
+        <div style="text-align:center;font-size:11px;color:var(--muted)"><span class="spinner"></span>Waiting for result…</div>
+      `}
     </div>`;
+    if(canPredict){
+      area.querySelectorAll('.pred-btn').forEach(btn=>{
+        btn.addEventListener('click',async()=>{
+          const f=await loadGame(me.code);
+          if(!f.predictions[f.currentMatchIdx])f.predictions[f.currentMatchIdx]={};
+          f.predictions[f.currentMatchIdx][me.name]=btn.dataset.pred;
+          await saveGame(f);
+          renderWatchScreen(f);
+        });
+      });
+    }
   }
 }
 
