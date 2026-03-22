@@ -325,6 +325,7 @@
         <div style="display:flex;gap:7px">
         <button class="btn btn-secondary btn-sm" id="open-ko-preds-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7;display:none">🎯 My Picks</button>
         <button class="btn btn-secondary btn-sm" id="open-history-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7">✎ Edit Result</button>
+        <button class="btn btn-secondary btn-sm" id="quit-game-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7;color:var(--red);border-color:rgba(239,68,68,0.3)">✕ Quit</button>
       </div>
       </div>
       <div class="players-grid" id="players-grid"></div>
@@ -1775,6 +1776,13 @@ document.getElementById('play-again-btn').addEventListener('click',()=>{try{sess
 // ─── HISTORY CORRECTION ──────────────────────────────────────────────────────
 let historyReturnFn = null; // function to call when returning from history screen
 
+document.getElementById('quit-game-btn').addEventListener('click',()=>{
+  if(!confirm('Quit game and return to main menu? The game will remain saved and players can still rejoin.')) return;
+  stopPolling();
+  try{sessionStorage.removeItem('kf_me');}catch(e){}
+  me={};
+  show('screen-landing');
+});
 document.getElementById('open-history-btn').addEventListener('click', async () => {
   const g = await loadGame(me.code);
   if (!g) return;
