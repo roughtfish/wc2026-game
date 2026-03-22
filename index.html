@@ -1055,7 +1055,9 @@ async function pollPlayerLobby(){
 // Force-start polling: detects when host has started the game
 startPolling(async()=>{
   const f=await loadGame(me.code);if(!f)return;
-  if(f.status==='playing'){stopPolling();if(me.role==='host')enterGame(f);else watchGame(f);}
+  if(f.status==='bulk'){stopPolling();startBulk(f);}
+  else if(f.status&&f.status.startsWith('ko-bulk:')){stopPolling();if(f.koBulkSubmitted&&f.koBulkSubmitted[me.name]){show('screen-bulk-done');startPolling(pollBulkDone);}else startKOBulk(f,f.status.slice(8));}
+  else if(f.status==='playing'){stopPolling();if(me.role==='host')enterGame(f);else watchGame(f);}
 },3000);
 
 // ─── BULK PREDICTION ─────────────────────────────────────────────────────────
@@ -1607,6 +1609,8 @@ async function watchGame(g){
       else{startKOBulk(f,f.status.slice(8));}
       return;
     }
+    if(f.status==='done'){stopPolling();showWinner(f);return;}
+    if(f.status==='playing'||f.status.startsWith('reveal:')){renderWatchScreen(f);return;}
     renderWatchScreen(f);
   },2200);
 }
@@ -1641,7 +1645,7 @@ async function renderWatchScreen(g){
     }
   }
   const alive=g.players.filter(p=>!p.eliminated);
-  if(alive.length<=1||g.currentMatchIdx>=g.matches.length){stopPolling();showWinner(g);return;}
+  if(g.status==='done'||alive.length<=1||g.currentMatchIdx>=g.matches.length){stopPolling();showWinner(g);return;}
   const area=document.getElementById('watch-area');
   const isReveal=g.status&&g.status.startsWith('reveal:');
   const match=g.matches[g.currentMatchIdx];
@@ -2049,11 +2053,19 @@ async function commitKOBulkFromWatch(g, round) {
       if (!fresh.predictions[idx]) fresh.predictions[idx] = {};
       fresh.predictions[idx][me.name] = v;
     });
+    // Mark this player as submitted so host sees accurate count and force-start applies correctly
+    if(fresh.status&&fresh.status.startsWith('ko-bulk:')){
+      if(!fresh.koBulkSubmitted) fresh.koBulkSubmitted={};
+      fresh.koBulkSubmitted[me.name]=true;
+      const allDone=fresh.players.every(p=>fresh.koBulkSubmitted[p.name]);
+      if(allDone) fresh.status='playing';
+    }
     await saveGame(fresh);
     clearDraft();
-    // Return to appropriate screen based on role
-    if(me.role==='host') enterGame(fresh);
-    else watchGame(fresh);
+    // Return to appropriate screen based on role and new status
+    if(fresh.status==='playing'){stopPolling();if(me.role==='host')enterGame(fresh);else watchGame(fresh);}
+    else if(me.role==='host') enterGame(fresh);
+    else { show('screen-bulk-done'); startPolling(pollBulkDone); }
   } catch(e) {
     console.error('commitKOBulkFromWatch failed', e);
     alert('Failed to save: ' + e.message);
