@@ -318,7 +318,10 @@
     <div class="scoreboard">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
         <div class="scoreboard-title" style="margin:0">STANDINGS</div>
+        <div style="display:flex;gap:7px">
+        <button class="btn btn-secondary btn-sm" id="open-ko-preds-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7;display:none">🎯 My Picks</button>
         <button class="btn btn-secondary btn-sm" id="open-history-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7">✎ Edit Result</button>
+      </div>
       </div>
       <div class="players-grid" id="players-grid"></div>
     </div>
@@ -340,7 +343,13 @@
 
   <!-- WATCHING (players) -->
   <div id="screen-watch" class="screen">
-    <div class="scoreboard"><div class="scoreboard-title">STANDINGS</div><div class="players-grid" id="watch-players-grid"></div></div>
+    <div class="scoreboard">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div class="scoreboard-title" style="margin:0">STANDINGS</div>
+        <button class="btn btn-secondary btn-sm" id="open-watch-ko-preds-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7;display:none">🎯 My Picks</button>
+      </div>
+      <div class="players-grid" id="watch-players-grid"></div>
+    </div>
     <div class="progress-bar-wrap"><div class="progress-bar-fill" id="watch-progress-bar" style="width:0%"></div></div>
     <div id="watch-area"></div>
   </div>
@@ -1237,16 +1246,46 @@ async function renderGameHost(g){
   if(alive.length<=1){showWinner(g);return;}
   if(g.currentMatchIdx>=g.matches.length){showFinalLeaderboard(g);return;}
   const match=g.matches[g.currentMatchIdx];
+  // Show "My Picks" button during KO rounds so host can always access round predictions
+  const koPredsBtn=document.getElementById('open-ko-preds-btn');
+  if(koPredsBtn){
+    const isKORound=match&&!match.group&&!match.koSlot&&match.home!=='TBD';
+    koPredsBtn.style.display=isKORound?'block':'none';
+    koPredsBtn.onclick=null;
+    if(isKORound){
+      koPredsBtn.onclick=()=>{
+        stopPolling();
+        koBulkDraft={};
+        // Pre-populate with existing picks for this round
+        g.matches.forEach((m,i)=>{
+          if(m.round===match.round&&m.home!=='TBD'&&m.away!=='TBD'){
+            const existing=g.predictions[i]&&g.predictions[i][me.name];
+            if(existing) koBulkDraft[i]=existing;
+          }
+        });
+        document.getElementById('bulk-player-name').textContent=me.name+' (Host)';
+        document.getElementById('bulk-round-label').textContent='Predicting '+match.round+' matches';
+        show('screen-bulk');
+        renderKOBulkForm(g,match.round);
+        const area2=document.getElementById('bulk-area');
+        area2._watchCommit=()=>commitKOBulkFromWatch(g,match.round);
+      };
+    }
+  }
   const area=document.getElementById('match-area');
   if(match.koSlot||(match.home==='TBD'&&match.away==='TBD')){renderKOWaiting(g,match,area);return;}
   const preds=g.predictions[g.currentMatchIdx]||{};
   const allDone=match.group||alive.every(p=>preds[p.name]!==undefined);
   if(!allDone){
-    // Show who has and hasn't predicted yet, with host able to also predict
-    const myPred=preds[me.name];
+    const isKO=!match.group;
+    // For KO matches, check if host has unpredicted matches in this round
+    const roundMatches=isKO?g.matches.reduce((acc,m,i)=>{
+      if(m.round===match.round&&m.home!=='TBD'&&m.away!=='TBD')acc.push({m,i});
+      return acc;
+    },[]):[];
+    const hostUnpredicted=roundMatches.filter(({i})=>!(g.predictions[i]&&g.predictions[i][me.name]));
     const done=alive.filter(p=>preds[p.name]!==undefined);
     const pending=alive.filter(p=>preds[p.name]===undefined);
-    const area=document.getElementById('match-area');
     area.innerHTML=`<div class="round-label"><span class="step-dot"></span>${match.round}</div>
     <div class="match-card">
       <div class="match-header"><span class="group-badge">${match.round}</span><span class="match-num">Match ${g.currentMatchIdx+1}/${g.matches.length}</span></div>
@@ -1255,27 +1294,33 @@ async function renderGameHost(g){
         <div class="vs-badge">VS</div>
         <div class="team-block"><div class="team-flag-emoji">${flag(match.away,48)}</div><div class="team-name">${match.away}</div></div>
       </div>
-      ${!myPred?`
-        <div style="text-align:center;font-size:13px;font-weight:600;color:var(--accent);margin-bottom:12px;">🎯 Your prediction (host)</div>
-        <div class="prediction-buttons" style="grid-template-columns:1fr 1fr">
-          <button class="pred-btn" data-pred="home"><span>${flag(match.home,24)}</span>${match.home} win</button>
-          <button class="pred-btn" data-pred="away"><span>${flag(match.away,24)}</span>${match.away} win</button>
-        </div>
+      ${isKO&&hostUnpredicted.length>0?`
+        <button class="btn btn-teal" id="host-predict-round-btn" style="margin-bottom:12px">🎯 Predict ${hostUnpredicted.length} remaining ${match.round} match${hostUnpredicted.length===1?'':'es'}</button>
       `:''}
-      <div style="margin-top:14px;padding-top:14px;border-top:0.5px solid var(--border);">
+      <div style="margin-top:4px;padding-top:14px;border-top:0.5px solid var(--border);">
         <div style="font-size:11px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-bottom:8px;">Waiting for predictions (${pending.length} remaining)</div>
         ${pending.map(p=>`<div class="collected-item"><span style="font-weight:600">${p.name}</span><span class="badge badge-wait">⏳ pending</span></div>`).join('')}
         ${done.map(p=>`<div class="collected-item"><span style="font-weight:600">${p.name}</span><span class="badge badge-ready">✓ ready</span></div>`).join('')}
       </div>
     </div>`;
-    area.querySelectorAll('.pred-btn').forEach(btn=>{
-      btn.addEventListener('click',async()=>{
-        const f=await loadGame(me.code);
-        if(!f.predictions[f.currentMatchIdx])f.predictions[f.currentMatchIdx]={};
-        f.predictions[f.currentMatchIdx][me.name]=btn.dataset.pred;
-        await saveGame(f);renderGameHost(f);
+    const hostPredBtn=area.querySelector('#host-predict-round-btn');
+    if(hostPredBtn){
+      hostPredBtn.addEventListener('click',()=>{
+        stopPolling();
+        koBulkDraft={};
+        roundMatches.forEach(({m,i})=>{
+          const existing=g.predictions[i]&&g.predictions[i][me.name];
+          if(existing) koBulkDraft[i]=existing;
+        });
+        document.getElementById('bulk-player-name').textContent=me.name+' (Host)';
+        document.getElementById('bulk-round-label').textContent='Predicting '+match.round+' matches';
+        show('screen-bulk');
+        renderKOBulkForm(g,match.round);
+        // On submit, save and return to host game screen
+        const area2=document.getElementById('bulk-area');
+        area2._watchCommit=()=>commitKOBulkFromWatch(g,match.round);
       });
-    });
+    }
     return;
   }
   renderResultEntry(g,match,area);
@@ -1544,6 +1589,32 @@ async function watchGame(g){
 async function renderWatchScreen(g){
   renderScoreboard(g,'watch-players-grid');
   renderProgress(g,'watch-progress-bar');
+  // Show "My Picks" button during KO rounds
+  const watchKoBtn=document.getElementById('open-watch-ko-preds-btn');
+  if(watchKoBtn){
+    const curMatch=g.matches[g.currentMatchIdx];
+    const isKORound=curMatch&&!curMatch.group&&!curMatch.koSlot&&curMatch.home!=='TBD';
+    watchKoBtn.style.display=isKORound?'block':'none';
+    watchKoBtn.onclick=null;
+    if(isKORound){
+      watchKoBtn.onclick=()=>{
+        stopPolling();
+        koBulkDraft={};
+        g.matches.forEach((m,i)=>{
+          if(m.round===curMatch.round&&m.home!=='TBD'&&m.away!=='TBD'){
+            const existing=g.predictions[i]&&g.predictions[i][me.name];
+            if(existing) koBulkDraft[i]=existing;
+          }
+        });
+        document.getElementById('bulk-player-name').textContent=me.name;
+        document.getElementById('bulk-round-label').textContent='Predicting '+curMatch.round+' matches';
+        show('screen-bulk');
+        renderKOBulkForm(g,curMatch.round);
+        const area2=document.getElementById('bulk-area');
+        area2._watchCommit=()=>commitKOBulkFromWatch(g,curMatch.round);
+      };
+    }
+  }
   const alive=g.players.filter(p=>!p.eliminated);
   if(alive.length<=1||g.currentMatchIdx>=g.matches.length){stopPolling();showWinner(g);return;}
   const area=document.getElementById('watch-area');
@@ -1954,8 +2025,9 @@ async function commitKOBulkFromWatch(g, round) {
     });
     await saveGame(fresh);
     clearDraft();
-    // Return to watch screen
-    watchGame(fresh);
+    // Return to appropriate screen based on role
+    if(me.role==='host') enterGame(fresh);
+    else watchGame(fresh);
   } catch(e) {
     console.error('commitKOBulkFromWatch failed', e);
     alert('Failed to save: ' + e.message);
