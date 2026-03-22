@@ -192,10 +192,6 @@
         <div class="role-card" id="role-host"><div class="role-icon">🏟️</div><div class="role-title">Host</div><div class="role-sub">Create a new game</div></div>
         <div class="role-card" id="role-player"><div class="role-icon">⚽</div><div class="role-title">Join / Rejoin</div><div class="role-sub">Enter name &amp; game code</div></div>
       </div>
-      <div style="margin-top:14px;text-align:center;font-size:12px;color:var(--muted);">
-        Hosting? You'll need a free <a href="#" id="show-apikey-link" style="color:var(--accent2);">Firebase database URL</a> (one-time setup).
-        <span id="key-status" style="margin-left:6px;"></span>
-      </div>
     </div>
   </div>
 
@@ -389,14 +385,9 @@ function buildMatches(mode){
 
 
 // ─── FIREBASE REALTIME DATABASE STORAGE ──────────────────────────────────────
-// Uses Firebase REST API — no SDK, no API key for players, works from any static host.
-// One-time setup: create a free Firebase project and paste the database URL below.
-// Instructions: console.firebase.google.com → New project → Realtime Database →
-//   Create database → Start in TEST MODE → copy the URL (ends in .firebaseio.com)
+const FIREBASE_URL = 'https://wc2026-4b84a-default-rtdb.europe-west1.firebasedatabase.app';
 
-const FIREBASE_URL = sessionStorage.getItem('wc26-fb-url') || '';
-
-function getFirebaseUrl(){ return FIREBASE_URL || sessionStorage.getItem('wc26-fb-url') || ''; }
+function getFirebaseUrl(){ return FIREBASE_URL; }
 
 async function loadGame(code){
   const base = getFirebaseUrl();
@@ -465,18 +456,12 @@ function renderRoster(g,elId){
 
 // ─── LANDING ─────────────────────────────────────────────────────────────────
 document.getElementById('role-host').addEventListener("click",async()=>{
-  if(!getFirebaseUrl()){ show('screen-apikey'); return; }
   me.role='host'; show('screen-host-setup');
 });
 document.getElementById('role-player').addEventListener("click",async()=>{me.role='player';show('screen-player-join');});
-document.getElementById('back-to-landing').addEventListener("click",async()=>{ updateKeyStatus(); show('screen-landing'); });
+document.getElementById('back-to-landing').addEventListener("click",async()=>{ show('screen-landing'); });
 document.getElementById('back-to-landing2').addEventListener("click",async()=>show('screen-landing'));
-document.getElementById('show-apikey-link').addEventListener("click",e=>{e.preventDefault();show('screen-apikey');});
-function updateKeyStatus(){
-  const el=document.getElementById('key-status'); if(!el)return;
-  el.textContent=getFirebaseUrl()?'✓ Database configured':'(not configured)';
-  el.style.color=getFirebaseUrl()?'var(--green)':'var(--muted)';
-}
+
 
 document.getElementById('mode-tabs').addEventListener('click',e=>{
   const btn=e.target.closest('.mode-tab');if(!btn)return;
@@ -488,7 +473,6 @@ document.getElementById('mode-tabs').addEventListener('click',e=>{
 
 // ─── HOST: CREATE ─────────────────────────────────────────────────────────────
 document.getElementById('create-game-btn').addEventListener("click",async()=>{
-  if(!getFirebaseUrl()){ show('screen-apikey'); return; }
   const hostName=document.getElementById('host-name').value.trim();
   if(!hostName){alert('Enter your name!');return;}
   const lives=parseInt(document.getElementById('host-lives').value)||15;
@@ -887,18 +871,7 @@ function renderFinalLB(g){
 
 document.getElementById('play-again-btn').addEventListener("click",async()=>location.reload());
 
-document.getElementById('apikey-save-btn').addEventListener("click",()=>{
-  const url = document.getElementById('apikey-input').value.trim().replace(/\/$/, '');
-  const err = document.getElementById('apikey-error');
-  if(!url || (!url.includes('firebaseio.com') && !url.includes('firebasedatabase.app'))){ err.style.display='block'; return; }
-  err.style.display='none';
-  try{ sessionStorage.setItem('wc26-fb-url', url); }catch{}
-  updateKeyStatus();
-  me.role='host'; show('screen-host-setup');
-});
-
 // ─── BOOT ────────────────────────────────────────────────────────────────────
-updateKeyStatus();
 show('screen-landing');
 </script>
 </body>
