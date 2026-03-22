@@ -1146,39 +1146,47 @@ function renderBulkForm(g){
     });
   });
 
+  const area=document.getElementById('bulk-area');
+  const isWatchMode=!!area._watchCommit;
   html+=`</div>
     <div style="padding:12px 0 6px;border-top:0.5px solid var(--border);margin-top:10px;">
       <div style="font-size:10px;color:var(--muted);text-align:center;margin-bottom:7px;letter-spacing:1px;">Each team can only win <b>${MAX_PICKS}</b> times across all predictions · <span style="font-weight:900">=</span> Draw</div>
-      <button class="btn btn-primary" id="bulk-submit-btn">
-        ${rem>0?'Predict '+rem+' more to continue':'Lock in my predictions ✓'}
-      </button>
-      ${done>0?`<button class="btn btn-secondary" id="bulk-clear-btn" style="margin-top:8px;font-size:13px;letter-spacing:1px;opacity:0.7;">↺ Reset Picks!</button>`:''}
+      ${isWatchMode
+        ? `<button class="btn btn-secondary" id="bulk-back-btn">← Back</button>`
+        : `<button class="btn btn-primary" id="bulk-submit-btn">${rem>0?'Predict '+rem+' more to continue':'Lock in my predictions ✓'}</button>
+           ${done>0?'<button class="btn btn-secondary" id="bulk-clear-btn" style="margin-top:8px;font-size:13px;letter-spacing:1px;opacity:0.7;">↺ Reset Picks!</button>':''}`
+      }
     </div>`;
 
-  const area=document.getElementById('bulk-area');
   area.innerHTML=html;
 
-  const sb=area.querySelector('#bulk-submit-btn');
-  if(area._watchCommit){
-    sb.style.display='none';
-  } else if(rem>0){
-    sb.disabled=true;
-    sb.style.opacity='0.42';
-    sb.style.cursor='not-allowed';
-  } else {
-    sb.disabled=false;
-    sb.style.opacity='1';
-    sb.style.cursor='pointer';
-    sb.addEventListener('click',()=>commitBulk(g));
-  }
-
-  const cb=area.querySelector('#bulk-clear-btn');
-  if(cb){
-    cb.addEventListener('click',()=>{
-      bulkDraft={};
-      saveDraft(bulkDraft);
-      renderBulkForm(g);
+  if(isWatchMode){
+    area.querySelector('#bulk-back-btn').addEventListener('click',async()=>{
+      area._watchCommit=null;
+      const fresh=await loadGame(me.code);
+      if(!fresh) return;
+      if(me.role==='host') enterGame(fresh); else watchGame(fresh);
     });
+  } else {
+    const sb=area.querySelector('#bulk-submit-btn');
+    if(rem>0){
+      sb.disabled=true;
+      sb.style.opacity='0.42';
+      sb.style.cursor='not-allowed';
+    } else {
+      sb.disabled=false;
+      sb.style.opacity='1';
+      sb.style.cursor='pointer';
+      sb.addEventListener('click',()=>commitBulk(g));
+    }
+    const cb=area.querySelector('#bulk-clear-btn');
+    if(cb){
+      cb.addEventListener('click',()=>{
+        bulkDraft={};
+        saveDraft(bulkDraft);
+        renderBulkForm(g);
+      });
+    }
   }
 
   area.querySelectorAll('.bulk-toggle button').forEach(btn=>{
@@ -2036,30 +2044,38 @@ function renderKOBulkForm(g, round) {
     </div>`;
   });
 
+  const area = document.getElementById('bulk-area');
+  const isWatchModeKO = !!area._watchCommit;
   html += `</div>
     <div style="padding:12px 0 6px;border-top:0.5px solid var(--border);margin-top:10px;">
       <div style="font-size:10px;color:var(--muted);text-align:center;margin-bottom:7px;letter-spacing:1px;">Each team can only win <b>${MAX_PICKS}</b> times across all predictions · No draws in knockout rounds</div>
-      <button class="btn btn-primary" id="ko-bulk-submit-btn">
-        ${rem > 0 ? 'Predict ' + rem + ' more to continue' : 'Lock in my predictions ✓'}
-      </button>
-      ${done > 0 ? `<button class="btn btn-secondary" id="ko-bulk-clear-btn" style="margin-top:8px;font-size:13px;letter-spacing:1px;opacity:0.7;">↺ Reset Picks!</button>` : ''}
+      ${isWatchModeKO
+        ? `<button class="btn btn-secondary" id="ko-bulk-back-btn">← Back</button>`
+        : `<button class="btn btn-primary" id="ko-bulk-submit-btn">${rem > 0 ? 'Predict ' + rem + ' more to continue' : 'Lock in my predictions ✓'}</button>
+           ${done > 0 ? '<button class="btn btn-secondary" id="ko-bulk-clear-btn" style="margin-top:8px;font-size:13px;letter-spacing:1px;opacity:0.7;">↺ Reset Picks!</button>' : ''}`
+      }
     </div>`;
 
-  const area = document.getElementById('bulk-area');
   area.innerHTML = html;
 
-  const sb = area.querySelector('#ko-bulk-submit-btn');
-  if(area._watchCommit){
-    sb.style.display='none';
-  } else if (rem > 0) { sb.disabled = true; sb.style.opacity = '0.42'; sb.style.cursor = 'not-allowed'; }
-  else { sb.disabled = false; sb.style.opacity = '1'; sb.style.cursor = 'pointer'; sb.addEventListener('click', () => {
-    const area2=document.getElementById('bulk-area');
-    if(area2&&area2._watchCommit) area2._watchCommit();
-    else commitKOBulk(g, round);
-  }); }
-
-  const cb = area.querySelector('#ko-bulk-clear-btn');
-  if (cb) cb.addEventListener('click', () => { koBulkDraft = {}; saveDraft(koBulkDraft); renderKOBulkForm(g, round); });
+  if(isWatchModeKO){
+    area.querySelector('#ko-bulk-back-btn').addEventListener('click',async()=>{
+      area._watchCommit=null;
+      const fresh=await loadGame(me.code);
+      if(!fresh) return;
+      if(me.role==='host') enterGame(fresh); else watchGame(fresh);
+    });
+  } else {
+    const sb = area.querySelector('#ko-bulk-submit-btn');
+    if (rem > 0) { sb.disabled = true; sb.style.opacity = '0.42'; sb.style.cursor = 'not-allowed'; }
+    else { sb.disabled = false; sb.style.opacity = '1'; sb.style.cursor = 'pointer'; sb.addEventListener('click', () => {
+      const area2=document.getElementById('bulk-area');
+      if(area2&&area2._watchCommit) area2._watchCommit();
+      else commitKOBulk(g, round);
+    }); }
+    const cb = area.querySelector('#ko-bulk-clear-btn');
+    if (cb) cb.addEventListener('click', () => { koBulkDraft = {}; saveDraft(koBulkDraft); renderKOBulkForm(g, round); });
+  }
 
   area.querySelectorAll('.bulk-toggle button').forEach(btn => {
     btn.addEventListener('click', () => {
