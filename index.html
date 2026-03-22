@@ -1127,13 +1127,13 @@ function renderBulkForm(g){
       const homeLabel = homeAtLimit ? `${flag(m.home,20)} <small style="font-size:10px">(${MAX_PICKS}/${MAX_PICKS})</small>` : flag(m.home,20);
       const awayLabel = awayAtLimit ? `${flag(m.away,20)} <small style="font-size:10px">(${MAX_PICKS}/${MAX_PICKS})</small>` : flag(m.away,20);
       html+=`<div class="bulk-match-row${sel===undefined?' unpredicted':''}">
-        <div class="bulk-team"><span class="bulk-team-flag">${flag(m.home,20)}</span><span>${m.home}${homeAtLimit?` <span style="font-size:10px;color:var(--red)">(full)</span>`:homeCount>=MAX_PICKS-1&&sel!=='home'?` <span style="font-size:10px;color:var(--accent)">(${homeCount}/${MAX_PICKS})</span>`:''}</span></div>
+        <div class="bulk-team"><span class="bulk-team-flag">${flag(m.home,20)}</span><span>${m.home}</span><span style="font-size:10px;color:${homeAtLimit?'var(--red)':homeCount>=MAX_PICKS-1?'var(--accent)':'var(--muted)'};margin-left:4px;font-weight:600">${homeCount}/${MAX_PICKS}</span></div>
         <div class="bulk-toggle">
           <button data-idx="${idx}" data-val="home" class="${sel==='home'?'active-home':''}" title="${m.home} win${homeAtLimit?' — limit reached':''}" style="font-size:16px;padding:5px 9px;${homeAtLimit?'opacity:0.3;cursor:not-allowed;':''}" ${homeAtLimit?'disabled':''}>${flag(m.home,20)}</button>
           <button data-idx="${idx}" data-val="draw" class="${sel==='draw'?'active-draw':''}" title="Draw" style="font-size:14px;padding:5px 8px;"><span style="font-weight:900">=</span></button>
           <button data-idx="${idx}" data-val="away" class="${sel==='away'?'active-away':''}" title="${m.a} win${awayAtLimit?' — limit reached':''}" style="font-size:16px;padding:5px 9px;${awayAtLimit?'opacity:0.3;cursor:not-allowed;':''}" ${awayAtLimit?'disabled':''}>${flag(m.away,20)}</button>
         </div>
-        <div class="bulk-team away"><span>${m.away}${awayAtLimit?` <span style="font-size:10px;color:var(--red)">(full)</span>`:awayCount>=MAX_PICKS-1&&sel!=='away'?` <span style="font-size:10px;color:var(--accent)">(${awayCount}/${MAX_PICKS})</span>`:''}</span><span class="bulk-team-flag">${flag(m.away,20)}</span></div>
+        <div class="bulk-team away"><span style="font-size:10px;color:${awayAtLimit?'var(--red)':awayCount>=MAX_PICKS-1?'var(--accent)':'var(--muted)'};margin-right:4px;font-weight:600">${awayCount}/${MAX_PICKS}</span><span>${m.away}</span><span class="bulk-team-flag">${flag(m.away,20)}</span></div>
       </div>`;
     });
   });
@@ -2001,12 +2001,12 @@ function renderKOBulkForm(g, round) {
     const homeAtLimit = homeCount >= MAX_PICKS && sel !== 'home';
     const awayAtLimit = awayCount >= MAX_PICKS && sel !== 'away';
     html += `<div class="bulk-match-row${sel === undefined ? ' unpredicted' : ''}">
-      <div class="bulk-team"><span class="bulk-team-flag">${flag(m.home, 20)}</span><span>${m.home}${homeAtLimit ? ` <span style="font-size:10px;color:var(--red)">(full)</span>` : homeCount >= MAX_PICKS - 1 && sel !== 'home' ? ` <span style="font-size:10px;color:var(--accent)">(${homeCount}/${MAX_PICKS})</span>` : ''}</span></div>
+      <div class="bulk-team"><span class="bulk-team-flag">${flag(m.home, 20)}</span><span>${m.home}</span><span style="font-size:10px;color:${homeAtLimit?'var(--red)':homeCount>=MAX_PICKS-1?'var(--accent)':'var(--muted)'};margin-left:4px;font-weight:600">${homeCount}/${MAX_PICKS}</span></div>
       <div class="bulk-toggle">
         <button data-idx="${idx}" data-val="home" class="${sel === 'home' ? 'active-home' : ''}" title="${m.home} win${homeAtLimit ? ' — limit reached' : ''}" style="font-size:16px;padding:5px 9px;${homeAtLimit ? 'opacity:0.3;cursor:not-allowed;' : ''}" ${homeAtLimit ? 'disabled' : ''}>${flag(m.home, 20)}</button>
         <button data-idx="${idx}" data-val="away" class="${sel === 'away' ? 'active-away' : ''}" title="${m.away} win${awayAtLimit ? ' — limit reached' : ''}" style="font-size:16px;padding:5px 9px;${awayAtLimit ? 'opacity:0.3;cursor:not-allowed;' : ''}" ${awayAtLimit ? 'disabled' : ''}>${flag(m.away, 20)}</button>
       </div>
-      <div class="bulk-team away"><span>${m.away}${awayAtLimit ? ` <span style="font-size:10px;color:var(--red)">(full)</span>` : awayCount >= MAX_PICKS - 1 && sel !== 'away' ? ` <span style="font-size:10px;color:var(--accent)">(${awayCount}/${MAX_PICKS})</span>` : ''}</span><span class="bulk-team-flag">${flag(m.away, 20)}</span></div>
+      <div class="bulk-team away"><span style="font-size:10px;color:${awayAtLimit?'var(--red)':awayCount>=MAX_PICKS-1?'var(--accent)':'var(--muted)'};margin-right:4px;font-weight:600">${awayCount}/${MAX_PICKS}</span><span>${m.away}</span><span class="bulk-team-flag">${flag(m.away, 20)}</span></div>
     </div>`;
   });
 
