@@ -1770,7 +1770,7 @@ function renderFinalLB(g){
   </div>`;
 }
 
-document.getElementById('play-again-btn').addEventListener("click",async()=>location.reload());
+document.getElementById('play-again-btn').addEventListener('click',()=>{try{sessionStorage.removeItem('kf_me');}catch(e){}me={};show('screen-landing');});
 
 // ─── HISTORY CORRECTION ──────────────────────────────────────────────────────
 let historyReturnFn = null; // function to call when returning from history screen
