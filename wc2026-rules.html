@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kamikaze Football WC'26 — Rules</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0a0f1a;--surface:#111827;--surface2:#1a2436;
+    --border:rgba(255,255,255,0.08);--accent:#e8b84b;--accent2:#2dd4bf;
+    --red:#ef4444;--green:#22c55e;--text:#f1f5f9;--muted:#64748b;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min-height:100vh;padding:20px 16px 80px}
+  .app{max-width:720px;margin:0 auto}
+  .header{text-align:center;padding:24px 0 28px}
+  .header h1{font-family:'Bebas Neue',sans-serif;font-size:clamp(32px,7vw,58px);letter-spacing:4px;line-height:1;
+    background:linear-gradient(135deg,#fff 0%,var(--accent) 60%,#fff 100%);
+    -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+  .header .sub{font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);margin-top:5px}
+  .back-btn{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);text-decoration:none;margin-bottom:24px;padding:7px 12px;border:1px solid var(--border);border-radius:8px;transition:color 0.2s,border-color 0.2s}
+  .back-btn:hover{color:var(--accent2);border-color:var(--accent2)}
+  .section{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:24px;margin-bottom:16px}
+  .section-title{font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:3px;color:var(--accent);margin-bottom:16px;display:flex;align-items:center;gap:10px}
+  .section-title .icon{font-size:22px}
+  .rule{display:flex;gap:14px;padding:11px 0;border-bottom:1px solid rgba(255,255,255,0.05);font-size:14px;line-height:1.6}
+  .rule:last-child{border-bottom:none;padding-bottom:0}
+  .rule-icon{font-size:18px;flex-shrink:0;margin-top:1px;width:24px;text-align:center}
+  .rule-text{flex:1;color:var(--text)}
+  .rule-text strong{color:var(--accent)}
+  .rule-text .note{display:block;font-size:12px;color:var(--muted);margin-top:3px}
+  .highlight{background:rgba(232,184,75,0.07);border:1px solid rgba(232,184,75,0.2);border-radius:10px;padding:14px 16px;margin:8px 0;font-size:13px;line-height:1.6}
+  .highlight strong{color:var(--accent)}
+  .penalty-box{background:rgba(239,68,68,0.07);border:1px solid rgba(239,68,68,0.2);border-radius:10px;padding:14px 16px;margin:8px 0;font-size:13px;line-height:1.6}
+  .penalty-box strong{color:var(--red)}
+  .life-dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:2px}
+  .toc{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:14px 18px;margin-bottom:20px}
+  .toc-title{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:10px}
+  .toc a{display:block;font-size:13px;color:var(--accent2);text-decoration:none;padding:3px 0;border-bottom:1px solid rgba(255,255,255,0.04)}
+  .toc a:last-child{border-bottom:none}
+  .toc a:hover{color:var(--accent)}
+  .badge{display:inline-block;font-size:10px;padding:2px 8px;border-radius:20px;font-weight:600;vertical-align:middle;margin-left:6px}
+  .badge-new{background:rgba(45,212,191,0.15);color:var(--accent2)}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="header">
+    <h1>KAMIKAZE FOOTBALL WC'26</h1>
+    <p class="sub">Rules & How to Play</p>
+  </div>
+
+  <a href="javascript:history.back()" class="back-btn">← Back to game</a>
+
+  <div class="toc">
+    <div class="toc-title">Contents</div>
+    <a href="#overview">Overview</a>
+    <a href="#group-stage">Group Stage Predictions</a>
+    <a href="#knockout">Knockout Stage Predictions</a>
+    <a href="#scoring">Scoring & Lives</a>
+    <a href="#pick-limit">The 5-Pick Limit</a>
+    <a href="#penalties">Penalty Shootouts</a>
+    <a href="#elimination">Elimination & Winning</a>
+  </div>
+
+  <!-- OVERVIEW -->
+  <div class="section" id="overview">
+    <div class="section-title"><span class="icon">⚽</span>Overview</div>
+    <div class="rule">
+      <div class="rule-icon">🎮</div>
+      <div class="rule-text">Kamikaze Football is a <strong>survival prediction game</strong>. Every player starts with the same number of lives. Get a prediction wrong and you lose lives. Last one standing wins.</div>
+    </div>
+    <div class="rule">
+      <div class="rule-icon">👑</div>
+      <div class="rule-text">One player is the <strong>Host</strong>. The host controls the game — starting rounds, entering results, and advancing to the next match. Everyone else joins as a player.</div>
+    </div>
+    <div class="rule">
+      <div class="rule-icon">🔗</div>
+      <div class="rule-text">Players join on their own device using the <strong>4-letter game code</strong>. They need to set a password when joining — this is required to rejoin if they close the page.
+        <span class="note">⚠️ Forgotten passwords cannot be reset.</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- GROUP STAGE -->
+  <div class="section" id="group-stage">
+    <div class="section-title"><span class="icon">📋</span>Group Stage Predictions</div>
+    <div class="rule">
+      <div class="rule-icon">✏️</div>
+      <div class="rule-text">Before the group stage begins, every player submits predictions for <strong>all 72 group stage matches at once</strong> — home win, away win, or draw.</div>
+    </div>
+    <div class="rule">
+      <div class="rule-icon">💾</div>
+      <div class="rule-text">Predictions are <strong>auto-saved as you go</strong>. If you close the page and come back, your picks will be restored where you left off.</div>
+    </div>
+    <div class="rule">
+      <div class="rule-icon">🔒</div>
+      <div class="rule-text">Once you click <strong>Lock in my predictions</strong>, your group stage picks are final. The game begins when every player has submitted.</div>
+    </div>
+  </div>
+
+  <!-- KNOCKOUT STAGE -->
+  <div class="section" id="knockout">
+    <div class="section-title"><span class="icon">🏆</span>Knockout Stage Predictions</div>
+    <div class="rule">
+      <div class="rule-icon">🔄</div>
+      <div class="rule-text">Knockout predictions are submitted <strong>round by round</strong>. Before each new round begins, all players submit their picks for every match in that round at once.</div>
+    </div>
+    <div class="rule">
+      <div class="rule-icon">❌</div>
+      <div class="rule-text">There are <strong>no draws</strong> in the knockout stage — you pick home win or away win only.</div>
+    </div>
+    <div class="rule">
+      <div class="rule-icon">⏳</div>
+      <div class="rule-text">The next round's prediction window opens automatically when the host advances past the last match of the current round.</div>
+    </div>
+  </div>
+
+  <!-- SCORING -->
+  <div class="section" id="scoring">
+    <div class="section-title"><span class="icon">❤️</span>Scoring & Lives</div>
+    <div class="rule">
+      <div class="rule-icon">✅</div>
+      <div class="rule-text"><strong>Correct prediction</strong> — you keep all your lives and gain 1 point on the correct prediction counter.</div>
+    </div>
+    <div class="rule">
+      <div class="rule-icon">❌</div>
+      <div class="rule-text"><strong>Wrong prediction</strong> — you lose <strong>2 lives</strong>.</div>
+    </div>
+    <div class="rule">
+      <div class="rule-icon">—</div>
+      <div class="rule-text"><strong>No prediction recorded</strong> — if you had no pick for a match (e.g. you were blocked by the pick limit), you lose <strong>2 lives</strong>.
+        <span class="note">This is the same penalty as a wrong prediction — always try to stay within the pick limit.</span>
+      </div>
+    </div>
+    <div class="highlight">
+      <strong>Example:</strong> You start with 40 lives. You get 3 wrong in a row — you lose 6 lives and are down to 34. Get one right and nothing changes. Another wrong costs you 2 more — down to 32.
+    </div>
+  </div>
+
+  <!-- PICK LIMIT -->
+  <div class="section" id="pick-limit">
+    <div class="section-title"><span class="icon">⚠️</span>The 5-Pick Limit</div>
+    <div class="rule">
+      <div class="rule-icon">5️⃣</div>
+      <div class="rule-text">Each team can only be picked to win a <strong>maximum of 5 times</strong> across the entire tournament — group stage and all knockout rounds combined.</div>
+    </div>
+    <div class="rule">
+      <div class="rule-icon">🚫</div>
+      <div class="rule-text">If a team has already been picked 5 times, the button for that team is <strong>disabled and greyed out</strong>. You cannot select them.</div>
+    </div>
+    <div class="penalty-box">
+      <strong>⚠️ Blocked pick penalty:</strong> If <em>both</em> teams in a match have reached the 5-pick limit, you cannot make a prediction for that match. You will automatically <strong>lose 2 lives</strong> when the result is entered — the same as a wrong prediction.
+    </div>
+    <div class="rule">
+      <div class="rule-icon">💡</div>
+      <div class="rule-text"><strong>Strategy tip:</strong> Spread your picks across different teams. Picking the same strong team (e.g. Brazil) too many times early in the group stage can lock you out of predicting their knockout matches.</div>
+    </div>
+  </div>
+
+  <!-- PENALTIES -->
+  <div class="section" id="penalties">
+    <div class="section-title"><span class="icon">🥅</span>Penalty Shootouts</div>
+    <div class="rule">
+      <div class="rule-icon">⚽</div>
+      <div class="rule-text">In knockout matches that end level after 90 minutes, the host enters the <strong>full-time score</strong> and then selects the <strong>penalty shootout winner</strong>.</div>
+    </div>
+    <div class="rule">
+      <div class="rule-icon">🎯</div>
+      <div class="rule-text">Predictions are judged on the <strong>overall winner</strong> — not just full time. If you predicted Brazil to win and they won on penalties, you get it right.</div>
+    </div>
+    <div class="rule">
+      <div class="rule-icon">📊</div>
+      <div class="rule-text">Results shown as penalties are marked with <strong>(pens)</strong> on the stats page, along with an arrow showing which side prevailed.</div>
+    </div>
+  </div>
+
+  <!-- ELIMINATION -->
+  <div class="section" id="elimination">
+    <div class="section-title"><span class="icon">💀</span>Elimination & Winning</div>
+    <div class="rule">
+      <div class="rule-icon">💀</div>
+      <div class="rule-text">A player is <strong>eliminated</strong> when their lives reach zero. Eliminated players can still watch but no longer score or lose lives.</div>
+    </div>
+    <div class="rule">
+      <div class="rule-icon">🏆</div>
+      <div class="rule-text">The game ends when only one player remains, or all matches are played. The player with the <strong>most lives remaining</strong> wins. Ties are broken by <strong>most correct predictions</strong>.</div>
+    </div>
+    <div class="rule">
+      <div class="rule-icon">📱</div>
+      <div class="rule-text">The <strong>live stats page</strong> (📊 stats link in the header) shows standings, lives remaining, accuracy, and a full match-by-match prediction history for every player.</div>
+    </div>
+  </div>
+</div>
+</body>
+</html>
