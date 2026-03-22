@@ -389,28 +389,55 @@ const FIREBASE_URL = 'https://wc2026-4b84a-default-rtdb.europe-west1.firebasedat
 
 function getFirebaseUrl(){ return FIREBASE_URL; }
 
+async function fetchWithTimeout(url, opts={}, ms=8000){
+  const controller = new AbortController();
+  const timer = setTimeout(()=>controller.abort(), ms);
+  try{
+    const r = await fetch(url, {...opts, signal:controller.signal});
+    clearTimeout(timer);
+    return r;
+  }catch(e){
+    clearTimeout(timer);
+    throw e;
+  }
+}
+
 async function loadGame(code){
   const base = getFirebaseUrl();
   if(!base||!code) return null;
   try{
-    const r = await fetch(`${base}/games/${code}.json`);
-    if(!r.ok) return null;
-    const data = await r.json();
-    return data; // null if not found
+    const [gameRes, predsRes] = await Promise.all([
+      fetchWithTimeout(`${base}/games/${code}/state.json`),
+      fetchWithTimeout(`${base}/games/${code}/predictions.json`)
+    ]);
+    if(!gameRes.ok) return null;
+    const state = await gameRes.json();
+    if(!state) return null;
+    const predictions = predsRes.ok ? await predsRes.json() : {};
+    state.predictions = predictions || {};
+    return state;
   }catch(e){ console.error('loadGame',e); return null; }
 }
 
 async function saveGame(g){
   const base = getFirebaseUrl();
-  if(!base){ alert('No Firebase URL configured. Click "Setup" to add it.'); return; }
+  if(!base){ alert('No Firebase URL configured.'); return; }
+  // Split predictions out — save state and predictions separately to keep payloads small
+  const {predictions, ...state} = g;
   try{
-    const r = await fetch(`${base}/games/${g.code}.json`, {
-      method:'PUT',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify(g)
-    });
-    if(!r.ok){ console.error('saveGame failed', r.status, await r.text()); }
-  }catch(e){ console.error('saveGame',e); }
+    await Promise.all([
+      fetchWithTimeout(`${base}/games/${g.code}/state.json`, {
+        method:'PUT',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify(state)
+      }),
+      fetchWithTimeout(`${base}/games/${g.code}/predictions.json`, {
+        method:'PUT',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify(predictions||{})
+      })
+    ]);
+  }catch(e){ console.error('saveGame',e); throw e; }
 }
 
 async function loadGameByCode(code){
@@ -635,24 +662,30 @@ function renderBulkForm(g){
 async function commitBulk(g){
   const submitBtn=document.getElementById('bulk-submit-btn');
   if(submitBtn){submitBtn.textContent='Saving…';submitBtn.disabled=true;}
-  const fresh=await loadGame(me.code);
-  if(!fresh){
-    alert('Could not load game — check your connection.');
+  try{
+    const fresh=await loadGame(me.code);
+    if(!fresh){
+      alert('Could not load game — check your connection and try again.');
+      if(submitBtn){submitBtn.textContent='Lock in my predictions ✓';submitBtn.disabled=false;}
+      return;
+    }
+    Object.entries(bulkDraft).forEach(([i,v])=>{
+      const idx=parseInt(i);
+      if(!fresh.predictions[idx])fresh.predictions[idx]={};
+      fresh.predictions[idx][me.name]=v;
+    });
+    if(!fresh.bulkSubmitted)fresh.bulkSubmitted={};
+    fresh.bulkSubmitted[me.name]=true;
+    const allDone=fresh.players.every(p=>fresh.bulkSubmitted[p.name]);
+    if(allDone)fresh.status='playing';
+    await saveGame(fresh);
+    if(fresh.status==='playing'){stopPolling();if(me.role==='host')enterGame(fresh);else watchGame(fresh);}
+    else{show('screen-bulk-done');startPolling(pollBulkDone);}
+  }catch(e){
+    console.error('commitBulk failed',e);
+    alert('Failed to save predictions: '+e.message+'\nPlease try again.');
     if(submitBtn){submitBtn.textContent='Lock in my predictions ✓';submitBtn.disabled=false;}
-    return;
   }
-  Object.entries(bulkDraft).forEach(([i,v])=>{
-    const idx=parseInt(i);
-    if(!fresh.predictions[idx])fresh.predictions[idx]={};
-    fresh.predictions[idx][me.name]=v;
-  });
-  if(!fresh.bulkSubmitted)fresh.bulkSubmitted={};
-  fresh.bulkSubmitted[me.name]=true;
-  const allDone=fresh.players.every(p=>fresh.bulkSubmitted[p.name]);
-  if(allDone)fresh.status='playing';
-  await saveGame(fresh);
-  if(fresh.status==='playing'){stopPolling();if(me.role==='host')enterGame(fresh);else watchGame(fresh);}
-  else{show('screen-bulk-done');startPolling(pollBulkDone);}
 }
 
 async function pollBulkDone(){
