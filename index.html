@@ -1159,7 +1159,9 @@ function renderBulkForm(g){
   area.innerHTML=html;
 
   const sb=area.querySelector('#bulk-submit-btn');
-  if(rem>0){
+  if(area._watchCommit){
+    sb.style.display='none';
+  } else if(rem>0){
     sb.disabled=true;
     sb.style.opacity='0.42';
     sb.style.cursor='not-allowed';
@@ -2047,7 +2049,9 @@ function renderKOBulkForm(g, round) {
   area.innerHTML = html;
 
   const sb = area.querySelector('#ko-bulk-submit-btn');
-  if (rem > 0) { sb.disabled = true; sb.style.opacity = '0.42'; sb.style.cursor = 'not-allowed'; }
+  if(area._watchCommit){
+    sb.style.display='none';
+  } else if (rem > 0) { sb.disabled = true; sb.style.opacity = '0.42'; sb.style.cursor = 'not-allowed'; }
   else { sb.disabled = false; sb.style.opacity = '1'; sb.style.cursor = 'pointer'; sb.addEventListener('click', () => {
     const area2=document.getElementById('bulk-area');
     if(area2&&area2._watchCommit) area2._watchCommit();
