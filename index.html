@@ -1372,6 +1372,7 @@ function renderResultEntry(g,match,area){
     };
     area.querySelector('#score-home').addEventListener('input',checkDraw);
     area.querySelector('#score-away').addEventListener('input',checkDraw);
+    checkDraw(); // run immediately in case scores start equal (e.g. 0-0)
     area.querySelectorAll('.pen-btn').forEach(btn=>{
       btn.addEventListener('click',()=>{
         area.querySelectorAll('.pen-btn').forEach(b=>b.classList.remove('active'));
@@ -1569,7 +1570,14 @@ async function renderWatchScreen(g){
     </div>`;
   } else {
     const isKO = !match.group;
-    const canPredict = isKO && !myPred && match.home !== 'TBD' && match.away !== 'TBD';
+    // Check if there are any unpredicted matches in this KO round
+    const roundMatches = isKO ? g.matches.reduce((acc,m,i)=>{
+      if(m.round===match.round&&m.home!=='TBD'&&m.away!=='TBD') acc.push({m,i});
+      return acc;
+    },[]) : [];
+    const unpredicted = roundMatches.filter(({i})=>!(g.predictions[i]&&g.predictions[i][me.name]));
+    const hasUnpredicted = unpredicted.length > 0;
+
     area.innerHTML=`<div class="round-label">${match.group?'Group '+match.group:match.round||''}</div>
     <div class="match-card">
       <div class="match-header"><span class="group-badge">${match.group?'Group '+match.group:match.round}</span><span class="match-num">Match ${g.currentMatchIdx+1}/${g.matches.length}</span></div>
@@ -1578,29 +1586,33 @@ async function renderWatchScreen(g){
         <div class="vs-badge">VS</div>
         <div class="team-block"><div class="team-flag-emoji">${flag(match.away,48)}</div><div class="team-name">${match.away}</div></div>
       </div>
-      ${canPredict?`
-        <div style="text-align:center;font-size:13px;font-weight:600;color:var(--accent);margin-bottom:12px;">🎯 Make your prediction</div>
-        <div class="prediction-buttons" style="grid-template-columns:1fr 1fr">
-          <button class="pred-btn" data-pred="home"><span>${flag(match.home,24)}</span>${match.home} win</button>
-          <button class="pred-btn" data-pred="away"><span>${flag(match.away,24)}</span>${match.away} win</button>
-        </div>
-      `:myPred?`
+      ${myPred?`
         <div style="text-align:center;margin-bottom:9px;font-size:12px;"><span style="color:var(--muted)">Your prediction: </span><span style="font-weight:600;color:${myPred==='home'?'var(--accent)':myPred==='away'?'var(--accent2)':'var(--muted)'}">${myPred==='home'?flag(match.home,16)+' '+match.home:myPred==='away'?flag(match.away,16)+' '+match.away:'<span style="font-weight:900">=</span> Draw'}</span></div>
-        <div style="text-align:center;font-size:11px;color:var(--muted)"><span class="spinner"></span>Waiting for result…</div>
       `:`
-        <div class="warn-box" style="text-align:center">No prediction recorded</div>
-        <div style="text-align:center;font-size:11px;color:var(--muted)"><span class="spinner"></span>Waiting for result…</div>
+        <div class="warn-box" style="text-align:center;margin-bottom:9px">No prediction recorded for this match</div>
       `}
+      ${isKO&&hasUnpredicted?`
+        <button class="btn btn-teal" id="predict-round-btn" style="margin-bottom:9px">🎯 Predict ${unpredicted.length} remaining ${match.round} match${unpredicted.length===1?'':'es'}</button>
+      `:''}
+      <div style="text-align:center;font-size:11px;color:var(--muted)"><span class="spinner"></span>Waiting for result…</div>
     </div>`;
-    if(canPredict){
-      area.querySelectorAll('.pred-btn').forEach(btn=>{
-        btn.addEventListener('click',async()=>{
-          const f=await loadGame(me.code);
-          if(!f.predictions[f.currentMatchIdx])f.predictions[f.currentMatchIdx]={};
-          f.predictions[f.currentMatchIdx][me.name]=btn.dataset.pred;
-          await saveGame(f);
-          renderWatchScreen(f);
+    if(isKO&&hasUnpredicted){
+      area.querySelector('#predict-round-btn').addEventListener('click',()=>{
+        stopPolling();
+        // Pre-populate draft with existing predictions for this round
+        koBulkDraft={};
+        roundMatches.forEach(({m,i})=>{
+          const existing=g.predictions[i]&&g.predictions[i][me.name];
+          if(existing) koBulkDraft[i]=existing;
         });
+        document.getElementById('bulk-player-name').textContent=me.name;
+        document.getElementById('bulk-round-label').textContent='Predicting '+match.round+' matches';
+        show('screen-bulk');
+        renderKOBulkForm(g, match.round);
+        // Override commit to return to watch screen after saving
+        const area2=document.getElementById('bulk-area');
+        const origCommit=()=>commitKOBulkFromWatch(g, match.round);
+        area2._watchCommit=origCommit;
       });
     }
   }
@@ -1884,7 +1896,11 @@ function renderKOBulkForm(g, round) {
 
   const sb = area.querySelector('#ko-bulk-submit-btn');
   if (rem > 0) { sb.disabled = true; sb.style.opacity = '0.42'; sb.style.cursor = 'not-allowed'; }
-  else { sb.disabled = false; sb.style.opacity = '1'; sb.style.cursor = 'pointer'; sb.addEventListener('click', () => commitKOBulk(g, round)); }
+  else { sb.disabled = false; sb.style.opacity = '1'; sb.style.cursor = 'pointer'; sb.addEventListener('click', () => {
+    const area2=document.getElementById('bulk-area');
+    if(area2&&area2._watchCommit) area2._watchCommit();
+    else commitKOBulk(g, round);
+  }); }
 
   const cb = area.querySelector('#ko-bulk-clear-btn');
   if (cb) cb.addEventListener('click', () => { koBulkDraft = {}; saveDraft(koBulkDraft); renderKOBulkForm(g, round); });
@@ -1920,6 +1936,29 @@ async function commitKOBulk(g, round) {
   } catch(e) {
     console.error('commitKOBulk failed', e);
     alert('Failed to save predictions: ' + e.message);
+    if (submitBtn) { submitBtn.textContent = 'Lock in my predictions ✓'; submitBtn.disabled = false; }
+  }
+}
+
+
+async function commitKOBulkFromWatch(g, round) {
+  const submitBtn = document.getElementById('ko-bulk-submit-btn');
+  if (submitBtn) { submitBtn.textContent = 'Saving…'; submitBtn.disabled = true; }
+  try {
+    const fresh = await loadGame(me.code);
+    if (!fresh) { alert('Could not load game.'); if (submitBtn) { submitBtn.textContent = 'Lock in my predictions ✓'; submitBtn.disabled = false; } return; }
+    Object.entries(koBulkDraft).forEach(([i, v]) => {
+      const idx = parseInt(i);
+      if (!fresh.predictions[idx]) fresh.predictions[idx] = {};
+      fresh.predictions[idx][me.name] = v;
+    });
+    await saveGame(fresh);
+    clearDraft();
+    // Return to watch screen
+    watchGame(fresh);
+  } catch(e) {
+    console.error('commitKOBulkFromWatch failed', e);
+    alert('Failed to save: ' + e.message);
     if (submitBtn) { submitBtn.textContent = 'Lock in my predictions ✓'; submitBtn.disabled = false; }
   }
 }
