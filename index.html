@@ -609,6 +609,34 @@ function renderBulkForm(g){
   const done=Object.keys(bulkDraft).length;
   const rem=gms.length-done;
 
+  // Count how many times each team has been picked as a winner across all submitted players + current draft
+  const MAX_PICKS = 5;
+  const teamPicks = {}; // teamName -> count of 'win' predictions
+  // Count already-submitted players
+  Object.values(g.predictions||{}).forEach(matchPreds=>{
+    Object.entries(matchPreds).forEach(([player, pred])=>{
+      if(pred==='home'||pred==='away'){
+        // find the match to get the team name
+        const matchEntry = gms.find(({i})=> g.predictions && g.predictions[i] && g.predictions[i][player]===pred);
+      }
+    });
+  });
+  // Simpler: iterate gms and count from g.predictions
+  gms.forEach(({m,i})=>{
+    const matchPreds = g.predictions[i]||{};
+    Object.entries(matchPreds).forEach(([player,pred])=>{
+      if(player===me.name) return; // don't count current player's submitted preds (they're in draft)
+      if(pred==='home'){teamPicks[m.home]=(teamPicks[m.home]||0)+1;}
+      else if(pred==='away'){teamPicks[m.away]=(teamPicks[m.away]||0)+1;}
+    });
+  });
+  // Add current player's own draft
+  gms.forEach(({m,i})=>{
+    const sel=bulkDraft[i];
+    if(sel==='home'){teamPicks[m.home]=(teamPicks[m.home]||0)+1;}
+    else if(sel==='away'){teamPicks[m.away]=(teamPicks[m.away]||0)+1;}
+  });
+
   let html=`<div class="bulk-progress-info"><span><span class="bulk-done-count">${done}</span>/${gms.length} predicted</span><span>${rem>0?rem+' left':'✓ All done!'}</span></div>
   <div class="card" style="padding:14px 18px;margin-bottom:12px;">`;
 
@@ -616,21 +644,28 @@ function renderBulkForm(g){
     html+=`<div class="bulk-group-header">GROUP ${grp}</div>`;
     gms.filter(({m})=>m.group===grp).forEach(({m,i:idx})=>{
       const sel=bulkDraft[idx];
+      const homeCount=teamPicks[m.home]||0;
+      const awayCount=teamPicks[m.away]||0;
+      // A team is at limit if it already has MAX_PICKS wins — unless the current pick IS that team (so you can change your mind)
+      const homeAtLimit = homeCount >= MAX_PICKS && sel!=='home';
+      const awayAtLimit = awayCount >= MAX_PICKS && sel!=='away';
+      const homeLabel = homeAtLimit ? `${flag(m.home)} <small style="font-size:10px">(${MAX_PICKS}/${MAX_PICKS})</small>` : flag(m.home);
+      const awayLabel = awayAtLimit ? `${flag(m.away)} <small style="font-size:10px">(${MAX_PICKS}/${MAX_PICKS})</small>` : flag(m.away);
       html+=`<div class="bulk-match-row${sel===undefined?' unpredicted':''}">
-        <div class="bulk-team"><span class="bulk-team-flag">${flag(m.home)}</span><span>${m.home}</span></div>
+        <div class="bulk-team"><span class="bulk-team-flag">${flag(m.home)}</span><span>${m.home}${homeAtLimit?` <span style="font-size:10px;color:var(--red)">(full)</span>`:homeCount>=MAX_PICKS-1&&sel!=='home'?` <span style="font-size:10px;color:var(--accent)">(${homeCount}/${MAX_PICKS})</span>`:''}</span></div>
         <div class="bulk-toggle">
-          <button data-idx="${idx}" data-val="home" class="${sel==='home'?'active-home':''}" title="${m.home} win" style="font-size:16px;padding:5px 9px;">${flag(m.home)}</button>
+          <button data-idx="${idx}" data-val="home" class="${sel==='home'?'active-home':''}" title="${m.home} win${homeAtLimit?' — limit reached':''}" style="font-size:16px;padding:5px 9px;${homeAtLimit?'opacity:0.3;cursor:not-allowed;':''}" ${homeAtLimit?'disabled':''}>${flag(m.home)}</button>
           <button data-idx="${idx}" data-val="draw" class="${sel==='draw'?'active-draw':''}" title="Draw" style="font-size:14px;padding:5px 8px;">🤝</button>
-          <button data-idx="${idx}" data-val="away" class="${sel==='away'?'active-away':''}" title="${m.away} win" style="font-size:16px;padding:5px 9px;">${flag(m.away)}</button>
+          <button data-idx="${idx}" data-val="away" class="${sel==='away'?'active-away':''}" title="${m.a} win${awayAtLimit?' — limit reached':''}" style="font-size:16px;padding:5px 9px;${awayAtLimit?'opacity:0.3;cursor:not-allowed;':''}" ${awayAtLimit?'disabled':''}>${flag(m.away)}</button>
         </div>
-        <div class="bulk-team away"><span>${m.away}</span><span class="bulk-team-flag">${flag(m.away)}</span></div>
+        <div class="bulk-team away"><span>${m.away}${awayAtLimit?` <span style="font-size:10px;color:var(--red)">(full)</span>`:awayCount>=MAX_PICKS-1&&sel!=='away'?` <span style="font-size:10px;color:var(--accent)">(${awayCount}/${MAX_PICKS})</span>`:''}</span><span class="bulk-team-flag">${flag(m.away)}</span></div>
       </div>`;
     });
   });
 
   html+=`</div>
     <div style="padding:12px 0 6px;border-top:0.5px solid var(--border);margin-top:10px;">
-      <div style="font-size:10px;color:var(--muted);text-align:center;margin-bottom:7px;letter-spacing:1px;">Tap home flag · 🤝 Draw · away flag</div>
+      <div style="font-size:10px;color:var(--muted);text-align:center;margin-bottom:7px;letter-spacing:1px;">Each team can only win <b>${MAX_PICKS}</b> times across all predictions · 🤝 = Draw</div>
       <button class="btn btn-primary" id="bulk-submit-btn">
         ${rem>0?'Predict '+rem+' more to continue':'Lock in my predictions ✓'}
       </button>
@@ -809,7 +844,7 @@ function renderResultEntry(g,match,area){
     f.players.forEach(p=>{
       if(p.eliminated)return;
       if(mp[p.name]===actual)p.correct++;
-      else{p.lives=Math.max(0,p.lives-1);if(p.lives===0)p.eliminated=true;}
+      else{p.lives=Math.max(0,p.lives-2);if(p.lives===0)p.eliminated=true;}
     });
     f.currentResult={home:h,away:a};
     f.status='reveal:'+f.currentMatchIdx;
