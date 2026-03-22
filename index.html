@@ -296,8 +296,13 @@
   <!-- BULK PREDICTION -->
   <div id="screen-bulk" class="screen">
     <div class="card" style="padding:14px 18px;margin-bottom:12px;">
-      <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:3px;" id="bulk-round-label">Predicting all group stage matches</div>
-      <div id="bulk-player-name" style="font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:2px;color:var(--accent);"></div>
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
+        <div>
+          <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:3px;" id="bulk-round-label">Predicting all group stage matches</div>
+          <div id="bulk-player-name" style="font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:2px;color:var(--accent);"></div>
+        </div>
+        <button id="bulk-quit-btn" style="display:none;flex-shrink:0;margin-top:2px" class="btn btn-secondary btn-sm" style="font-size:11px;letter-spacing:1px;color:var(--red);border-color:rgba(239,68,68,0.3)">✕ Quit</button>
+      </div>
     </div>
     <div id="bulk-area"></div>
   </div>
@@ -1065,6 +1070,8 @@ startPolling(async()=>{
 async function startBulk(g){
   bulkDraft={};
   document.getElementById('bulk-player-name').textContent=me.name+(me.role==='host'?' (Host)':'');
+  const bulkQuitBtn=document.getElementById('bulk-quit-btn');
+  if(bulkQuitBtn) bulkQuitBtn.style.display=me.role==='host'?'inline-block':'none';
   show('screen-bulk');
   // Silently restore any partial draft saved previously
   const saved=await loadDraft();
@@ -1776,6 +1783,13 @@ document.getElementById('play-again-btn').addEventListener('click',()=>{try{sess
 // ─── HISTORY CORRECTION ──────────────────────────────────────────────────────
 let historyReturnFn = null; // function to call when returning from history screen
 
+document.getElementById('bulk-quit-btn').addEventListener('click',()=>{
+  if(!confirm('Quit game and return to main menu? The game will remain saved and players can still rejoin.')) return;
+  stopPolling();
+  try{sessionStorage.removeItem('kf_me');}catch(e){}
+  me={};
+  show('screen-landing');
+});
 document.getElementById('quit-game-btn').addEventListener('click',()=>{
   if(!confirm('Quit game and return to main menu? The game will remain saved and players can still rejoin.')) return;
   stopPolling();
@@ -1957,6 +1971,8 @@ async function startKOBulk(g, round) {
   koBulkDraft = {};
   document.getElementById('bulk-player-name').textContent = me.name + (me.role === 'host' ? ' (Host)' : '');
   document.getElementById('bulk-round-label').textContent = 'Predicting ' + round + ' matches';
+  const bulkQuitBtnKO=document.getElementById('bulk-quit-btn');
+  if(bulkQuitBtnKO) bulkQuitBtnKO.style.display=me.role==='host'?'inline-block':'none';
   show('screen-bulk');
   // Restore any saved draft
   const saved = await loadDraft();
