@@ -1052,6 +1052,12 @@ async function pollPlayerLobby(){
   else if(g.status==='playing'){stopPolling();watchGame(g);}
 }
 
+// Force-start polling: detects when host has started the game
+startPolling(async()=>{
+  const f=await loadGame(me.code);if(!f)return;
+  if(f.status==='playing'){stopPolling();if(me.role==='host')enterGame(f);else watchGame(f);}
+},3000);
+
 // ─── BULK PREDICTION ─────────────────────────────────────────────────────────
 async function startBulk(g){
   bulkDraft={};
