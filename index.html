@@ -182,7 +182,7 @@
       <div class="flag-stripe" style="background:#cf142b"></div>
     </div>
     <h1>KAMIKAZE FOOTBALL WC'26</h1>
-    <p class="sub">Prediction Survival Game &nbsp;·&nbsp; <a href="wc2026-rules.html" target="_blank" class="rules-link">📖 Rules</a></p>
+    <p class="sub">Prediction Survival Game &nbsp;·&nbsp; <a href="wc2026-rules.html" target="_blank" class="rules-link">📖 Rules</a><span id="header-player-name" style="display:none"> &nbsp;·&nbsp; <span style="color:var(--accent)"></span></span></p>
     <div class="game-code-pill" id="game-code-pill">
       <span class="pill-label">Game code</span>
       <span class="pill-code" id="pill-code-display" title="Click to copy"></span>
@@ -865,6 +865,11 @@ function show(id){
     if(statsLink)statsLink.href=`wc2026-stats.html?code=${me.code}`;
   }
   else{pill.style.display='none';}
+  const nameEl=document.getElementById('header-player-name');
+  if(nameEl){
+    if(me.name){nameEl.style.display='inline';nameEl.querySelector('span').textContent=me.name;}
+    else{nameEl.style.display='none';}
+  }
 }
 function stopPolling(){if(pollTimer){clearInterval(pollTimer);pollTimer=null;}}
 function startPolling(fn,ms=2500){stopPolling();fn();pollTimer=setInterval(fn,ms);}
