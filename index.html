@@ -186,8 +186,8 @@
     <div class="game-code-pill" id="game-code-pill">
       <span class="pill-label">Game code</span>
       <span class="pill-code" id="pill-code-display" title="Click to copy"></span>
-      <span class="pill-copy" id="pill-copy-btn">📋 copy</span>
-      <a id="pill-stats-link" href="#" target="_blank" style="font-size:11px;color:var(--accent2);text-decoration:none;padding:4px 8px;border-radius:6px;transition:color 0.2s" title="Open live stats">📊 stats</a>
+      <span class="pill-copy" id="pill-copy-btn">📋 Copy</span>
+      <a id="pill-stats-link" href="#" target="_blank" style="font-size:11px;color:var(--accent2);text-decoration:none;padding:4px 8px;border-radius:6px;transition:color 0.2s" title="Open live stats">📊 Stats</a>
     </div>
   </div>
 
@@ -933,7 +933,7 @@ document.getElementById('pill-copy-btn').addEventListener('click',()=>{
   navigator.clipboard.writeText(me.code).then(()=>{
     const btn=document.getElementById('pill-copy-btn');
     btn.textContent='✓ copied!';btn.style.color='var(--green)';
-    setTimeout(()=>{btn.textContent='📋 copy';btn.style.color='';},2000);
+    setTimeout(()=>{btn.textContent='📋 Copy';btn.style.color='';},2000);
   }).catch(()=>prompt('Game code:',me.code));
 });
 document.getElementById('pill-code-display').addEventListener('click',()=>{
@@ -2284,7 +2284,7 @@ document.getElementById('pill-copy-btn').addEventListener('click',()=>{
   navigator.clipboard.writeText(me.code).then(()=>{
     const btn=document.getElementById('pill-copy-btn');
     btn.textContent='✓ copied!';btn.style.color='var(--green)';
-    setTimeout(()=>{btn.textContent='📋 copy';btn.style.color='';},2000);
+    setTimeout(()=>{btn.textContent='📋 Copy';btn.style.color='';},2000);
   }).catch(()=>prompt('Game code:',me.code));
 });
 document.getElementById('pill-code-display').addEventListener('click',()=>{
