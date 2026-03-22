@@ -762,6 +762,9 @@ function renderRoster(g,elId){
 
 // ─── LANDING ─────────────────────────────────────────────────────────────────
 document.getElementById('role-host').addEventListener("click",async()=>{
+  const pin=prompt('Enter host PIN:');
+  if(pin===null)return;
+  if(pin!=='2416'){alert('Incorrect PIN.');return;}
   me.role='host'; show('screen-host-setup');
 });
 document.getElementById('role-player').addEventListener("click",async()=>{me.role='player';show('screen-player-join');});
