@@ -1163,6 +1163,13 @@ async function enterGame(g){
       renderScoreboard(f,'players-grid');
       return;
     }
+    // Don't re-render if host is mid result-entry (score inputs are visible)
+    const scoreHome=document.getElementById('score-home');
+    const scoreAway=document.getElementById('score-away');
+    if(scoreHome||scoreAway){
+      renderScoreboard(f,'players-grid');
+      return;
+    }
     // During KO prediction collection, re-render so host sees incoming picks
     // and automatically advances to result entry once all predictions are in
     const match=f.matches[f.currentMatchIdx];
