@@ -1927,7 +1927,7 @@ async function correctHistoricResult(g, targetIdx) {
       fresh.players.forEach(p => {
         if (p.eliminated) return;
         if (preds[p.name] === actual) { p.correct++; }
-        else if(mp[p.name]!==undefined){ p.lives = Math.max(0, p.lives - 1); if (p.lives === 0) p.eliminated = true; }
+        else if(preds[p.name]!==undefined){ p.lives = Math.max(0, p.lives - 1); if (p.lives === 0) p.eliminated = true; }
         else { p.lives = Math.max(0, p.lives - 2); if (p.lives === 0) p.eliminated = true; }
       });
 
