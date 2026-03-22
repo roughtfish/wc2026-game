@@ -93,6 +93,12 @@
   .result-section h3{font-family:'Bebas Neue',sans-serif;font-size:13px;letter-spacing:2px;color:var(--muted);margin-bottom:11px}
   .score-input-row{display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:12px}
   .score-input-row .team-label{font-size:12px;font-weight:600;width:85px;text-align:center;line-height:1.3}
+  .pen-section{margin-top:14px;padding-top:14px;border-top:1px solid var(--border);display:none;text-align:center}
+  .pen-section h3{font-family:'Bebas Neue',sans-serif;font-size:13px;letter-spacing:2px;color:var(--accent);margin-bottom:11px}
+  .pen-buttons{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+  .pen-btn{padding:11px;border:1.5px solid var(--border);border-radius:8px;background:var(--surface2);color:var(--text);cursor:pointer;font-family:inherit;font-size:12px;font-weight:600;transition:all 0.2s;display:flex;align-items:center;justify-content:center;gap:7px}
+  .pen-btn:hover{border-color:var(--accent)}
+  .pen-btn.active{border-color:var(--accent);background:rgba(232,184,75,0.12);color:var(--accent)}
   .score-input-row input{width:58px;height:58px;text-align:center;font-size:24px;font-family:'Bebas Neue',sans-serif;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);outline:none}
   .score-input-row input:focus{border-color:var(--accent)}
   .score-dash{font-family:'Bebas Neue',sans-serif;font-size:30px;color:var(--muted)}
@@ -1305,6 +1311,7 @@ function renderKOPredCollect(g,match,area,preds,alive){
 
 function renderResultEntry(g,match,area){
   const preds=g.predictions[g.currentMatchIdx]||{};
+  const isKO=!match.group;
   area.innerHTML=`<div class="round-label">${match.group?'Group '+match.group:match.round}</div>
   <div class="match-card">
     <div class="match-header"><span class="group-badge">${match.group?'Group '+match.group:match.round}</span><span class="match-num">Match ${g.currentMatchIdx+1}/${g.matches.length}</span></div>
@@ -1328,13 +1335,43 @@ function renderResultEntry(g,match,area){
         <input type="number" id="score-away" min="0" max="20" value="0">
         <div class="team-label">${flag(match.away,40)}<div style="margin-top:5px">${match.away}</div></div>
       </div>
-      <button class="btn btn-teal" id="submit-result-btn">CONFIRM RESULT & REVEAL</button>
+      ${isKO?`<div class="pen-section" id="pen-section">
+        <h3>WHO WON ON PENALTIES?</h3>
+        <div class="pen-buttons">
+          <button class="pen-btn" data-pen="home">${flag(match.home,20)} ${match.home}</button>
+          <button class="pen-btn" data-pen="away">${flag(match.away,20)} ${match.away}</button>
+        </div>
+      </div>`:''}
+      <button class="btn btn-teal" id="submit-result-btn" style="margin-top:14px">CONFIRM RESULT & REVEAL</button>
     </div>
   </div>`;
+
+  // Show/hide pen section when scores are equal (KO only)
+  if(isKO){
+    const penSection=area.querySelector('#pen-section');
+    const checkDraw=()=>{
+      const h=parseInt(document.getElementById('score-home').value)||0;
+      const a=parseInt(document.getElementById('score-away').value)||0;
+      penSection.style.display=h===a?'block':'none';
+      if(h!==a) area.querySelectorAll('.pen-btn').forEach(b=>b.classList.remove('active'));
+    };
+    area.querySelector('#score-home').addEventListener('input',checkDraw);
+    area.querySelector('#score-away').addEventListener('input',checkDraw);
+    area.querySelectorAll('.pen-btn').forEach(btn=>{
+      btn.addEventListener('click',()=>{
+        area.querySelectorAll('.pen-btn').forEach(b=>b.classList.remove('active'));
+        btn.classList.add('active');
+      });
+    });
+  }
+
   area.querySelector('#submit-result-btn').addEventListener("click",async()=>{
     const h=parseInt(document.getElementById('score-home').value)||0;
     const a=parseInt(document.getElementById('score-away').value)||0;
-    const actual=h>a?'home':a>h?'away':'draw';
+    const penWinner=area.querySelector('.pen-btn.active')?.dataset?.pen||null;
+    // Block submission if KO and draw but no pen winner selected
+    if(isKO&&h===a&&!penWinner){alert('Please select the penalty shootout winner.');return;}
+    const actual=h>a?'home':a>h?'away':(penWinner||'draw');
     const f=await loadGame(me.code);
     const mp=f.predictions[f.currentMatchIdx]||{};
     f.players.forEach(p=>{
@@ -1342,10 +1379,10 @@ function renderResultEntry(g,match,area){
       if(mp[p.name]===actual)p.correct++;
       else{p.lives=Math.max(0,p.lives-2);if(p.lives===0)p.eliminated=true;}
     });
-    f.currentResult={home:h,away:a};
+    f.currentResult={home:h,away:a,penWinner:penWinner||undefined};
     // Store result for standings calculation
     if(!f.results)f.results={};
-    f.results[f.currentMatchIdx]={home:h,away:a};
+    f.results[f.currentMatchIdx]={home:h,away:a,...(penWinner?{penWinner}:{})};
     // Auto-populate KO bracket
     const curMatch=f.matches[f.currentMatchIdx];
     if(curMatch.group){
@@ -1365,12 +1402,21 @@ function renderResultEntry(g,match,area){
   });
 }
 
+
+// Determine actual outcome from a result — respects penalty winner for KO draws
+function actualOutcome(r){
+  if(r.home>r.away)return'home';
+  if(r.away>r.home)return'away';
+  if(r.penWinner)return r.penWinner; // KO draw decided by pens
+  return'draw';
+}
+
 function reverseResult(g, matchIdx){
   // Undo the scoring for this match so we can re-apply with a corrected score
   const preds=g.predictions[matchIdx]||{};
   const r=g.results[matchIdx];
   if(!r)return;
-  const actual=r.home>r.away?'home':r.away>r.home?'away':'draw';
+  const actual=actualOutcome(r);
   g.players.forEach(p=>{
     const v=preds[p.name];
     if(v===actual){
@@ -1403,8 +1449,8 @@ async function renderReveal(g){
   renderScoreboard(g,'players-grid');
   const match=g.matches[g.currentMatchIdx];
   const r=g.currentResult;
-  const actual=r.home>r.away?'home':r.away>r.home?'away':'draw';
-  const lbl=actual==='home'?flag(match.home,16)+' '+match.home:actual==='away'?flag(match.away,16)+' '+match.away:'<span style="font-weight:900">=</span> Draw';
+  const actual=actualOutcome(r);
+  const penNote=r.penWinner?` <span style="font-size:11px;color:var(--muted)">(pens)</span>`:''; const lbl=actual==='home'?flag(match.home,16)+' '+match.home+penNote:actual==='away'?flag(match.away,16)+' '+match.away+penNote:'<span style="font-weight:900">=</span> Draw';
   const preds=g.predictions[g.currentMatchIdx]||{};
   const area=document.getElementById('match-area');
   const alive=g.players.filter(p=>!p.eliminated);
@@ -1462,8 +1508,8 @@ async function renderWatchScreen(g){
 
   if(isReveal&&g.currentResult){
     const r=g.currentResult;
-    const actual=r.home>r.away?'home':r.away>r.home?'away':'draw';
-    const lbl=actual==='home'?flag(match.home,16)+' '+match.home:actual==='away'?flag(match.away,16)+' '+match.away:'<span style="font-weight:900">=</span> Draw';
+    const actual=actualOutcome(r);
+    const penNote=r.penWinner?` <span style="font-size:11px;color:var(--muted)">(pens)</span>`:''; const lbl=actual==='home'?flag(match.home,16)+' '+match.home+penNote:actual==='away'?flag(match.away,16)+' '+match.away+penNote:'<span style="font-weight:900">=</span> Draw';
     area.innerHTML=`<div class="round-label">${match.group?'Group '+match.group:match.round}</div>
     <div class="match-card">
       <div class="match-header"><span class="group-badge">${match.group?'Group '+match.group:match.round}</span><span class="match-num">Match ${g.currentMatchIdx+1}/${g.matches.length}</span></div>
@@ -1631,6 +1677,8 @@ async function correctHistoricResult(g, targetIdx) {
   document.getElementById('correct-confirm-btn').addEventListener('click', async () => {
     const newHome = parseInt(document.getElementById('correct-home').value) || 0;
     const newAway = parseInt(document.getElementById('correct-away').value) || 0;
+    const newPenWinner = list.querySelector('.pen-btn.active')?.dataset?.pen || null;
+    if(isKOMatch && newHome===newAway && !newPenWinner){alert('Please select the penalty shootout winner.');return;}
     const btn = document.getElementById('correct-confirm-btn');
     btn.textContent = 'Saving…'; btn.disabled = true;
 
@@ -1644,7 +1692,7 @@ async function correctHistoricResult(g, targetIdx) {
     });
 
     // Apply correction to stored results
-    fresh.results[targetIdx] = { home: newHome, away: newAway };
+    fresh.results[targetIdx] = { home: newHome, away: newAway, ...(newPenWinner?{penWinner:newPenWinner}:{}) };
 
     // Reset KO bracket to TBD before re-populating
     fresh.matches.forEach(m => { if (!m.group) { m.home = 'TBD'; m.away = 'TBD'; m.koSlot = true; } });
@@ -1656,7 +1704,7 @@ async function correctHistoricResult(g, targetIdx) {
     playedIdxs.forEach(idx => {
       const match = fresh.matches[idx];
       const res = fresh.results[idx];
-      const actual = res.home > res.away ? 'home' : res.away > res.home ? 'away' : 'draw';
+      const actual = actualOutcome(res);
       const preds = fresh.predictions[idx] || {};
 
       // Score players
