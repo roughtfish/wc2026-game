@@ -1145,9 +1145,10 @@ function renderBulkForm(g){
   // Count draws in current player's draft
   const drawCount = gms.filter(({i})=>bulkDraft[i]==='draw').length;
   const drawAtLimit = drawCount >= MAX_DRAWS;
+  const scoreCount = Object.keys(scoreDraft).length;
 
   let html=`<div class="bulk-progress-info"><span><span class="bulk-done-count">${done}</span>/${gms.length} predicted</span><span>${rem>0?rem+' left':'✓ All done!'}</span></div>
-  <div class="draw-float"><span class="draw-float-pill${drawAtLimit?' full':drawCount>=MAX_DRAWS-4?' warn':''}">= ${drawCount} / ${MAX_DRAWS} draws</span></div>
+  <div class="draw-float" style="gap:8px"><span class="draw-float-pill${drawAtLimit?' full':drawCount>=MAX_DRAWS-4?' warn':''}">= ${drawCount} / ${MAX_DRAWS} draws</span><span class="draw-float-pill${scoreCount>=12?' full':scoreCount>=10?' warn':''}">🎯 ${scoreCount} / 12 scores</span></div>
   <div class="card" style="padding:14px 18px;margin-bottom:12px;">`;
 
   groups.forEach(grp=>{
@@ -1171,10 +1172,15 @@ function renderBulkForm(g){
           <button data-idx="${idx}" data-val="away" class="${sel==='away'?'active-away':''}" title="${m.a} win${awayAtLimit?' — limit reached':''}" style="font-size:16px;padding:5px 9px;${awayAtLimit?'opacity:0.3;cursor:not-allowed;':''}" ${awayAtLimit?'disabled':''}>${flag(m.away,20)}</button>
         </div>
         <div class="bulk-team away"><span style="font-size:10px;color:${awayAtLimit?'var(--red)':awayCount>=MAX_PICKS-1?'var(--accent)':'var(--muted)'};margin-right:4px;font-weight:600">${awayCount}/${MAX_PICKS}</span><span>${m.away}</span><span class="bulk-team-flag">${flag(m.away,20)}</span></div>
-        ${sel!==undefined?`<div class="score-predict-row">
-          <button class="score-predict-toggle${hasScore?' active':''}" data-score-idx="${idx}">${hasScore?'✓ Score: '+sc.home+'–'+sc.away:'+1 ❤️ Predict score'}</button>
-          ${hasScore?`<div class="score-inputs">${flag(m.home,16)}<input type="number" class="score-input-mini" data-score-home="${idx}" value="${sc.home}" min="0" max="20">&ndash;<input type="number" class="score-input-mini" data-score-away="${idx}" value="${sc.away}" min="0" max="20">${flag(m.away,16)}<span class="score-bonus-badge">+1 ❤️</span></div>`:''}
-        </div>`:''}
+        ${sel!==undefined?(()=>{
+          const groupScoreKeys=Object.keys(scoreDraft).filter(k=>g.matches[parseInt(k)]?.group===m.group);
+          const groupHasOtherScore=groupScoreKeys.length>0&&!scoreDraft[idx];
+          return `<div class="score-predict-row">
+            <button class="score-predict-toggle${sc?' active':''}" data-score-idx="${idx}" ${groupHasOtherScore&&!sc?'disabled title="Already predicting a score in this group"':''}>${sc?'✓ Score: '+sc.home+'–'+sc.away:groupHasOtherScore?'Score used':'🎯 +1 ❤️ Predict score'}</button>
+            ${sc?`<div class="score-inputs">${flag(m.home,16)}<input type="number" class="score-input-mini" data-score-home="${idx}" value="${sc.home}" min="0" max="20">&ndash;<input type="number" class="score-input-mini" data-score-away="${idx}" value="${sc.away}" min="0" max="20">${flag(m.away,16)}<span class="score-bonus-badge">+1 ❤️</span></div>`:''}
+          </div>`;
+        })():''
+        }
       </div>`;
     });
   });
@@ -1239,6 +1245,11 @@ function renderBulkForm(g){
       if(scoreDraft[idx]){
         delete scoreDraft[idx];
       } else {
+        // Enforce one per group — clear any existing score pick in the same group
+        const grp=g.matches[idx]?.group;
+        Object.keys(scoreDraft).forEach(k=>{
+          if(g.matches[parseInt(k)]?.group===grp) delete scoreDraft[parseInt(k)];
+        });
         scoreDraft[idx]={home:1,away:0};
       }
       saveDraft({...bulkDraft,__scores:scoreDraft});
