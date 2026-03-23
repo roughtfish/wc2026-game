@@ -1146,8 +1146,12 @@ function renderBulkForm(g){
   const MAX_DRAWS = 24;
   const teamPicks = {}; // teamName -> count of THIS player's win predictions
   // Count from this player's already-submitted predictions (not in draft yet)
+  // KO pen wins don't count toward the 5-pick limit
   gms.forEach(({m,i})=>{
     const pred=(g.predictions[i]||{})[me.name];
+    if(!pred) return;
+    const r=(g.results||{})[i];
+    if(r&&r.penWinner&&!m.group) return; // pen win — doesn't count
     if(pred==='home'){teamPicks[m.home]=(teamPicks[m.home]||0)+1;}
     else if(pred==='away'){teamPicks[m.away]=(teamPicks[m.away]||0)+1;}
   });
@@ -2207,13 +2211,18 @@ function renderKOBulkForm(g, round) {
   }, []);
 
   // Count picks for THIS player only across all matches (group + previous KO rounds)
+  // KO pen wins don't count toward the 5-pick limit
   const teamPicks = {};
   g.matches.forEach((m, i) => {
     const pred = (g.predictions[i] || {})[me.name];
     const winner = pred === 'home' ? m.home : pred === 'away' ? m.away : null;
-    if (winner) teamPicks[winner] = (teamPicks[winner] || 0) + 1;
+    if (!winner) return;
+    // If this KO match has a result and was decided on pens, don't count it
+    const r = (g.results || {})[i];
+    if (r && r.penWinner && !m.group) return;
+    teamPicks[winner] = (teamPicks[winner] || 0) + 1;
   });
-  // Add current draft picks
+  // Add current draft picks (predictions not yet played — always count)
   gms.forEach(({ m, i }) => {
     const sel = koBulkDraft[i];
     if (sel === 'home') teamPicks[m.home] = (teamPicks[m.home] || 0) + 1;
@@ -2261,7 +2270,7 @@ function renderKOBulkForm(g, round) {
   const isWatchModeKO = !!area._watchCommit;
   html += `</div>
     <div style="padding:12px 0 6px;border-top:0.5px solid var(--border);margin-top:10px;">
-      <div style="font-size:10px;color:var(--muted);text-align:center;margin-bottom:7px;letter-spacing:1px;">Each team can only win <b>5</b> times across all predictions · No draws in knockout rounds</div>
+      <div style="font-size:10px;color:var(--muted);text-align:center;margin-bottom:7px;letter-spacing:1px;">Each team can only win <b>5</b> times across all predictions · Pen wins don't count · No draws in knockout rounds</div>
       <button class="btn btn-primary" id="ko-bulk-submit-btn">${rem > 0 ? 'Predict ' + rem + ' more to continue' : 'Lock in my predictions ✓'}</button>
       ${done > 0 ? '<button class="btn btn-secondary" id="ko-bulk-clear-btn" style="margin-top:8px;font-size:13px;letter-spacing:1px;opacity:0.7;">↺ Reset Picks!</button>' : ''}
       ${isWatchModeKO ? '<button class="btn btn-secondary" id="ko-bulk-back-btn" style="margin-top:8px">← Back</button>' : ''}
