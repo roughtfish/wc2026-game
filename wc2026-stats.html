@@ -183,7 +183,6 @@
       <button class="filter-btn active" data-filter="all">All</button>
       <button class="filter-btn" data-filter="group">Group Stage</button>
       <button class="filter-btn" data-filter="ko">Knockout</button>
-      <button class="filter-btn" data-filter="wrong">Wrong picks</button>
       <button class="export-btn" id="export-csv-btn">⬇ Export CSV</button>
     </div>
     <div id="history-rounds"></div>
@@ -818,15 +817,6 @@ function renderHistory(g){
     if (!match) return false;
     if (currentFilter === 'group') return !!match.group;
     if (currentFilter === 'ko') return !match.group;
-    if (currentFilter === 'wrong') {
-      const r = results[idx];
-      const actual = actualOutcome(r);
-      const preds = g.predictions[idx] || {};
-      return players.some(p => {
-        const v = preds[p.name];
-        return v != null && v !== actual;
-      });
-    }
     return true;
   });
 
