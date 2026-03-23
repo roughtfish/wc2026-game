@@ -57,6 +57,14 @@
   .life-bar{height:100%;border-radius:2px;transition:width 0.4s ease}
   /* Match history table */
   .history-wrap{overflow-x:auto;margin-bottom:0}
+  .chart-wrap{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px 16px 12px;margin-bottom:22px}
+  .chart-canvas{width:100%;height:200px}
+  .history-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+  .filter-btn{font-size:11px;letter-spacing:1px;padding:4px 10px;border:1px solid var(--border);border-radius:6px;background:transparent;color:var(--muted);cursor:pointer;transition:all 0.15s;font-family:'DM Sans',sans-serif}
+  .filter-btn:hover{color:var(--accent2);border-color:var(--accent2)}
+  .filter-btn.active{color:var(--accent2);border-color:var(--accent2);background:rgba(45,212,191,0.08)}
+  .export-btn{margin-left:auto;font-size:11px;letter-spacing:1px;padding:4px 10px;border:1px solid var(--border);border-radius:6px;background:transparent;color:var(--muted);cursor:pointer;font-family:'DM Sans',sans-serif;transition:all 0.15s}
+  .export-btn:hover{color:var(--accent);border-color:var(--accent)}
   .round-section{margin-bottom:16px;border:1px solid var(--border);border-radius:10px;overflow:hidden}
   .round-section-header{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;cursor:pointer;background:var(--surface2);user-select:none}
   .round-section-header:hover{background:rgba(255,255,255,0.04)}
@@ -137,7 +145,16 @@
     <div class="refresh-note"><span class="spinner"></span>Auto-refreshing every 10s &nbsp;·&nbsp; <span id="last-updated"></span></div>
     <div class="section-title">STANDINGS</div>
     <div class="leaderboard" id="leaderboard"></div>
+    <div class="section-title">LIVES OVER TIME</div>
+    <div class="chart-wrap"><canvas id="lives-chart" class="chart-canvas"></canvas></div>
     <div class="section-title">MATCH HISTORY</div>
+    <div class="history-controls">
+      <button class="filter-btn active" data-filter="all">All</button>
+      <button class="filter-btn" data-filter="group">Group Stage</button>
+      <button class="filter-btn" data-filter="ko">Knockout</button>
+      <button class="filter-btn" data-filter="wrong">Wrong picks</button>
+      <button class="export-btn" id="export-csv-btn">⬇ Export CSV</button>
+    </div>
     <div id="history-rounds"></div>
   </div>
 </div>
@@ -259,12 +276,137 @@ function render(g){
   const subEl=document.querySelector('.header .sub');
   if(subEl)subEl.innerHTML=`Live Stats &nbsp;·&nbsp; <span class="status-chip ${statusClass}">${statusLabel}</span>`;
   renderLeaderboard(g);
+  renderLivesChart(g);
   renderHistory(g);
   }catch(e){
     console.error('render failed',e);
     document.getElementById('leaderboard').innerHTML=`<div style="color:red;padding:12px;font-size:12px">Render error: ${e.message}</div>`;
   }
 }
+
+// ─── LIVES CHART ─────────────────────────────────────────────────────────────
+function renderLivesChart(g){
+  const canvas=document.getElementById('lives-chart');
+  if(!canvas)return;
+  const results=g.results||{};
+  const playedIdxs=Object.keys(results).map(Number).filter(n=>!isNaN(n)&&results[n]!=null).sort((a,b)=>a-b);
+  if(playedIdxs.length===0){canvas.style.display='none';return;}
+  canvas.style.display='block';
+  const dpr=window.devicePixelRatio||1;
+  const W=canvas.offsetWidth||800, H=200;
+  canvas.width=W*dpr; canvas.height=H*dpr;
+  canvas.style.width=W+'px'; canvas.style.height=H+'px';
+  const ctx=canvas.getContext('2d');
+  ctx.scale(dpr,dpr);
+  ctx.clearRect(0,0,W,H);
+
+  const PAD={t:16,r:16,b:28,l:36};
+  const cW=W-PAD.l-PAD.r, cH=H-PAD.t-PAD.b;
+
+  // Build lives timeline per player
+  const players=g.players;
+  const maxLives=g.lives;
+  const PLAYER_COLORS=['#e8b84b','#2dd4bf','#ef4444','#a78bfa','#34d399','#f97316','#60a5fa','#f472b6'];
+
+  // Compute lives at each match result
+  const timelines={}; // playerName -> [lives after each match]
+  players.forEach(p=>{timelines[p.name]=[g.lives];});
+
+  // replay
+  const tempPlayers=players.map(p=>({name:p.name,lives:g.lives,correct:0,eliminated:false}));
+  playedIdxs.forEach(idx=>{
+    const r=results[idx];
+    const actual=actualOutcome(r);
+    const preds=g.predictions[idx]||{};
+    tempPlayers.forEach(p=>{
+      if(p.eliminated)return;
+      const v=preds[p.name];
+      if(v===actual)p.correct++;
+      else if(v!=null){p.lives=Math.max(0,p.lives-1);if(p.lives===0)p.eliminated=true;}
+      else{p.lives=Math.max(0,p.lives-2);if(p.lives===0)p.eliminated=true;}
+      const sc=preds[p.name+'_score'];
+      if(sc&&sc.home===r.home&&sc.away===r.away)p.lives++;
+      timelines[p.name].push(p.lives);
+    });
+  });
+
+  const pts=playedIdxs.length+1;
+  const xStep=pts>1?cW/(pts-1):cW;
+
+  // Y gridlines
+  ctx.strokeStyle='rgba(255,255,255,0.05)'; ctx.lineWidth=1;
+  [0,0.25,0.5,0.75,1].forEach(f=>{
+    const y=PAD.t+cH*(1-f);
+    ctx.beginPath();ctx.moveTo(PAD.l,y);ctx.lineTo(PAD.l+cW,y);ctx.stroke();
+    ctx.fillStyle='rgba(255,255,255,0.2)';ctx.font='9px DM Sans';ctx.textAlign='right';
+    ctx.fillText(Math.round(f*maxLives),PAD.l-4,y+3);
+  });
+
+  // Lines per player
+  players.forEach((p,pi)=>{
+    const col=PLAYER_COLORS[pi%PLAYER_COLORS.length];
+    const tl=timelines[p.name];
+    ctx.beginPath();ctx.strokeStyle=col;ctx.lineWidth=2;ctx.lineJoin='round';
+    tl.forEach((lives,i)=>{
+      const x=PAD.l+(pts>1?i*cW/(pts-1):0);
+      const y=PAD.t+cH*(1-lives/maxLives);
+      i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+    });
+    ctx.stroke();
+    // Last point dot
+    const lastX=PAD.l+(tl.length>1?(tl.length-1)*cW/(pts-1):0);
+    const lastY=PAD.t+cH*(1-tl[tl.length-1]/maxLives);
+    ctx.beginPath();ctx.arc(lastX,lastY,3,0,Math.PI*2);ctx.fillStyle=col;ctx.fill();
+  });
+
+  // Legend
+  const legX=PAD.l, legY=H-10;
+  players.forEach((p,pi)=>{
+    const col=PLAYER_COLORS[pi%PLAYER_COLORS.length];
+    const offset=pi*(Math.min(80,cW/players.length));
+    ctx.fillStyle=col; ctx.fillRect(legX+offset,legY-7,10,3);
+    ctx.fillStyle='rgba(255,255,255,0.5)';ctx.font='9px DM Sans';ctx.textAlign='left';
+    ctx.fillText(p.name.length>8?p.name.slice(0,7)+'…':p.name,legX+offset+13,legY);
+  });
+}
+
+// ─── HISTORY FILTERS ─────────────────────────────────────────────────────────
+let currentFilter='all';
+document.addEventListener('click',e=>{
+  const btn=e.target.closest('.filter-btn');
+  if(!btn)return;
+  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  currentFilter=btn.dataset.filter;
+  if(currentGame)renderHistory(currentGame);
+});
+
+// ─── CSV EXPORT ──────────────────────────────────────────────────────────────
+document.addEventListener('click',e=>{
+  if(!e.target.closest('#export-csv-btn'))return;
+  const g=currentGame;if(!g)return;
+  const results=g.results||{};
+  const players=[...g.players].sort((a,b)=>b.lives-a.lives||b.correct-a.correct);
+  const playedIdxs=Object.keys(results).map(Number).filter(n=>!isNaN(n)&&results[n]!=null).sort((a,b)=>a-b);
+  const header=['Match','Round','Home','Away','Score','Result',...players.map(p=>p.name+'_pick'),...players.map(p=>p.name+'_score_pred')];
+  const rows=playedIdxs.map(idx=>{
+    const m=g.matches[idx];if(!m)return null;
+    const r=results[idx];
+    const actual=actualOutcome(r);
+    const round=m.group?'Group '+m.group:(m.round||'KO');
+    const score=r.home+'-'+r.away+(r.penWinner?' (pens)':'');
+    const result=actual==='home'?m.home:actual==='away'?m.away:'Draw';
+    const picks=players.map(p=>{const v=(g.predictions[idx]||{})[p.name];return v==null?'':v==='home'?m.home:v==='away'?m.away:'Draw';});
+    const scorePreds=players.map(p=>{const sc=(g.predictions[idx]||{})[p.name+'_score'];return sc?sc.home+'-'+sc.away:'';});
+    return[parseInt(idx)+1,round,m.home,m.away,score,result,...picks,...scorePreds];
+  }).filter(Boolean);
+  const csv=[header,...rows].map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\n');
+  const blob=new Blob([csv],{type:'text/csv'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='kf-wc26-'+g.code+'.csv';
+  a.click();
+});
 
 function closeModal(){document.getElementById('player-modal').style.display='none';}
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
@@ -432,10 +574,33 @@ function renderHistory(g){
     return;
   }
 
+  // Apply filter
+  const filteredIdxs = playedIdxs.filter(idx => {
+    const match = g.matches[idx];
+    if (!match) return false;
+    if (currentFilter === 'group') return !!match.group;
+    if (currentFilter === 'ko') return !match.group;
+    if (currentFilter === 'wrong') {
+      const r = results[idx];
+      const actual = actualOutcome(r);
+      const preds = g.predictions[idx] || {};
+      return players.some(p => {
+        const v = preds[p.name];
+        return v != null && v !== actual;
+      });
+    }
+    return true;
+  });
+
+  if(filteredIdxs.length===0){
+    container.innerHTML='<div style="color:var(--muted);font-size:13px;text-align:center;padding:24px">No matches match this filter</div>';
+    return;
+  }
+
   // Group indices by round label
   const roundOrder = [];
   const roundMap = {};
-  playedIdxs.forEach(idx => {
+  filteredIdxs.forEach(idx => {
     const match = g.matches[idx];
     if (!match) return;
     const label = match.group ? 'Group Stage' : (match.round || 'KO');
