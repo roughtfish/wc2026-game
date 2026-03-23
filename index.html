@@ -610,10 +610,42 @@ function populateKnockoutsOnly(g){
 }
 
 // ─── AUTO-FILL PREDICTIONS (test mode) ───────────────────────────────────────
+// FIFA ratings for weighted predictions
+const FIFA_RATINGS={
+  'Spain':1900,'Argentina':1870,'France':1840,'England':1810,'Brazil':1790,
+  'Portugal':1770,'Netherlands':1750,'Morocco':1720,'Belgium':1700,'Germany':1690,
+  'Croatia':1660,'Senegal':1640,'Italy':1630,'Colombia':1620,'USA':1590,
+  'Mexico':1580,'Uruguay':1560,'Switzerland':1550,'Japan':1530,'Ecuador':1490,
+  'South Korea':1480,'Austria':1470,'Turkey':1420,'Ivory Coast':1430,'Algeria':1440,
+  'Denmark':1440,'Czechia':1430,'Australia':1450,'Norway':1430,'Canada':1420,
+  'Ghana':1410,'Paraguay':1410,'Poland':1410,'Sweden':1400,'Albania':1380,
+  'Scotland':1380,'Ukraine':1390,'Wales':1370,'Bosnia':1350,'Kosovo':1350,
+  'Romania':1360,'Slovakia':1350,'Northern Ireland':1320,'Panama':1400,
+  'Saudi Arabia':1330,'Jordan':1320,'Iran':1510,'New Zealand':1310,
+  'Cape Verde':1340,'Haiti':1350,'South Africa':1300,'Qatar':1270,
+  'Uzbekistan':1260,'Curacao':1250,'DR Congo':1380,'Jamaica':1310,
+  'New Caledonia':1200,'Iraq':1290,'Bolivia':1290,'Suriname':1240,
+};
+function fifaRating(t){return FIFA_RATINGS[t]||1350;}
+
+function weightedPick(hTeam,aTeam,canHome,canAway,canDraw,isKO){
+  const hr=fifaRating(hTeam), ar=fifaRating(aTeam);
+  const diff=(hr-ar)/400;
+  let hW=Math.max(0.05,Math.min(0.85,0.40+diff*0.35));
+  let aW=Math.max(0.05,Math.min(0.85,0.40-diff*0.35));
+  let dW=isKO?0:Math.max(0.05,1-hW-aW)*0.85;
+  if(!canHome)hW=0; if(!canAway)aW=0; if(!canDraw)dW=0;
+  const tot=hW+aW+dW;
+  if(!tot)return null;
+  const r=Math.random()*tot;
+  if(r<hW)return'home';
+  if(r<hW+aW)return'away';
+  return'draw';
+}
+
 function autoFillPredictions(g){
   const MAX_PICKS=5, MAX_DRAWS=24;
   const gms=g.matches.reduce((acc,m,i)=>{if(m.group)acc.push({m,i});return acc;},[]);
-  const groups=[...new Set(gms.map(({m})=>m.group))];
 
   g.players.forEach(p=>{
     const teamPicks={};
@@ -621,41 +653,29 @@ function autoFillPredictions(g){
     const usedScoreGroup=new Set();
 
     gms.forEach(({m,i})=>{
-      // Build pick options
       const hc=teamPicks[m.home]||0, ac=teamPicks[m.away]||0;
       const canHome=hc<MAX_PICKS, canAway=ac<MAX_PICKS, canDraw=drawCount<MAX_DRAWS;
-      const opts=[];
-      if(canHome)opts.push('home');
-      if(canAway)opts.push('away');
-      if(canDraw)opts.push('draw','draw'); // slight draw weighting
-      if(!opts.length)return; // both at limit — skip
-
-      const pick=opts[Math.floor(Math.random()*opts.length)];
+      const pick=weightedPick(m.home,m.away,canHome,canAway,canDraw,false);
+      if(!pick)return;
       if(!g.predictions[i])g.predictions[i]={};
       g.predictions[i][p.name]=pick;
-
       if(pick==='draw')drawCount++;
       else if(pick==='home')teamPicks[m.home]=(teamPicks[m.home]||0)+1;
       else teamPicks[m.away]=(teamPicks[m.away]||0)+1;
 
-      // Score prediction: 1 per group
+      // Score prediction: 1 per group (60% chance)
       if(!usedScoreGroup.has(m.group)&&Math.random()<0.6){
-        const sh=Math.floor(Math.random()*4);
-        const sa=Math.floor(Math.random()*4);
-        g.predictions[i][p.name+'_score']={home:sh,away:sa};
+        g.predictions[i][p.name+'_score']={home:Math.floor(Math.random()*4),away:Math.floor(Math.random()*4)};
         usedScoreGroup.add(m.group);
       }
     });
 
-    // KO predictions — all rounds, respecting 5-pick limit
+    // KO predictions — weighted, respecting 5-pick limit
     g.matches.forEach((m,i)=>{
       if(m.group||m.home==='TBD'||m.away==='TBD')return;
       const hc=teamPicks[m.home]||0, ac=teamPicks[m.away]||0;
-      const opts=[];
-      if(hc<MAX_PICKS)opts.push('home');
-      if(ac<MAX_PICKS)opts.push('away');
-      if(!opts.length)return;
-      const pick=opts[Math.floor(Math.random()*opts.length)];
+      const pick=weightedPick(m.home,m.away,hc<MAX_PICKS,ac<MAX_PICKS,false,true);
+      if(!pick)return;
       if(!g.predictions[i])g.predictions[i]={};
       g.predictions[i][p.name]=pick;
       if(pick==='home')teamPicks[m.home]=(teamPicks[m.home]||0)+1;
