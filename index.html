@@ -1094,7 +1094,8 @@ document.getElementById('create-game-btn').addEventListener("click",async()=>{
   const testPlayerCount=selectedMode==='test'?Math.max(2,Math.min(20,parseInt(document.getElementById('test-player-count').value)||4)):1;
   const testPlayers=[{name:hostName,lives,correct:0,eliminated:false,isHost:true}];
   if(selectedMode==='test'){
-    for(let i=2;i<=testPlayerCount;i++) testPlayers.push({name:'Player '+i,lives,correct:0,eliminated:false,isHost:false,pwHash:'test'});
+    const testPwHash=await hashPassword('test');
+    for(let i=2;i<=testPlayerCount;i++) testPlayers.push({name:'Player '+i,lives,correct:0,eliminated:false,isHost:false,pwHash:testPwHash});
   }
   const g={
     code,hostName,lives,mode:selectedMode,
