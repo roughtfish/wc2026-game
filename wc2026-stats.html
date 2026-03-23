@@ -141,6 +141,30 @@
   .modal-pred{font-weight:700;font-size:13px;min-width:28px;text-align:right}
   .lb-name-btn{background:none;border:none;color:var(--text);font:inherit;font-weight:600;font-size:14px;cursor:pointer;text-align:left;padding:0;text-decoration:underline;text-decoration-color:rgba(255,255,255,0.2);text-underline-offset:2px}
   .lb-name-btn:hover{color:var(--accent)}
+  /* H2H Comparison */
+  .lb-row.h2h-selected{background:rgba(45,212,191,0.08);border-color:var(--accent2)}
+  .h2h-banner{background:var(--surface);border:1px solid var(--accent2);border-radius:10px;padding:10px 16px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;font-size:13px}
+  .h2h-banner-text{color:var(--accent2)}
+  .h2h-banner-btn{background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 10px;border-radius:6px;font-size:11px;cursor:pointer;font-family:inherit}
+  .h2h-banner-btn:hover{color:var(--accent);border-color:var(--accent)}
+  .h2h-modal .modal{max-width:700px}
+  .h2h-header{display:grid;grid-template-columns:1fr auto 1fr;gap:16px;align-items:center;margin-bottom:24px}
+  .h2h-player{text-align:center}
+  .h2h-player-name{font-family:'Bebas Neue',sans-serif;font-size:24px;letter-spacing:2px;color:var(--accent);margin-bottom:6px}
+  .h2h-player-stats{display:flex;gap:12px;justify-content:center;font-size:11px;color:var(--muted)}
+  .h2h-vs{font-family:'Bebas Neue',sans-serif;font-size:32px;color:var(--muted);letter-spacing:2px}
+  .h2h-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:24px}
+  .h2h-stat-card{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center}
+  .h2h-stat-value{font-family:'Bebas Neue',sans-serif;font-size:32px;letter-spacing:2px}
+  .h2h-stat-label{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-top:4px}
+  .h2h-section-title{font-family:'Bebas Neue',sans-serif;font-size:13px;letter-spacing:2px;color:var(--muted);margin:20px 0 10px;text-transform:uppercase}
+  .h2h-match-row{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:12px;padding:10px 12px;background:var(--surface2);border-radius:8px;margin-bottom:6px;font-size:12px;align-items:center}
+  .h2h-match-name{font-weight:600}
+  .h2h-match-result{text-align:center;font-family:'Bebas Neue',sans-serif;font-size:14px;color:var(--accent)}
+  .h2h-match-pred{text-align:center;font-size:13px}
+  .h2h-match-pred.correct{color:var(--green);font-weight:700}
+  .h2h-match-pred.wrong{color:var(--red)}
+  .h2h-match-pred.same{color:var(--muted)}
 </style>
 </head>
 <body>
@@ -168,6 +192,7 @@
 
   <div id="stats-area" style="display:none">
     <div class="refresh-note"><span class="spinner"></span>Auto-refreshing every 10s &nbsp;·&nbsp; <span id="last-updated"></span></div>
+    <div id="h2h-banner" style="display:none"></div>
     <div class="section-title">STANDINGS</div>
     <div class="leaderboard" id="leaderboard"></div>
     <div class="section-title">STREAKS 🔥</div>
@@ -704,6 +729,186 @@ function showPlayerModal(playerName){
   document.getElementById('player-modal').style.display='flex';
 }
 
+// ─── HEAD-TO-HEAD COMPARISON ─────────────────────────────────────────────────
+let h2hSelectedPlayers = [];
+
+function closeH2HModal(){
+  document.getElementById('h2h-modal').style.display='none';
+}
+
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){
+    closeModal();
+    closeH2HModal();
+  }
+});
+
+function toggleH2HSelection(playerName){
+  const idx = h2hSelectedPlayers.indexOf(playerName);
+  if(idx >= 0){
+    // Deselect
+    h2hSelectedPlayers.splice(idx, 1);
+  } else {
+    // Select
+    h2hSelectedPlayers.push(playerName);
+    if(h2hSelectedPlayers.length > 2){
+      h2hSelectedPlayers.shift(); // Keep only last 2
+    }
+  }
+  updateH2HBanner();
+  updateLeaderboardSelection();
+  
+  // If 2 players selected, show comparison
+  if(h2hSelectedPlayers.length === 2){
+    showH2HComparison();
+  }
+}
+
+function updateH2HBanner(){
+  const banner = document.getElementById('h2h-banner');
+  if(h2hSelectedPlayers.length === 0){
+    banner.style.display = 'none';
+  } else if(h2hSelectedPlayers.length === 1){
+    banner.style.display = 'flex';
+    banner.className = 'h2h-banner';
+    banner.innerHTML = `
+      <span class="h2h-banner-text">📊 ${h2hSelectedPlayers[0]} selected — click another player to compare</span>
+      <button class="h2h-banner-btn" onclick="clearH2HSelection()">Clear</button>
+    `;
+  }
+}
+
+function clearH2HSelection(){
+  h2hSelectedPlayers = [];
+  updateH2HBanner();
+  updateLeaderboardSelection();
+}
+
+function updateLeaderboardSelection(){
+  document.querySelectorAll('.lb-row').forEach(row => {
+    const btn = row.querySelector('.lb-name-btn');
+    if(btn && h2hSelectedPlayers.includes(btn.dataset.player)){
+      row.classList.add('h2h-selected');
+    } else {
+      row.classList.remove('h2h-selected');
+    }
+  });
+}
+
+function showH2HComparison(){
+  const g = currentGame;
+  if(!g || h2hSelectedPlayers.length !== 2) return;
+  
+  const [p1Name, p2Name] = h2hSelectedPlayers;
+  const p1 = g.players.find(p => p.name === p1Name);
+  const p2 = g.players.find(p => p.name === p2Name);
+  if(!p1 || !p2) return;
+  
+  const results = g.results || {};
+  const playedIdxs = Object.keys(results).map(Number).filter(n => !isNaN(n) && results[n] != null).sort((a,b) => a-b);
+  const predictions = g.predictions || {};
+  
+  // Calculate head-to-head stats
+  let p1Wins = 0, p2Wins = 0, ties = 0;
+  const disagreements = [];
+  
+  playedIdxs.forEach(idx => {
+    const pred1 = (predictions[idx] || {})[p1Name];
+    const pred2 = (predictions[idx] || {})[p2Name];
+    const result = results[idx];
+    const actual = actualOutcome(result);
+    
+    if(pred1 != null && pred2 != null && pred1 !== pred2){
+      // They disagreed - who was right?
+      const p1Correct = pred1 === actual;
+      const p2Correct = pred2 === actual;
+      
+      const match = g.matches[idx];
+      disagreements.push({
+        idx,
+        match,
+        result,
+        actual,
+        pred1,
+        pred2,
+        p1Correct,
+        p2Correct
+      });
+      
+      if(p1Correct && !p2Correct) p1Wins++;
+      else if(p2Correct && !p1Correct) p2Wins++;
+      else if(p1Correct && p2Correct) ties++;
+      // Both wrong = no winner
+    }
+  });
+  
+  const p1Acc = playedIdxs.length > 0 ? Math.round(p1.correct / playedIdxs.length * 100) : 0;
+  const p2Acc = playedIdxs.length > 0 ? Math.round(p2.correct / playedIdxs.length * 100) : 0;
+  
+  const streaks1 = calcStreaks(p1Name, playedIdxs, results, predictions);
+  const streaks2 = calcStreaks(p2Name, playedIdxs, results, predictions);
+  
+  // Render modal
+  document.getElementById('h2h-body').innerHTML = `
+    <div class="h2h-header">
+      <div class="h2h-player">
+        <div class="h2h-player-name">${p1Name}</div>
+        <div class="h2h-player-stats">
+          <span>❤️ ${p1.lives}</span>
+          <span>✓ ${p1.correct}</span>
+          <span>${p1Acc}%</span>
+        </div>
+      </div>
+      <div class="h2h-vs">VS</div>
+      <div class="h2h-player">
+        <div class="h2h-player-name">${p2Name}</div>
+        <div class="h2h-player-stats">
+          <span>❤️ ${p2.lives}</span>
+          <span>✓ ${p2.correct}</span>
+          <span>${p2Acc}%</span>
+        </div>
+      </div>
+    </div>
+    
+    <div class="h2h-summary">
+      <div class="h2h-stat-card">
+        <div class="h2h-stat-value" style="color:${p1Wins > p2Wins ? 'var(--green)' : p1Wins < p2Wins ? 'var(--red)' : 'var(--muted)'}">${p1Wins}</div>
+        <div class="h2h-stat-label">${p1Name} Wins</div>
+      </div>
+      <div class="h2h-stat-card">
+        <div class="h2h-stat-value" style="color:var(--muted)">${ties}</div>
+        <div class="h2h-stat-label">Both Right</div>
+      </div>
+      <div class="h2h-stat-card">
+        <div class="h2h-stat-value" style="color:${p2Wins > p1Wins ? 'var(--green)' : p2Wins < p1Wins ? 'var(--red)' : 'var(--muted)'}">${p2Wins}</div>
+        <div class="h2h-stat-label">${p2Name} Wins</div>
+      </div>
+    </div>
+    
+    ${disagreements.length > 0 ? `
+      <div class="h2h-section-title">Disagreements (${disagreements.length} matches)</div>
+      ${disagreements.map(d => {
+        const resultLabel = d.actual === 'home' ? d.match.home : d.actual === 'away' ? d.match.away : 'Draw';
+        const p1Label = d.pred1 === 'home' ? d.match.home : d.pred1 === 'away' ? d.match.away : 'Draw';
+        const p2Label = d.pred2 === 'home' ? d.match.home : d.pred2 === 'away' ? d.match.away : 'Draw';
+        
+        return `
+          <div class="h2h-match-row">
+            <div class="h2h-match-name">${flag(d.match.home, 16)}${d.match.home} vs ${flag(d.match.away, 16)}${d.match.away}</div>
+            <div class="h2h-match-result">${d.result.home}-${d.result.away}${d.result.penWinner ? ' (p)' : ''}<br><span style="font-size:10px;color:var(--muted)">${resultLabel}</span></div>
+            <div class="h2h-match-pred ${d.p1Correct ? 'correct' : 'wrong'}">${d.p1Correct ? '✅' : '❌'} ${p1Label}</div>
+            <div class="h2h-match-pred ${d.p2Correct ? 'correct' : 'wrong'}">${d.p2Correct ? '✅' : '❌'} ${p2Label}</div>
+          </div>
+        `;
+      }).join('')}
+    ` : `
+      <div style="color:var(--muted);text-align:center;padding:20px">No disagreements yet — they've predicted the same for all matches!</div>
+    `}
+  `;
+  
+  document.getElementById('h2h-modal').style.display = 'flex';
+}
+
 function calcStreaks(playerName, playedIdxs, results, predictions){
   let best=0, current=0;
   playedIdxs.forEach(idx=>{
@@ -753,8 +958,9 @@ function renderLeaderboard(g){
     </div>`;
   }).join('');
   el.querySelectorAll('.lb-name-btn').forEach(btn=>{
-    btn.addEventListener('click',()=>showPlayerModal(btn.dataset.player));
+    btn.addEventListener('click',()=>toggleH2HSelection(btn.dataset.player));
   });
+  updateLeaderboardSelection(); // Apply selection styling if needed
 }
 
 function actualOutcome(r){
@@ -886,6 +1092,17 @@ function renderHistory(g){
         <div style="font-family:'Bebas Neue',sans-serif;font-size:12px;letter-spacing:2px;color:var(--muted);margin-bottom:10px">MATCH PREDICTIONS</div>
         <div id="modal-picks"></div>
       </div>
+    </div>
+  </div>
+
+  <!-- Head-to-Head Comparison Modal -->
+  <div class="modal-overlay h2h-modal" id="h2h-modal" style="display:none" onclick="if(event.target===this)closeH2HModal()">
+    <div class="modal">
+      <div class="modal-header">
+        <div class="modal-title">HEAD-TO-HEAD COMPARISON</div>
+        <button class="modal-close" onclick="closeH2HModal()">✕</button>
+      </div>
+      <div class="modal-body" id="h2h-body"></div>
     </div>
   </div>
 </body>
