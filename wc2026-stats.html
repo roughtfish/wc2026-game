@@ -289,12 +289,19 @@ function showPlayerModal(playerName){
     return sc&&sc.home===r.home&&sc.away===r.away;
   }).length;
 
+  const penWins=playedIdxs.filter(idx=>{
+    const r=results[idx];
+    if(!r||!r.penWinner)return false;
+    const v=(g.predictions[idx]||{})[playerName];
+    return v===r.penWinner;
+  }).length;
   document.getElementById('modal-player-name').textContent=playerName;
   document.getElementById('modal-stats').innerHTML=`
     <div class="modal-stat"><div class="modal-stat-val" style="color:${barCol}">❤️ ${p.lives}</div><div class="modal-stat-label">Lives left</div></div>
     <div class="modal-stat"><div class="modal-stat-val" style="color:var(--accent2)">✓ ${p.correct}</div><div class="modal-stat-label">Correct</div></div>
     <div class="modal-stat"><div class="modal-stat-val">${accuracy}%</div><div class="modal-stat-label">Accuracy</div></div>
     <div class="modal-stat"><div class="modal-stat-val" style="color:var(--accent2)">🎯 ${scoreBonuses}</div><div class="modal-stat-label">Score bonuses</div></div>
+    ${penWins>0?`<div class="modal-stat"><div class="modal-stat-val" style="color:var(--accent2)">🥅 ${penWins}</div><div class="modal-stat-label">Pen wins</div></div>`:''}
     <div class="modal-stat"><div class="modal-stat-val" style="color:${p.eliminated?'var(--red)':'var(--green)'}">${p.eliminated?'OUT':'LIVE'}</div><div class="modal-stat-label">Status</div></div>
   `;
 
@@ -351,6 +358,8 @@ function renderLeaderboard(g){
     const accuracy=predictedLb>0?Math.round(p.correct/predictedLb*100):0;
     let scoreBonusLb=0;
     playedIdxsLb.forEach(idx=>{const r=(g.results||{})[idx];const sc=r&&(g.predictions[idx]||{})[p.name+'_score'];if(sc&&sc.home===r.home&&sc.away===r.away)scoreBonusLb++;});
+    let penWinsLb=0;
+    playedIdxsLb.forEach(idx=>{const r=(g.results||{})[idx];if(!r||!r.penWinner)return;const v=(g.predictions[idx]||{})[p.name];const actual=r.penWinner;if(v===actual)penWinsLb++;});
     return`<div class="lb-row${p.eliminated?' eliminated':''}">
       <div class="lb-rank ${rankClass}">${p.eliminated?'💀':i+1}</div>
       <div>
@@ -360,6 +369,7 @@ function renderLeaderboard(g){
       <div class="lb-lives" style="color:${barCol}" data-tip="Lives remaining out of ${maxLives}">❤️ ${p.lives}<span style="font-size:10px;color:var(--muted)">/${maxLives}</span></div>
       <div class="lb-correct" data-tip="Correct predictions">✓ ${p.correct}</div>
       <div class="lb-pct lb-pct-tip" data-tip="Exact score bonuses" style="color:var(--accent2);font-size:12px">🎯 ${scoreBonusLb}</div>
+      ${penWinsLb>0?`<div class="lb-pct lb-pct-tip" data-tip="Penalty shootout wins correctly predicted" style="color:var(--accent2);font-size:12px">🥅 ${penWinsLb}</div>`:'<div class="lb-pct"></div>'}
       <div class="lb-pct lb-pct-tip" data-tip="Prediction accuracy (correct / matches played)">${accuracy}%</div>
     </div>`;
   }).join('');
