@@ -2223,32 +2223,32 @@ function renderKOBulkForm(g, round) {
   html += `</div>
     <div style="padding:12px 0 6px;border-top:0.5px solid var(--border);margin-top:10px;">
       <div style="font-size:10px;color:var(--muted);text-align:center;margin-bottom:7px;letter-spacing:1px;">Each team can only win <b>${MAX_PICKS}</b> times across all predictions · No draws in knockout rounds</div>
-      ${isWatchModeKO
-        ? `<button class="btn btn-secondary" id="ko-bulk-back-btn">← Back</button>`
-        : `<button class="btn btn-primary" id="ko-bulk-submit-btn">${rem > 0 ? 'Predict ' + rem + ' more to continue' : 'Lock in my predictions ✓'}</button>
-           ${done > 0 ? '<button class="btn btn-secondary" id="ko-bulk-clear-btn" style="margin-top:8px;font-size:13px;letter-spacing:1px;opacity:0.7;">↺ Reset Picks!</button>' : ''}`
-      }
+      <button class="btn btn-primary" id="ko-bulk-submit-btn">${rem > 0 ? 'Predict ' + rem + ' more to continue' : 'Lock in my predictions ✓'}</button>
+      ${done > 0 ? '<button class="btn btn-secondary" id="ko-bulk-clear-btn" style="margin-top:8px;font-size:13px;letter-spacing:1px;opacity:0.7;">↺ Reset Picks!</button>' : ''}
+      ${isWatchModeKO ? '<button class="btn btn-secondary" id="ko-bulk-back-btn" style="margin-top:8px">← Back</button>' : ''}
     </div>`;
 
   area.innerHTML = html;
 
+  // Always wire submit button
+  const sb = area.querySelector('#ko-bulk-submit-btn');
+  if (rem > 0) { sb.disabled = true; sb.style.opacity = '0.42'; sb.style.cursor = 'not-allowed'; }
+  else { sb.disabled = false; sb.style.opacity = '1'; sb.style.cursor = 'pointer'; sb.addEventListener('click', () => {
+    const area2=document.getElementById('bulk-area');
+    if(area2&&area2._watchCommit) area2._watchCommit();
+    else commitKOBulk(g, round);
+  }); }
+  const cb = area.querySelector('#ko-bulk-clear-btn');
+  if (cb) cb.addEventListener('click', () => { koBulkDraft = {}; saveDraft(koBulkDraft); renderKOBulkForm(g, round); });
+  // Back button only in watch mode
   if(isWatchModeKO){
-    area.querySelector('#ko-bulk-back-btn').addEventListener('click',async()=>{
+    const backBtn = area.querySelector('#ko-bulk-back-btn');
+    if(backBtn) backBtn.addEventListener('click',async()=>{
       area._watchCommit=null;
       const fresh=await loadGame(me.code);
       if(!fresh) return;
       if(me.role==='host') enterGame(fresh); else watchGame(fresh);
     });
-  } else {
-    const sb = area.querySelector('#ko-bulk-submit-btn');
-    if (rem > 0) { sb.disabled = true; sb.style.opacity = '0.42'; sb.style.cursor = 'not-allowed'; }
-    else { sb.disabled = false; sb.style.opacity = '1'; sb.style.cursor = 'pointer'; sb.addEventListener('click', () => {
-      const area2=document.getElementById('bulk-area');
-      if(area2&&area2._watchCommit) area2._watchCommit();
-      else commitKOBulk(g, round);
-    }); }
-    const cb = area.querySelector('#ko-bulk-clear-btn');
-    if (cb) cb.addEventListener('click', () => { koBulkDraft = {}; saveDraft(koBulkDraft); renderKOBulkForm(g, round); });
   }
 
   area.querySelectorAll('.bulk-toggle button').forEach(btn => {
