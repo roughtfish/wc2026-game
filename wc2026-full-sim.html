@@ -320,7 +320,7 @@ function simulateKnockout(groupResults, thirdPlaceTeams, penaltyRate, momentum) 
 }
 
 // Simulate player predictions with 5-team limit
-function simulatePlayers(groupMatches, koMatches, numPlayers, startingLives, skillLevel, scoreRate) {
+function simulatePlayers(groupMatches, koMatches, numPlayers, startingLives, skillLevel, scoreRate, penaltyRate) {
   const players = Array(numPlayers).fill(0).map(() => ({
     lives: startingLives,
     teamPicks: {}
@@ -464,7 +464,7 @@ async function runSimulation() {
   for (let sim = 0; sim < numSims; sim++) {
     const { groupResults, groupMatches, thirdPlaceTeams, momentum } = simulateGroupStage();
     const koMatches = simulateKnockout(groupResults, thirdPlaceTeams, penaltyRate, momentum);
-    const players = simulatePlayers(groupMatches, koMatches, numPlayers, startingLives, skillLevel, scoreRate);
+    const players = simulatePlayers(groupMatches, koMatches, numPlayers, startingLives, skillLevel, scoreRate, penaltyRate);
     
     const survivors = players.filter(p => p.lives > 0);
     survivalCounts[survivors.length]++;
