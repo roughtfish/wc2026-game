@@ -387,6 +387,7 @@
         <div style="display:flex;gap:6px">
           <button class="btn btn-secondary btn-sm" id="open-watch-group-preds-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7;display:none">📋 My Group Picks</button>
           <button class="btn btn-secondary btn-sm" id="open-watch-ko-preds-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7;display:none">🎯 My KO Picks</button>
+          <button class="btn btn-secondary btn-sm" id="watch-quit-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7;color:var(--red);border-color:rgba(239,68,68,0.3)">✕ Quit</button>
         </div>
       </div>
       <div class="players-grid" id="watch-players-grid"></div>
@@ -1994,6 +1995,13 @@ document.getElementById('bulk-quit-btn').addEventListener('click',()=>{
 });
 document.getElementById('quit-game-btn').addEventListener('click',()=>{
   if(!confirm('Quit game and return to main menu? The game will remain saved and players can still rejoin.')) return;
+  stopPolling();
+  try{sessionStorage.removeItem('kf_me');}catch(e){}
+  me={};
+  show('screen-landing');
+});
+document.getElementById('watch-quit-btn').addEventListener('click',()=>{
+  if(!confirm('Leave game and return to main menu? You can rejoin later using your name and game code.')) return;
   stopPolling();
   try{sessionStorage.removeItem('kf_me');}catch(e){}
   me={};
