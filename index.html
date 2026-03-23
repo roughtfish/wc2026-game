@@ -1917,7 +1917,7 @@ document.getElementById('history-back-btn').addEventListener('click', () => {
 
 function renderHistoryList(g) {
   const results = g.results || {};
-  const playedIdxs = Object.keys(results).map(Number).filter(n=>!isNaN(n)).sort((a, b) => a - b);
+  const playedIdxs = Object.keys(results).map(Number).filter(n=>!isNaN(n)&&results[n]!=null).sort((a, b) => a - b);
   const list = document.getElementById('history-match-list');
 
   if (playedIdxs.length === 0) {
@@ -2044,7 +2044,7 @@ async function correctHistoricResult(g, targetIdx) {
       fresh.matches.forEach(m => { if (!m.group) { m.home = 'TBD'; m.away = 'TBD'; m.koSlot = true; } });
 
       // Re-apply ALL results in match order
-      const playedIdxs = Object.keys(fresh.results).map(Number).sort((a, b) => a - b);
+      const playedIdxs = Object.keys(fresh.results).map(Number).filter(n=>!isNaN(n)&&fresh.results[n]!=null).sort((a, b) => a - b);
       let groupStageComplete = false;
 
       playedIdxs.forEach(idx => {
