@@ -1175,7 +1175,10 @@ document.getElementById('join-game-btn').addEventListener("click",async()=>{
 
   // Player already in the game — verify password then rejoin
   if(existing){
-    if(existing.pwHash&&existing.pwHash!==pwHash){
+    // Test mode: accept 'test' as password for non-host players
+    const isTestPlayer=g.mode==='test'&&!existing.isHost;
+    const testPwMatch=isTestPlayer&&pw==='test';
+    if(!testPwMatch&&existing.pwHash&&existing.pwHash!==pwHash){
       err.textContent='Wrong password for this name.';err.style.display='block';return;
     }
     me.name=name;me.code=g.code;me.role=existing.isHost?'host':'player';saveSession();
