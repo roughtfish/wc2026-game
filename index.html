@@ -1123,20 +1123,17 @@ function renderBulkForm(g){
   const done=Object.keys(bulkDraft).length;
   const rem=gms.length-done;
 
-  // Count how many times each team has been picked as a winner across all submitted players + current draft
+  // Count how many times each team has been picked by THIS player only (per-player limit)
   const MAX_PICKS = 5;
   const MAX_DRAWS = 24;
-  const teamPicks = {}; // teamName -> count of 'win' predictions
-  // Simpler: iterate gms and count from g.predictions (excluding own submitted picks)
+  const teamPicks = {}; // teamName -> count of THIS player's win predictions
+  // Count from this player's already-submitted predictions (not in draft yet)
   gms.forEach(({m,i})=>{
-    const matchPreds = g.predictions[i]||{};
-    Object.entries(matchPreds).forEach(([player,pred])=>{
-      if(player===me.name) return; // don't count current player's submitted preds (they're in draft)
-      if(pred==='home'){teamPicks[m.home]=(teamPicks[m.home]||0)+1;}
-      else if(pred==='away'){teamPicks[m.away]=(teamPicks[m.away]||0)+1;}
-    });
+    const pred=(g.predictions[i]||{})[me.name];
+    if(pred==='home'){teamPicks[m.home]=(teamPicks[m.home]||0)+1;}
+    else if(pred==='away'){teamPicks[m.away]=(teamPicks[m.away]||0)+1;}
   });
-  // Add current player's own draft
+  // Add current player's own draft picks
   gms.forEach(({m,i})=>{
     const sel=bulkDraft[i];
     if(sel==='home'){teamPicks[m.home]=(teamPicks[m.home]||0)+1;}
