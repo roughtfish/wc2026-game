@@ -384,7 +384,10 @@
     <div class="scoreboard">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
         <div class="scoreboard-title" style="margin:0">STANDINGS</div>
-        <button class="btn btn-secondary btn-sm" id="open-watch-ko-preds-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7;display:none">🎯 My Picks</button>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-secondary btn-sm" id="open-watch-group-preds-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7;display:none">📋 My Group Picks</button>
+          <button class="btn btn-secondary btn-sm" id="open-watch-ko-preds-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7;display:none">🎯 My KO Picks</button>
+        </div>
       </div>
       <div class="players-grid" id="watch-players-grid"></div>
     </div>
@@ -1756,6 +1759,41 @@ async function watchGame(g){
 async function renderWatchScreen(g){
   renderScoreboard(g,'watch-players-grid');
   renderProgress(g,'watch-progress-bar');
+  // Show "My Group Picks" button during group stage
+  const watchGroupBtn=document.getElementById('open-watch-group-preds-btn');
+  if(watchGroupBtn){
+    const curMatchG=g.matches[g.currentMatchIdx];
+    const isGroupStage=curMatchG&&curMatchG.group;
+    const hasSubmittedGroup=g.bulkSubmitted&&g.bulkSubmitted[me.name];
+    watchGroupBtn.style.display=(isGroupStage&&hasSubmittedGroup)?'block':'none';
+    watchGroupBtn.onclick=null;
+    if(isGroupStage&&hasSubmittedGroup){
+      watchGroupBtn.onclick=()=>{
+        stopPolling();
+        // Load player's group predictions into bulkDraft (read-only)
+        bulkDraft={};
+        scoreDraft={};
+        g.matches.forEach((m,i)=>{
+          if(!m.group)return;
+          const pred=(g.predictions[i]||{})[me.name];
+          if(pred!=null)bulkDraft[i]=pred;
+          const sc=(g.predictions[i]||{})[me.name+'_score'];
+          if(sc)scoreDraft[i]=sc;
+        });
+        document.getElementById('bulk-player-name').textContent=me.name;
+        document.getElementById('bulk-round-label').textContent='Predicting all group stage matches';
+        show('screen-bulk');
+        const area2=document.getElementById('bulk-area');
+        area2._watchCommit=()=>{
+          // Read-only — just go back
+          area2._watchCommit=null;
+          watchGame(g);
+        };
+        renderBulkForm(g);
+      };
+    }
+  }
+
   // Show "My Picks" button during KO rounds
   const watchKoBtn=document.getElementById('open-watch-ko-preds-btn');
   if(watchKoBtn){
