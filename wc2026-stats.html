@@ -81,6 +81,13 @@
   .upset-bar-label{min-width:56px;color:var(--muted)}
   .upset-bar-track{flex:1;height:8px;background:var(--surface2);border-radius:4px;overflow:hidden}
   .upset-bar-fill{height:100%;border-radius:4px}
+  .streak-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:22px}
+  .streak-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px 18px;text-align:center}
+  .streak-label{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+  .streak-player{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:2px;color:var(--accent);margin-bottom:4px}
+  .streak-value{font-family:'Bebas Neue',sans-serif;font-size:42px;letter-spacing:2px;color:var(--accent2);line-height:1}
+  .streak-fire{font-size:32px;opacity:0.9}
+  @media(max-width:500px){.streak-grid{grid-template-columns:1fr}}
   .chart-pill{font-size:11px;padding:3px 10px;border-radius:20px;cursor:pointer;border:1.5px solid;transition:opacity 0.15s;user-select:none;font-family:'DM Sans',sans-serif}
   .chart-pill.hidden{opacity:0.25}
   .round-section{margin-bottom:16px;border:1px solid var(--border);border-radius:10px;overflow:hidden}
@@ -163,6 +170,8 @@
     <div class="refresh-note"><span class="spinner"></span>Auto-refreshing every 10s &nbsp;·&nbsp; <span id="last-updated"></span></div>
     <div class="section-title">STANDINGS</div>
     <div class="leaderboard" id="leaderboard"></div>
+    <div class="section-title">STREAKS 🔥</div>
+    <div id="streak-stats"></div>
     <div class="section-title">BIGGEST UPSET</div>
     <div id="biggest-upset"></div>
     <div class="section-title">SURVIVAL PROBABILITY</div>
@@ -298,6 +307,7 @@ function render(g){
   const subEl=document.querySelector('.header .sub');
   if(subEl)subEl.innerHTML=`Live Stats &nbsp;·&nbsp; <span class="status-chip ${statusClass}">${statusLabel}</span>`;
   renderLeaderboard(g);
+  renderStreakStats(g);
   renderBiggestUpset(g);
   renderSurvivalProb(g);
   renderLivesChart(g);
@@ -383,6 +393,56 @@ function renderSurvivalProb(g){
         <div class="surv-lives">❤️${p.lives} · ${Math.round(acc*100)}% acc</div>
       </div>`;
     }).join('')}
+  </div>`;
+}
+
+function renderStreakStats(g){
+  const el=document.getElementById('streak-stats');
+  if(!el)return;
+  const results=g.results||{};
+  const players=Array.isArray(g.players)?g.players:Object.values(g.players||{});
+  const playedIdxs=Object.keys(results).map(Number).filter(n=>!isNaN(n)&&results[n]!=null).sort((a,b)=>a-b);
+  if(playedIdxs.length===0){el.innerHTML='<div style="color:var(--muted);font-size:13px;padding:12px 0">No matches played yet</div>';return;}
+  
+  // Calculate streaks for all players
+  const streakData = players.map(p => {
+    const streaks = calcStreaks(p.name, playedIdxs, results, g.predictions || {});
+    return {
+      name: p.name,
+      current: streaks.current,
+      best: streaks.best,
+      eliminated: p.eliminated
+    };
+  });
+  
+  // Find player with best current streak
+  const currentLeader = streakData
+    .filter(s => s.current > 0)
+    .sort((a, b) => b.current - a.current)[0];
+  
+  // Find player with best overall streak
+  const overallLeader = streakData
+    .sort((a, b) => b.best - a.best)[0];
+  
+  el.innerHTML = `<div class="streak-grid">
+    <div class="streak-card">
+      <div class="streak-label">Current Hot Streak</div>
+      ${currentLeader ? `
+        <div class="streak-player">${currentLeader.name}</div>
+        <div class="streak-value"><span class="streak-fire">🔥</span> ${currentLeader.current}</div>
+      ` : `
+        <div style="color:var(--muted);font-size:13px;padding:20px 0">No active streaks</div>
+      `}
+    </div>
+    <div class="streak-card">
+      <div class="streak-label">Best Overall Streak</div>
+      ${overallLeader && overallLeader.best > 0 ? `
+        <div class="streak-player">${overallLeader.name}</div>
+        <div class="streak-value"><span class="streak-fire">🏆</span> ${overallLeader.best}</div>
+      ` : `
+        <div style="color:var(--muted);font-size:13px;padding:20px 0">No streaks yet</div>
+      `}
+    </div>
   </div>`;
 }
 
