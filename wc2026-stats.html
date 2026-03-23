@@ -105,7 +105,7 @@
 <div class="app">
   <div class="header">
     <h1>KAMIKAZE FOOTBALL WC'26</h1>
-    <p class="sub">Live Stats<span id="stats-player-name" style="display:none"> &nbsp;·&nbsp; <span style="color:var(--accent)"></span></span></p>
+    <p class="sub">Live Stats</p>
     <div id="code-display" style="display:none" class="code-pill">
       <span class="label">Game</span>
       <span class="code" id="code-label"></span>
@@ -202,12 +202,6 @@ document.getElementById('load-btn').addEventListener('click',async()=>{
   document.getElementById('stats-area').style.display='block';
   document.getElementById('code-display').style.display='inline-flex';
   document.getElementById('code-label').textContent=code;
-  // Show player name from sessionStorage if available
-  try{
-    const session=JSON.parse(sessionStorage.getItem('kf_me')||'{}');
-    const nameEl=document.getElementById('stats-player-name');
-    if(nameEl&&session.name){nameEl.style.display='inline';nameEl.querySelector('span').textContent=session.name;}
-  }catch(e){}
   // Update page title and URL
   document.title=`WC'26 Stats — ${code}`;
   history.replaceState({},'',`?code=${code}`);
@@ -239,6 +233,21 @@ let currentGame=null;
 function render(g){
   currentGame=g;
   updateTimestamp();
+  // Show game status chip
+  const statusMap={
+    'lobby':'LOBBY',
+    'playing':'LIVE',
+    'done':'FINISHED',
+    'bulk':'PREDICTING — GROUP STAGE',
+  };
+  let statusLabel=statusMap[g.status]||g.status;
+  let statusClass='status-live';
+  if(g.status==='lobby'){statusClass='status-lobby';}
+  else if(g.status==='done'){statusClass='status-done';}
+  else if(g.status&&g.status.startsWith('ko-bulk:')){statusLabel='PREDICTING — '+g.status.slice(8).toUpperCase();statusClass='status-lobby';}
+  else if(g.status&&g.status.startsWith('reveal:')){statusLabel='REVEAL';statusClass='status-live';}
+  const subEl=document.querySelector('.header .sub');
+  if(subEl)subEl.innerHTML=`Live Stats &nbsp;·&nbsp; <span class="status-chip ${statusClass}">${statusLabel}</span>`;
   renderLeaderboard(g);
   renderHistory(g);
 }
@@ -258,12 +267,18 @@ function showPlayerModal(playerName){
   const barCol=livePct>60?'var(--green)':livePct>30?'var(--accent)':'var(--red)';
   const played=playedIdxs.length;
   const accuracy=played>0?Math.round(p.correct/played*100):0;
+  const scoreBonuses=playedIdxs.filter(idx=>{
+    const r=results[idx];
+    const sc=(g.predictions[idx]||{})[playerName+'_score'];
+    return sc&&sc.home===r.home&&sc.away===r.away;
+  }).length;
 
   document.getElementById('modal-player-name').textContent=playerName;
   document.getElementById('modal-stats').innerHTML=`
     <div class="modal-stat"><div class="modal-stat-val" style="color:${barCol}">❤️ ${p.lives}</div><div class="modal-stat-label">Lives left</div></div>
     <div class="modal-stat"><div class="modal-stat-val" style="color:var(--accent2)">✓ ${p.correct}</div><div class="modal-stat-label">Correct</div></div>
     <div class="modal-stat"><div class="modal-stat-val">${accuracy}%</div><div class="modal-stat-label">Accuracy</div></div>
+    <div class="modal-stat"><div class="modal-stat-val" style="color:var(--accent2)">🎯 ${scoreBonuses}</div><div class="modal-stat-label">Score bonuses</div></div>
     <div class="modal-stat"><div class="modal-stat-val" style="color:${p.eliminated?'var(--red)':'var(--green)'}">${p.eliminated?'OUT':'LIVE'}</div><div class="modal-stat-label">Status</div></div>
   `;
 
@@ -284,13 +299,16 @@ function showPlayerModal(playerName){
         :`<span class="badge-ko">${match.round||'KO'}</span>`;
       const predLabel=v==='home'?flag(match.home)+match.home:v==='away'?flag(match.away)+match.away:v==='draw'?'Draw':'—';
       const resultLabel=(actual==='home'?match.home:actual==='away'?match.away:'Draw')+(r.penWinner?' (pens)':'');
+      const sc=(preds[playerName+'_score']);
+      const scoreOk=sc&&sc.home===r.home&&sc.away===r.away;
+      const scoreLabel=sc?` <span style="font-size:10px;color:${scoreOk?'var(--accent2)':'var(--muted)'}">(${sc.home}–${sc.away}${scoreOk?' +1❤️':''})</span>`:'';
       return`<div class="modal-match">
         <div class="modal-match-name">
           ${roundBadge}
           <span style="margin-left:5px">${flag(match.home)}${match.home} vs ${flag(match.away)}${match.away}</span><br>
           <span style="color:var(--muted);font-size:11px">${r.home}–${r.away} · ${resultLabel}</span>
         </div>
-        <div class="modal-pred" style="color:${correct?'var(--green)':wrong?'var(--red)':'var(--muted)'}">${correct?'✅':wrong?'❌':'<span style="opacity:0.3">—</span>'} ${v?predLabel:''}</div>
+        <div class="modal-pred" style="color:${correct?'var(--green)':wrong?'var(--red)':'var(--muted)'}">${correct?'✅':wrong?'❌':'<span style="opacity:0.3">—</span>'} ${v?predLabel:''}${scoreLabel}</div>
       </div>`;
     }).join('');
   }
@@ -320,6 +338,7 @@ function renderLeaderboard(g){
       </div>
       <div class="lb-lives" style="color:${barCol}" data-tip="Lives remaining out of ${maxLives}">❤️ ${p.lives}<span style="font-size:10px;color:var(--muted)">/${maxLives}</span></div>
       <div class="lb-correct" data-tip="Correct predictions">✓ ${p.correct}</div>
+      <div class="lb-pct" data-tip="Exact score bonuses" style="color:var(--accent2);font-size:12px">🎯 ${(()=>{let b=0;Object.keys(g.results||{}).forEach(idx=>{const r=g.results[idx];const sc=(g.predictions[idx]||{})[p.name+'_score'];if(sc&&sc.home===r.home&&sc.away===r.away)b++;});return b;})()}</div>
       <div class="lb-pct lb-pct-tip" data-tip="Prediction accuracy (correct / matches played)">${accuracy}%</div>
     </div>`;
   }).join('');
