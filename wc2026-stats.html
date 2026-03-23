@@ -56,7 +56,16 @@
   .life-bar-wrap{height:4px;background:var(--surface2);border-radius:2px;margin-top:3px;overflow:hidden}
   .life-bar{height:100%;border-radius:2px;transition:width 0.4s ease}
   /* Match history table */
-  .history-wrap{overflow-x:auto;margin-bottom:24px}
+  .history-wrap{overflow-x:auto;margin-bottom:0}
+  .round-section{margin-bottom:16px;border:1px solid var(--border);border-radius:10px;overflow:hidden}
+  .round-section-header{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;cursor:pointer;background:var(--surface2);user-select:none}
+  .round-section-header:hover{background:rgba(255,255,255,0.04)}
+  .round-section-title{font-family:'Bebas Neue',sans-serif;font-size:15px;letter-spacing:2px;color:var(--accent2)}
+  .round-section-meta{font-size:11px;color:var(--muted)}
+  .round-section-arrow{font-size:11px;color:var(--muted);transition:transform 0.2s}
+  .round-section.collapsed .round-section-arrow{transform:rotate(-90deg)}
+  .round-section.collapsed .round-section-body{display:none}
+  .round-section-body{overflow-x:auto}
   table{width:100%;border-collapse:collapse;font-size:12px;min-width:600px}
   thead th{font-family:'Bebas Neue',sans-serif;font-size:11px;letter-spacing:2px;color:var(--muted);text-align:left;padding:6px 10px;border-bottom:1px solid var(--border);white-space:nowrap}
   thead th.center{text-align:center}
@@ -129,7 +138,7 @@
     <div class="section-title">STANDINGS</div>
     <div class="leaderboard" id="leaderboard"></div>
     <div class="section-title">MATCH HISTORY</div>
-    <div class="history-wrap"><table id="history-table"><thead id="history-head"></thead><tbody id="history-body"></tbody></table></div>
+    <div id="history-rounds"></div>
   </div>
 </div>
 
@@ -365,6 +374,36 @@ function actualOutcome(r){
   return'draw';
 }
 
+function buildRoundRows(idxs, g, players, results) {
+  const header = `<thead><tr><th>#</th><th>Match</th><th class="center">Result</th>${players.map(p=>`<th class="center">${p.name}</th>`).join('')}</tr></thead>`;
+  const rows = idxs.map(idx => {
+    const match = g.matches[idx];
+    if (!match) return '';
+    const r = results[idx];
+    const actual = actualOutcome(r);
+    const matchLabel = `${flag(match.home)}${match.home} <span style="color:var(--muted)">vs</span> ${flag(match.away)}${match.away}`;
+    const preds = g.predictions[idx] || {};
+    const predCells = players.map(p => {
+      const v = preds[p.name];
+      if (!v) return `<td class="pred-cell"><span class="pred-none">—</span></td>`;
+      const correct = v === actual;
+      const pickedTeam = v==='home'?match.home:v==='away'?match.away:'Draw';
+      const pickedFlag = v==='draw'?'':flag(pickedTeam);
+      const sc = preds[p.name+'_score'];
+      const scoreOk = sc&&sc.home===r.home&&sc.away===r.away;
+      const scoreBadge = sc?`<span style="font-size:10px;margin-left:4px;padding:1px 5px;border-radius:4px;background:${scoreOk?'rgba(45,212,191,0.15)':'rgba(255,255,255,0.05)'};color:${scoreOk?'var(--accent2)':'var(--muted)'}">${sc.home}–${sc.away}${scoreOk?' 🎯':''}</span>`:'';
+      return `<td class="pred-cell ${correct?'pred-hit':'pred-miss'}" style="white-space:nowrap">${correct?'✅':'❌'} ${pickedFlag}${pickedTeam}${scoreBadge}</td>`;
+    }).join('');
+    return `<tr>
+      <td style="color:var(--muted);font-size:11px">${parseInt(idx)+1}</td>
+      <td class="match-name">${matchLabel}<br><span style="font-size:10px;color:var(--muted)">${r.home}–${r.away}${r.penWinner?' (pens)':''} · ${actual==='home'?match.home:actual==='away'?match.away:'Draw'}</span></td>
+      <td class="result">${r.home}–${r.away}${r.penWinner?`<br><span style="font-size:10px;color:var(--accent2)">${r.penWinner==='home'?'← pens':'pens →'}</span>`:''}</td>
+      ${predCells}
+    </tr>`;
+  }).filter(Boolean).join('');
+  return `<table>${header}<tbody>${rows}</tbody></table>`;
+}
+
 function renderHistory(g){
   const players=[...g.players].sort((a,b)=>{
     if(a.eliminated&&!b.eliminated)return 1;
@@ -374,51 +413,58 @@ function renderHistory(g){
   const results=g.results||{};
   const playedIdxs=Object.keys(results).map(Number).filter(n=>!isNaN(n)&&results[n]!=null).sort((a,b)=>a-b);
   if(!g.predictions)g.predictions={};
+  const container = document.getElementById('history-rounds');
   if(playedIdxs.length===0){
-    document.getElementById('history-body').innerHTML=`<tr><td colspan="${players.length+3}" style="text-align:center;color:var(--muted);padding:24px">No matches played yet</td></tr>`;
-    document.getElementById('history-head').innerHTML='';
+    container.innerHTML='<div style="color:var(--muted);font-size:13px;text-align:center;padding:24px">No matches played yet</div>';
     return;
   }
 
-  // Header
-  document.getElementById('history-head').innerHTML=`<tr>
-    <th>#</th>
-    <th>Match</th>
-    <th class="center">Result</th>
-    ${players.map(p=>`<th class="center">${p.name}</th>`).join('')}
-  </tr>`;
+  // Group indices by round label
+  const roundOrder = [];
+  const roundMap = {};
+  playedIdxs.forEach(idx => {
+    const match = g.matches[idx];
+    if (!match) return;
+    const label = match.group ? 'Group Stage' : (match.round || 'KO');
+    if (!roundMap[label]) { roundMap[label] = []; roundOrder.push(label); }
+    roundMap[label].push(idx);
+  });
 
-  // Rows
-  document.getElementById('history-body').innerHTML=playedIdxs.map(idx=>{
-    const match=g.matches[idx];
-    if(!match)return'';
-    const r=results[idx];
-    const actual=actualOutcome(r);
-    const matchLabel=match.group
-      ?`${flag(match.home)}${match.home} <span style="color:var(--muted)">vs</span> ${flag(match.away)}${match.away}`
-      :`${flag(match.home)}${match.home} <span style="color:var(--muted)">vs</span> ${flag(match.away)}${match.away}`;
-    const roundBadge=match.group
-      ?`<span class="badge-group">Grp ${match.group}</span>`
-      :`<span class="badge-ko">${match.round||'KO'}</span>`;
-    const preds=g.predictions[idx]||{};
-    const predCells=players.map(p=>{
-      const v=preds[p.name];
-      if(!v)return`<td class="pred-cell"><span class="pred-none">—</span></td>`;
-      const correct=v===actual;
-      const pickedTeam=v==='home'?match.home:v==='away'?match.away:'Draw';
-      const pickedFlag=v==='draw'?'':flag(pickedTeam);
-      const sc=preds[p.name+'_score'];
-      const scoreOk=sc&&sc.home===r.home&&sc.away===r.away;
-      const scoreBadge=sc?`<span style="font-size:10px;margin-left:4px;padding:1px 5px;border-radius:4px;background:${scoreOk?'rgba(45,212,191,0.15)':'rgba(255,255,255,0.05)'};color:${scoreOk?'var(--accent2)':'var(--muted)'}">${sc.home}–${sc.away}${scoreOk?' 🎯':''}</span>`:'';
-      return`<td class="pred-cell ${correct?'pred-hit':'pred-miss'}" style="white-space:nowrap">${correct?'✅':'❌'} ${pickedFlag}${pickedTeam}${scoreBadge}</td>`;
-    }).join('');
-    return`<tr>
-      <td style="color:var(--muted);font-size:11px">${parseInt(idx)+1}</td>
-      <td class="match-name">${roundBadge} ${matchLabel}<br><span style="font-size:10px;color:var(--muted)">${r.home}–${r.away}${r.penWinner?' (pens)':''} · ${actual==='home'?match.home:actual==='away'?match.away:'Draw'}</span></td>
-      <td class="result">${r.home}–${r.away}${r.penWinner?`<br><span style="font-size:10px;color:var(--accent2)">${r.penWinner==='home'?'← pens':'pens →'}</span>`:''}</td>
-      ${predCells}
-    </tr>`;
+  // Track collapsed state per round (persist across re-renders)
+  if (!renderHistory._collapsed) renderHistory._collapsed = {};
+
+  container.innerHTML = roundOrder.map(label => {
+    const idxs = roundMap[label];
+    const collapsed = renderHistory._collapsed[label] !== false && label === 'Group Stage' && roundOrder.length > 1;
+    // Count correct per player for this round
+    const meta = players.map(p => {
+      const correct = idxs.filter(idx => {
+        const r = results[idx]; const v = (g.predictions[idx]||{})[p.name];
+        return v && v === actualOutcome(r);
+      }).length;
+      return `${p.name} ✓${correct}`;
+    }).join(' · ');
+    return `<div class="round-section${collapsed?' collapsed':''}" data-round="${label}">
+      <div class="round-section-header">
+        <span class="round-section-title">${label}</span>
+        <span class="round-section-meta">${idxs.length} match${idxs.length===1?'':'es'} · ${meta}</span>
+        <span class="round-section-arrow">▾</span>
+      </div>
+      <div class="round-section-body history-wrap">
+        ${buildRoundRows(idxs, g, players, results)}
+      </div>
+    </div>`;
   }).join('');
+
+  // Wire up collapse toggles
+  container.querySelectorAll('.round-section-header').forEach(header => {
+    header.addEventListener('click', () => {
+      const section = header.closest('.round-section');
+      const label = section.dataset.round;
+      const isCollapsed = section.classList.toggle('collapsed');
+      renderHistory._collapsed[label] = isCollapsed ? true : false;
+    });
+  });
 }
 </script>
 
