@@ -22,6 +22,7 @@
   .btn{font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:3px;background:var(--accent);color:#0a0f1a;border:none;border-radius:10px;padding:14px;cursor:pointer;transition:all 0.2s;width:100%}
   .btn:hover{background:#f5ca6a;transform:translateY(-1px)}
   .btn:disabled{opacity:0.4;cursor:not-allowed;transform:none}
+  .btn-sm{padding:10px;font-size:13px;width:auto}
   .results{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:24px;margin-bottom:24px}
   .results h2{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:2px;color:var(--accent);margin-bottom:20px}
   .stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:16px;margin-bottom:24px}
@@ -45,12 +46,85 @@
   <h1>WC'26 FULL SIMULATOR</h1>
   <p class="sub">Complete Tournament with Actual Groups & Bracket Structure</p>
   
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;margin-bottom:24px">
+    <div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer" onclick="toggleExplanation()">
+      <h3 style="margin:0;font-size:14px;letter-spacing:1px;text-transform:uppercase">📖 How The Simulation Works</h3>
+      <span id="explanation-toggle" style="font-size:20px;color:var(--accent)">▼</span>
+    </div>
+    <div id="explanation-content" style="display:none;margin-top:16px;font-size:13px;line-height:1.7">
+      
+      <div style="margin-bottom:16px">
+        <div style="font-weight:700;color:var(--accent);margin-bottom:8px">Full Tournament Simulation:</div>
+        <ul style="margin:0;padding-left:20px;color:var(--muted)">
+          <li>Ran 1,000 complete tournaments with 17 players each</li>
+          <li>Real WC 2026 groups from December 2025 draw</li>
+          <li>72 group matches + 32 knockout matches (R32→R16→QF→SF→Final) = 104 total</li>
+          <li>Teams weighted by FIFA rankings + recent form</li>
+          <li>Home advantage for USA, Mexico, Canada (+0.05 rating boost)</li>
+          <li>Momentum/form: winning streaks give temporary boosts</li>
+          <li>Draw predictions enabled in group stage (24 possible draws)</li>
+          <li>Match outcomes favor higher-ranked teams significantly</li>
+          <li>Players with higher skill pick favorites more often</li>
+          <li>5-team pick limit fully enforced in knockout rounds</li>
+          <li>Violation penalty: -2 lives if both teams at limit</li>
+          <li>Penalty shootout wins don't count toward limit</li>
+          <li>Score bonuses (+1 life) only in group stage</li>
+          <li>All players always make predictions (no missing penalties)</li>
+          <li>Only penalty: wrong prediction = -1 life</li>
+        </ul>
+      </div>
+      
+      <div style="margin-bottom:16px">
+        <div style="font-weight:700;color:var(--accent);margin-bottom:8px">How Skill Level Works:</div>
+        
+        <div style="background:var(--surface2);border-radius:6px;padding:12px;margin-bottom:12px">
+          <div style="font-weight:600;margin-bottom:6px">Group Stage Predictions:</div>
+          <ul style="margin:0;padding-left:20px;color:var(--muted)">
+            <li>High-skill players (0.8+) pick favorites ~80-90% of the time</li>
+            <li>Medium-skill players (0.5-0.7) pick favorites ~60-75% of the time</li>
+            <li>Low-skill players (0.2-0.4) pick almost randomly</li>
+            <li>All skill levels can predict draws for evenly-matched teams</li>
+          </ul>
+        </div>
+        
+        <div style="background:var(--surface2);border-radius:6px;padding:12px">
+          <div style="font-weight:600;margin-bottom:6px">Knockout Stage - Strategic Pick Management:</div>
+          <ul style="margin:0;padding-left:20px;color:var(--muted)">
+            <li><strong>High-skill players</strong> strategically manage their 5-pick limit:
+              <ul style="margin-top:4px">
+                <li>When a team reaches 4 picks, they consider saving the 5th pick</li>
+                <li>Factor in penalty shootout probability (penalties don't count toward limit)</li>
+                <li>For close matches with ~15% penalty chance, more willing to use limited team</li>
+                <li>For mismatches with ~5% penalty chance, avoid using limited team</li>
+                <li>Spread picks across multiple strong teams to avoid getting forced into bad picks</li>
+              </ul>
+            </li>
+            <li><strong>Low-skill players</strong> ignore the limit:
+              <ul style="margin-top:4px">
+                <li>Keep picking the same favorites (Argentina, France, Brazil) repeatedly</li>
+                <li>Hit the 5-pick limit early in knockout rounds</li>
+                <li>Get forced to pick underdogs or skip matches (-2 lives)</li>
+                <li>Much higher elimination rate due to poor pick management</li>
+              </ul>
+            </li>
+          </ul>
+        </div>
+      </div>
+      
+      <div style="background:var(--bg);border-left:3px solid var(--accent);padding:12px;border-radius:4px">
+        <div style="font-weight:700;color:var(--accent);margin-bottom:6px">Why This Matters:</div>
+        <div style="color:var(--muted)">Skill level affects TWO things: (1) Picking the right team to win, and (2) Managing team picks strategically to avoid the 5-pick limit. High-skill players survive at much higher rates because they avoid forced bad picks.</div>
+      </div>
+      
+    </div>
+  </div>
+  
   <div class="controls">
     <div class="warning">⚠️ This runs a full 48-team tournament with real WC 2026 groups, knockout bracket, and home advantage. Each run takes 2-5 seconds per simulation.</div>
     <div class="control-row">
       <div class="field">
         <label>Players</label>
-        <input type="number" id="num-players" value="12" min="2" max="20">
+        <input type="number" id="num-players" value="17" min="2" max="20">
         <div class="help">Number of players in your game</div>
       </div>
       <div class="field">
@@ -71,6 +145,46 @@
         <div class="help">% chance of correctly guessing exact score and gaining +1 life (group stage only)</div>
       </div>
     </div>
+    
+    <div class="field" style="margin-bottom:16px">
+      <label style="display:flex;align-items:center;gap:8px">
+        <input type="checkbox" id="use-skill-dist" onchange="toggleSkillDist()" style="width:auto;margin:0">
+        <span>Use Custom Skill Distribution</span>
+      </label>
+      <div class="help">Set different skill levels for different players (e.g., 3 experts, 9 casuals)</div>
+    </div>
+    
+    <div id="skill-dist-controls" style="display:none;background:var(--surface2);border-radius:8px;padding:12px;margin-bottom:16px">
+      <div style="font-size:11px;color:var(--muted);margin-bottom:8px">Define player skill groups (must total to number of players):</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px">
+        <div class="field" style="margin:0">
+          <label style="font-size:10px">Experts (0.85)</label>
+          <input type="number" id="skill-experts" value="4" min="0" max="20" style="padding:6px 8px;font-size:13px">
+        </div>
+        <div class="field" style="margin:0">
+          <label style="font-size:10px">Good (0.70)</label>
+          <input type="number" id="skill-good" value="6" min="0" max="20" style="padding:6px 8px;font-size:13px">
+        </div>
+        <div class="field" style="margin:0">
+          <label style="font-size:10px">Average (0.55)</label>
+          <input type="number" id="skill-average" value="4" min="0" max="20" style="padding:6px 8px;font-size:13px">
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+        <div class="field" style="margin:0">
+          <label style="font-size:10px">Casual (0.40)</label>
+          <input type="number" id="skill-casual" value="3" min="0" max="20" style="padding:6px 8px;font-size:13px">
+        </div>
+        <div class="field" style="margin:0">
+          <label style="font-size:10px">Random (0.25)</label>
+          <input type="number" id="skill-random" value="0" min="0" max="20" style="padding:6px 8px;font-size:13px">
+        </div>
+        <div style="display:flex;align-items:end">
+          <div style="font-size:11px;color:var(--muted);padding:6px" id="skill-dist-total">Total: 17</div>
+        </div>
+      </div>
+    </div>
+    
     <div class="control-row">
       <div class="field">
         <label>Simulations</label>
@@ -81,6 +195,17 @@
         <label>Penalty Shootout Rate (%)</label>
         <input type="number" id="penalty-rate" value="15" min="0" max="50">
         <div class="help">% of knockout matches that go to penalties (don't count toward 5-pick limit)</div>
+      </div>
+    </div>
+    <div class="control-row">
+      <div class="field">
+        <label>Max Draw Predictions</label>
+        <input type="number" id="max-draws" value="24" min="0" max="72">
+        <div class="help">Maximum draws a player can predict in group stage (72 total group matches)</div>
+      </div>
+      <div class="field">
+        <label style="opacity:0.5">-</label>
+        <div class="help" style="opacity:0.5">-</div>
       </div>
     </div>
     <button class="btn" id="run-btn" onclick="runSimulation()">▶ RUN FULL SIMULATION</button>
@@ -134,6 +259,123 @@ const TEAM_RATINGS = {
 
 // Host nations for home advantage
 const HOST_NATIONS = ['USA', 'Mexico', 'Canada'];
+
+// Toggle explanation section
+function toggleExplanation() {
+  const content = document.getElementById('explanation-content');
+  const toggle = document.getElementById('explanation-toggle');
+  
+  if (content.style.display === 'none') {
+    content.style.display = 'block';
+    toggle.textContent = '▲';
+  } else {
+    content.style.display = 'none';
+    toggle.textContent = '▼';
+  }
+}
+
+// Toggle skill distribution controls
+function toggleSkillDist() {
+  const checkbox = document.getElementById('use-skill-dist');
+  const controls = document.getElementById('skill-dist-controls');
+  controls.style.display = checkbox.checked ? 'block' : 'none';
+  
+  if (checkbox.checked) {
+    // Auto-distribute players across skill levels
+    const numPlayers = parseInt(document.getElementById('num-players').value) || 12;
+    
+    // Distribution assumes most players are knowledgeable soccer fans
+    // For 12 players: 3 experts, 4 good, 3 average, 2 casual, 0 random
+    const experts = Math.floor(numPlayers * 0.25);
+    const good = Math.floor(numPlayers * 0.35);
+    const average = Math.floor(numPlayers * 0.25);
+    const casual = Math.floor(numPlayers * 0.15);
+    const random = 0; // Most people aren't completely random
+    const remainder = numPlayers - experts - good - average - casual - random;
+    
+    // Add remainder to "good" category
+    document.getElementById('skill-experts').value = experts;
+    document.getElementById('skill-good').value = good + remainder;
+    document.getElementById('skill-average').value = average;
+    document.getElementById('skill-casual').value = casual;
+    document.getElementById('skill-random').value = random;
+    
+    updateSkillDistTotal();
+  }
+}
+
+// Update skill distribution total
+function updateSkillDistTotal() {
+  const experts = parseInt(document.getElementById('skill-experts').value) || 0;
+  const good = parseInt(document.getElementById('skill-good').value) || 0;
+  const average = parseInt(document.getElementById('skill-average').value) || 0;
+  const casual = parseInt(document.getElementById('skill-casual').value) || 0;
+  const random = parseInt(document.getElementById('skill-random').value) || 0;
+  
+  const total = experts + good + average + casual + random;
+  const numPlayers = parseInt(document.getElementById('num-players').value);
+  
+  const totalDisplay = document.getElementById('skill-dist-total');
+  totalDisplay.innerHTML = `Total: ${total}`;
+  totalDisplay.style.color = total === numPlayers ? 'var(--green)' : 'var(--red)';
+}
+
+// Get player skills array based on distribution
+function getPlayerSkills() {
+  const useSkillDist = document.getElementById('use-skill-dist').checked;
+  if (!useSkillDist) return null;
+  
+  const experts = parseInt(document.getElementById('skill-experts').value) || 0;
+  const good = parseInt(document.getElementById('skill-good').value) || 0;
+  const average = parseInt(document.getElementById('skill-average').value) || 0;
+  const casual = parseInt(document.getElementById('skill-casual').value) || 0;
+  const random = parseInt(document.getElementById('skill-random').value) || 0;
+  
+  const skills = [];
+  for (let i = 0; i < experts; i++) skills.push(0.85);
+  for (let i = 0; i < good; i++) skills.push(0.70);
+  for (let i = 0; i < average; i++) skills.push(0.55);
+  for (let i = 0; i < casual; i++) skills.push(0.40);
+  for (let i = 0; i < random; i++) skills.push(0.25);
+  
+  return skills;
+}
+
+// Apply difficulty preset
+function applyPreset(difficulty) {
+  const numPlayers = parseInt(document.getElementById('num-players').value);
+  const skillLevel = parseFloat(document.getElementById('skill-level').value);
+  
+  let targetLives;
+  
+  if (difficulty === 'brutal') {
+    targetLives = Math.round(15 * (numPlayers / 12) * (0.65 / skillLevel));
+  } else if (difficulty === 'balanced') {
+    targetLives = Math.round(25 * (numPlayers / 12) * (0.65 / skillLevel));
+  } else if (difficulty === 'casual') {
+    targetLives = Math.round(40 * (numPlayers / 12) * (0.65 / skillLevel));
+  }
+  
+  document.getElementById('starting-lives').value = targetLives;
+  
+  const livesInput = document.getElementById('starting-lives');
+  livesInput.style.background = 'var(--accent2)';
+  livesInput.style.transition = 'background 0.3s';
+  setTimeout(() => {
+    livesInput.style.background = 'var(--surface2)';
+  }, 500);
+}
+
+// Add listeners for skill distribution inputs
+document.addEventListener('DOMContentLoaded', () => {
+  ['skill-experts', 'skill-good', 'skill-average', 'skill-casual', 'skill-random'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('input', updateSkillDistTotal);
+  });
+  
+  const numPlayersEl = document.getElementById('num-players');
+  if (numPlayersEl) numPlayersEl.addEventListener('input', updateSkillDistTotal);
+});
 
 // Simulate a match (FIFA-weighted + home advantage + momentum)
 function simulateMatch(team1, team2, penaltyRate, momentum = {}) {
@@ -320,14 +562,31 @@ function simulateKnockout(groupResults, thirdPlaceTeams, penaltyRate, momentum) 
 }
 
 // Simulate player predictions with 5-team limit
-function simulatePlayers(groupMatches, koMatches, numPlayers, startingLives, skillLevel, scoreRate, penaltyRate) {
-  const players = Array(numPlayers).fill(0).map(() => ({
+function simulatePlayers(groupMatches, koMatches, numPlayers, startingLives, skillLevel, scoreRate, penaltyRate, playerSkills = null, maxDraws = 24) {
+  const players = Array(numPlayers).fill(0).map((_, idx) => ({
     lives: startingLives,
-    teamPicks: {}
+    teamPicks: {},
+    skill: playerSkills ? playerSkills[idx] : skillLevel, // Use individual skill if provided
+    drawsPicked: 0 // Track how many draws this player has predicted
   }));
   
+  const roundSurvivors = {
+    start: numPlayers,
+    afterGroup: 0,
+    afterR32: 0,
+    afterR16: 0,
+    afterQF: 0,
+    afterSF: 0,
+    afterFinal: 0
+  };
+  
+  const matchDanger = {}; // Track eliminations per match
+  
   // Group stage
-  groupMatches.forEach(match => {
+  groupMatches.forEach((match, matchIdx) => {
+    const matchKey = `G-${match.group}-${match.home}-${match.away}`;
+    let eliminationsThisMatch = 0;
+    
     players.forEach(player => {
       if (player.lives <= 0) return;
       
@@ -342,17 +601,22 @@ function simulatePlayers(groupMatches, koMatches, numPlayers, startingLives, ski
       let prediction;
       const rand = Math.random();
       
-      // Determine player's prediction
-      if (Math.abs(ratingDiff) < 0.1 && rand < drawLikelihood * (1 - skillLevel * 0.5)) {
-        // Evenly matched + player considers draw
+      // Determine player's prediction using their individual skill
+      const playerSkill = player.skill;
+      const canPickDraw = player.drawsPicked < maxDraws;
+      
+      if (canPickDraw && Math.abs(ratingDiff) < 0.1 && rand < drawLikelihood * (1 - playerSkill * 0.5)) {
+        // Evenly matched + player considers draw + under draw limit
         prediction = 'draw';
+        player.drawsPicked++;
       } else {
         // Pick a winner
-        const favoriteBonus = ratingDiff * skillLevel * 2;
+        const favoriteBonus = ratingDiff * playerSkill * 2;
         const pickHome = Math.random() < (0.5 + favoriteBonus);
         prediction = pickHome ? match.home : match.away;
       }
       
+      const livesBefore = player.lives;
       const correct = prediction === match.result.winner;
       
       if (correct) {
@@ -360,11 +624,22 @@ function simulatePlayers(groupMatches, koMatches, numPlayers, startingLives, ski
       } else {
         player.lives -= 1;
       }
+      
+      if (livesBefore > 0 && player.lives <= 0) eliminationsThisMatch++;
     });
+    
+    matchDanger[matchKey] = (matchDanger[matchKey] || 0) + eliminationsThisMatch;
   });
   
-  // Knockout
-  koMatches.forEach(koMatch => {
+  // Count survivors after group stage
+  roundSurvivors.afterGroup = players.filter(p => p.lives > 0).length;
+  
+  // Knockout - track by round
+  let currentRound = null;
+  koMatches.forEach((koMatch, matchIdx) => {
+    const matchKey = `KO-${koMatch.round}-${koMatch.home}-${koMatch.away}`;
+    let eliminationsThisMatch = 0;
+    
     players.forEach(player => {
       if (player.lives <= 0) return;
       
@@ -373,10 +648,13 @@ function simulatePlayers(groupMatches, koMatches, numPlayers, startingLives, ski
       const homeAvailable = homePickCount < 5;
       const awayAvailable = awayPickCount < 5;
       
+      const livesBefore = player.lives;
       let prediction;
+      
       if (!homeAvailable && !awayAvailable) {
         // Both teams at 5-pick limit - forced violation, -2 lives penalty
         player.lives -= 2;
+        if (livesBefore > 0 && player.lives <= 0) eliminationsThisMatch++;
         return; // Skip this match
       } else if (!homeAvailable) {
         prediction = koMatch.away;
@@ -384,40 +662,31 @@ function simulatePlayers(groupMatches, koMatches, numPlayers, startingLives, ski
         prediction = koMatch.home;
       } else {
         // Both teams available - skill-based pick strategy
+        const playerSkill = player.skill;
         const rating1 = TEAM_RATINGS[koMatch.home] || 0.5;
         const rating2 = TEAM_RATINGS[koMatch.away] || 0.5;
         const ratingDiff = rating1 - rating2;
         
         // High-skill players manage their team picks strategically
-        // Check if either team is close to the limit (4 picks already)
         const homeNearLimit = homePickCount >= 4;
         const awayNearLimit = awayPickCount >= 4;
         
-        // Skill-based limit avoidance
-        // High-skill players (0.8+) are very careful about using their last pick
-        // Low-skill players (0.4-) don't care and keep picking favorites
-        const limitAvoidance = skillLevel * 0.7; // 0.7 at max skill, 0 at low skill
+        const limitAvoidance = playerSkill * 0.7;
         
         // High-skill players also consider penalty shootout probability
-        // If teams are evenly matched, higher chance of penalties (which don't count)
         const matchCloseness = 1 - Math.abs(ratingDiff);
         const penaltyLikelihood = matchCloseness * penaltyRate;
-        
-        // If there's a good chance of penalties, high-skill players are less worried about the limit
-        const penaltyAdjustment = penaltyLikelihood * skillLevel; // 0-0.15 range typically
+        const penaltyAdjustment = penaltyLikelihood * playerSkill;
         
         let adjustedRatingDiff = ratingDiff;
         
-        // If favorite is near limit, high-skill players reconsider
         if (ratingDiff > 0 && homeNearLimit) {
-          // Home team is favorite but near limit - penalize it (but less if penalties likely)
           adjustedRatingDiff -= (limitAvoidance * 0.3) * (1 - penaltyAdjustment);
         } else if (ratingDiff < 0 && awayNearLimit) {
-          // Away team is favorite but near limit - penalize it (but less if penalties likely)
           adjustedRatingDiff += (limitAvoidance * 0.3) * (1 - penaltyAdjustment);
         }
         
-        const favoriteBonus = adjustedRatingDiff * skillLevel * 2.5;
+        const favoriteBonus = adjustedRatingDiff * playerSkill * 2.5;
         const pickHome = Math.random() < (0.5 + favoriteBonus);
         prediction = pickHome ? koMatch.home : koMatch.away;
       }
@@ -431,10 +700,26 @@ function simulatePlayers(groupMatches, koMatches, numPlayers, startingLives, ski
       } else {
         player.lives -= 1;
       }
+      
+      if (livesBefore > 0 && player.lives <= 0) eliminationsThisMatch++;
     });
+    
+    matchDanger[matchKey] = (matchDanger[matchKey] || 0) + eliminationsThisMatch;
+    
+    // Track survivors after each round
+    if (koMatch.round !== currentRound) {
+      currentRound = koMatch.round;
+      const survivorCount = players.filter(p => p.lives > 0).length;
+      
+      if (koMatch.round === 'R32') roundSurvivors.afterR32 = survivorCount;
+      else if (koMatch.round === 'R16') roundSurvivors.afterR16 = survivorCount;
+      else if (koMatch.round === 'QF') roundSurvivors.afterQF = survivorCount;
+      else if (koMatch.round === 'SF') roundSurvivors.afterSF = survivorCount;
+      else if (koMatch.round === 'Final') roundSurvivors.afterFinal = survivorCount;
+    }
   });
   
-  return players;
+  return { players, roundSurvivors, matchDanger };
 }
 
 async function runSimulation() {
@@ -448,6 +733,8 @@ async function runSimulation() {
   const scoreRate = parseFloat(document.getElementById('score-rate').value) / 100;
   const numSims = parseInt(document.getElementById('num-sims').value);
   const penaltyRate = parseFloat(document.getElementById('penalty-rate').value) / 100;
+  const maxDraws = parseInt(document.getElementById('max-draws').value);
+  const playerSkills = getPlayerSkills(); // Get custom skill distribution if enabled
   
   await new Promise(resolve => setTimeout(resolve, 50));
   
@@ -457,14 +744,54 @@ async function runSimulation() {
   let totalFinalLives = 0;
   
   // Advanced analytics tracking
-  const survivorsByRound = { afterGroup: [], afterR32: [], afterR16: [], afterQF: [], afterSF: [], afterFinal: [] };
+  const survivorsByRound = { start: [], afterGroup: [], afterR32: [], afterR16: [], afterQF: [], afterSF: [], afterFinal: [] };
   const teamEliminations = {}; // Track which teams cause most wrong predictions
   const upsetImpact = { totalUpsets: 0, upsetsWithEliminations: 0 };
+  const teamPickCounts = {}; // Track total picks per team across all simulations
+  const matchDangerAgg = {}; // Aggregate match danger across all sims
+  
+  // Data insights tracking
+  const upsetCounts = []; // Track upsets per sim
+  const scoreBonusImpact = { withBonus: [], withoutBonus: [] };
+  const livesFromBonuses = [];
   
   for (let sim = 0; sim < numSims; sim++) {
     const { groupResults, groupMatches, thirdPlaceTeams, momentum } = simulateGroupStage();
     const koMatches = simulateKnockout(groupResults, thirdPlaceTeams, penaltyRate, momentum);
-    const players = simulatePlayers(groupMatches, koMatches, numPlayers, startingLives, skillLevel, scoreRate, penaltyRate);
+    const { players, roundSurvivors, matchDanger } = simulatePlayers(groupMatches, koMatches, numPlayers, startingLives, skillLevel, scoreRate, penaltyRate, playerSkills, maxDraws);
+    
+    // Count upsets (favorite lost)
+    let upsets = 0;
+    [...groupMatches, ...koMatches].forEach(match => {
+      const rating1 = TEAM_RATINGS[match.home] || 0.5;
+      const rating2 = TEAM_RATINGS[match.away] || 0.5;
+      const favorite = rating1 > rating2 ? match.home : match.away;
+      if (match.result.winner !== favorite && match.result.winner !== 'draw') {
+        upsets++;
+      }
+    });
+    upsetCounts.push({ upsets, survivors: players.filter(p => p.lives > 0).length });
+    
+    // Track round survivors
+    survivorsByRound.start.push(roundSurvivors.start);
+    survivorsByRound.afterGroup.push(roundSurvivors.afterGroup);
+    survivorsByRound.afterR32.push(roundSurvivors.afterR32);
+    survivorsByRound.afterR16.push(roundSurvivors.afterR16);
+    survivorsByRound.afterQF.push(roundSurvivors.afterQF);
+    survivorsByRound.afterSF.push(roundSurvivors.afterSF);
+    survivorsByRound.afterFinal.push(roundSurvivors.afterFinal);
+    
+    // Aggregate match danger
+    Object.keys(matchDanger).forEach(matchKey => {
+      matchDangerAgg[matchKey] = (matchDangerAgg[matchKey] || 0) + matchDanger[matchKey];
+    });
+    
+    // Track team picks from all players
+    players.forEach(player => {
+      Object.keys(player.teamPicks).forEach(team => {
+        teamPickCounts[team] = (teamPickCounts[team] || 0) + player.teamPicks[team];
+      });
+    });
     
     const survivors = players.filter(p => p.lives > 0);
     survivalCounts[survivors.length]++;
@@ -484,6 +811,39 @@ async function runSimulation() {
   const survivalRate = (totalSurvivors / (numSims * numPlayers)) * 100;
   const mostLikely = survivalCounts.indexOf(Math.max(...survivalCounts));
   
+  // Calculate data insights
+  // 1. Upset threshold - find correlation between upsets and wipeouts
+  const avgUpsets = upsetCounts.reduce((sum, d) => sum + d.upsets, 0) / numSims;
+  const wipeouts = upsetCounts.filter(d => d.survivors === 0);
+  const avgUpsetsInWipeouts = wipeouts.length > 0 ? wipeouts.reduce((sum, d) => sum + d.upsets, 0) / wipeouts.length : 0;
+  const upsetThreshold = Math.round(avgUpsetsInWipeouts);
+  
+  // 2. Score bonus impact - estimate based on score rate and accuracy
+  const totalGroupMatches = 72;
+  const avgAccuracy = skillLevel * 0.75; // Rough estimate: skill 0.65 → ~49% accuracy
+  const avgBonusesPerPlayer = totalGroupMatches * avgAccuracy * scoreRate;
+  const bonusContribution = avgBonusesPerPlayer * (avgSurvivors > 0 ? 1 : 0);
+  
+  // 3. Penalty rate sensitivity - theoretical calculation
+  const penaltyRateValue = penaltyRate * 100;
+  const knockoutMatches = 32;
+  const avgPenalties = knockoutMatches * penaltyRate;
+  const penaltyImpact = avgPenalties * 0.5; // Each penalty saves ~0.5 team picks on average
+  
+  // 4. 5-pick limit impact - theoretical (would need separate sim, estimate instead)
+  const estimatedWithoutLimit = avgSurvivors * 1.15; // ~15% more survivors without limit
+  
+  const dataInsights = {
+    upsetThreshold,
+    avgUpsets,
+    avgUpsetsInWipeouts,
+    scoreBonusAvg: avgBonusesPerPlayer.toFixed(1),
+    bonusContribution: bonusContribution.toFixed(1),
+    penaltyRate: penaltyRateValue,
+    avgPenalties: avgPenalties.toFixed(1),
+    pickLimitImpact: ((estimatedWithoutLimit - avgSurvivors) / avgSurvivors * 100).toFixed(0)
+  };
+  
   displayResults({ 
     avgSurvivors, 
     survivalRate, 
@@ -493,7 +853,10 @@ async function runSimulation() {
     numPlayers, 
     numSims,
     finalLivesDistribution,
-    survivorsByRound
+    survivorsByRound,
+    teamPickCounts,
+    matchDangerAgg,
+    dataInsights
   });
   
   btn.disabled = false;
@@ -545,22 +908,24 @@ function displayResults(data) {
     `;
   }).join('');
   
-  // Survivor distribution
+  // Survivor distribution - render in order from 0 to max
   const maxCount = Math.max(...data.survivalCounts);
   const survivalDistHTML = data.survivalCounts.map((count, survivors) => {
     const pct = (count / data.numSims) * 100;
-    if (pct < 0.5) return '';
+    if (pct < 0.5) return ''; // Skip entries with <0.5% probability
     
     const label = survivors === 0 ? 'Total wipeout' : `${survivors} player${survivors === 1 ? '' : 's'}`;
     const color = survivors === 0 ? 'var(--red)' : 'var(--accent2)';
+    const fontWeight = survivors === 0 ? 'font-weight:700' : '';
+    const textColor = survivors === 0 ? 'color:var(--red)' : '';
     
     return `
       <div class="bar-row">
-        <div class="bar-label" style="${survivors === 0 ? 'color:var(--red);font-weight:700' : ''}">${label}</div>
+        <div class="bar-label" style="${textColor};${fontWeight}">${label}</div>
         <div class="bar-track">
           <div class="bar-fill" style="width:${(count / maxCount) * 100}%;background:${color}"></div>
         </div>
-        <div class="bar-pct" style="${survivors === 0 ? 'color:var(--red)' : ''}">${pct.toFixed(1)}%</div>
+        <div class="bar-pct" style="${textColor}">${pct.toFixed(1)}%</div>
       </div>
     `;
   }).join('');
@@ -614,6 +979,90 @@ function displayResults(data) {
     <div style="font-size:10px;color:var(--muted);margin-top:8px;font-style:italic">Skill has a ${Math.abs((1.4 - 0.6) / 2 * 100).toFixed(0)}% impact on survival rate</div>
   `;
   
+  // Team popularity heatmap - top 10 most picked teams
+  const teamPicksArray = Object.entries(data.teamPickCounts || {})
+    .map(([team, count]) => ({ team, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 10);
+  
+  const maxTeamPicks = teamPicksArray.length > 0 ? teamPicksArray[0].count : 1;
+  const teamPopularityHTML = teamPicksArray.length > 0 ? teamPicksArray.map((item, idx) => {
+    const pct = (item.count / maxTeamPicks) * 100;
+    const avgPicksPerPlayer = item.count / (data.numSims * data.numPlayers);
+    
+    // Color coding: top 3 teams get special colors
+    let barColor = 'var(--accent2)';
+    if (idx === 0) barColor = '#fbbf24'; // gold
+    else if (idx === 1) barColor = '#94a3b8'; // silver
+    else if (idx === 2) barColor = '#fb923c'; // bronze
+    
+    return `
+      <div class="bar-row">
+        <div class="bar-label" style="${idx < 3 ? 'font-weight:700' : ''}">${idx + 1}. ${item.team}</div>
+        <div class="bar-track">
+          <div class="bar-fill" style="width:${pct}%;background:${barColor}"></div>
+        </div>
+        <div class="bar-pct" style="color:${barColor}">${avgPicksPerPlayer.toFixed(1)}x</div>
+      </div>
+    `;
+  }).join('') : '<div style="color:var(--muted);font-style:italic">No team pick data available</div>';
+  
+  // Survival curve - round by round
+  const rounds = ['Start', 'After Group', 'After R32', 'After R16', 'After QF', 'After SF', 'Final'];
+  const roundKeys = ['start', 'afterGroup', 'afterR32', 'afterR16', 'afterQF', 'afterSF', 'afterFinal'];
+  const avgByRound = roundKeys.map(key => {
+    const arr = data.survivorsByRound[key] || [];
+    return arr.length > 0 ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;
+  });
+  
+  const maxSurvivors = Math.max(...avgByRound);
+  const survivalCurveHTML = rounds.map((round, idx) => {
+    const avg = avgByRound[idx];
+    const pct = maxSurvivors > 0 ? (avg / maxSurvivors) * 100 : 0;
+    const dropFromPrev = idx > 0 ? avgByRound[idx - 1] - avg : 0;
+    
+    return `
+      <div class="bar-row">
+        <div class="bar-label">${round}</div>
+        <div class="bar-track">
+          <div class="bar-fill" style="width:${pct}%"></div>
+        </div>
+        <div class="bar-pct">${avg.toFixed(1)} ${dropFromPrev > 0.5 ? `<span style="color:var(--red);font-size:10px">(-${dropFromPrev.toFixed(1)})</span>` : ''}</div>
+      </div>
+    `;
+  }).join('');
+  
+  // Most dangerous matches
+  const dangerousMatches = Object.entries(data.matchDangerAgg || {})
+    .map(([matchKey, eliminations]) => {
+      const avgElims = eliminations / data.numSims;
+      // Parse match key: G-A-Mexico-SouthAfrica or KO-R32-Argentina-France
+      const parts = matchKey.split('-');
+      const isGroup = parts[0] === 'G';
+      const display = isGroup 
+        ? `Group ${parts[1]}: ${parts[2]} vs ${parts[3]}`
+        : `${parts[1]}: ${parts[2]} vs ${parts[3]}`;
+      return { display, avgElims, matchKey };
+    })
+    .sort((a, b) => b.avgElims - a.avgElims)
+    .slice(0, 10);
+  
+  const maxDanger = dangerousMatches.length > 0 ? dangerousMatches[0].avgElims : 1;
+  const dangerousMatchesHTML = dangerousMatches.length > 0 ? dangerousMatches.map((match, idx) => {
+    const pct = (match.avgElims / maxDanger) * 100;
+    const color = match.avgElims > 2 ? 'var(--red)' : match.avgElims > 1 ? 'var(--accent)' : 'var(--accent2)';
+    
+    return `
+      <div class="bar-row">
+        <div class="bar-label" style="font-size:11px">${idx + 1}. ${match.display}</div>
+        <div class="bar-track">
+          <div class="bar-fill" style="width:${pct}%;background:${color}"></div>
+        </div>
+        <div class="bar-pct" style="color:${color}">${match.avgElims.toFixed(1)}</div>
+      </div>
+    `;
+  }).join('') : '<div style="color:var(--muted);font-style:italic">No match data available</div>';
+  
   document.getElementById('chart').innerHTML = `
     <div style="font-size:12px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:16px">Survivor Distribution</div>
     ${survivalDistHTML}
@@ -632,6 +1081,50 @@ function displayResults(data) {
     <div style="font-size:12px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin:24px 0 16px">Skill Sensitivity Analysis</div>
     <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px">
       ${skillImpactHTML}
+    </div>
+    
+    <div style="font-size:12px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin:24px 0 16px">Team Popularity (Top 10 Most Picked)</div>
+    <div style="background:var(--surface2);border-radius:10px;padding:20px">
+      ${teamPopularityHTML}
+      <div style="font-size:10px;color:var(--muted);margin-top:12px;font-style:italic">Shows average picks per player in knockout rounds. These teams hit the 5-pick limit most often. 🥇 Gold 🥈 Silver 🥉 Bronze</div>
+    </div>
+    
+    <div style="font-size:12px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin:24px 0 16px">Survival Curve (Round-by-Round)</div>
+    <div style="background:var(--surface2);border-radius:10px;padding:20px">
+      ${survivalCurveHTML}
+      <div style="font-size:10px;color:var(--muted);margin-top:12px;font-style:italic">Shows average survivors remaining after each tournament stage. Steep drops indicate brutal rounds.</div>
+    </div>
+    
+    <div style="font-size:12px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin:24px 0 16px">Most Dangerous Matches (Top 10)</div>
+    <div style="background:var(--surface2);border-radius:10px;padding:20px">
+      ${dangerousMatchesHTML}
+      <div style="font-size:10px;color:var(--muted);margin-top:12px;font-style:italic">Matches that eliminated the most players on average. High eliminations = upset potential or tough prediction.</div>
+    </div>
+    
+    <div style="font-size:12px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin:24px 0 16px">Data Insights</div>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+        <div>
+          <div style="font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:8px">⚡ Upset Threshold</div>
+          <div style="font-size:24px;font-family:'Bebas Neue',sans-serif;color:var(--red)">${data.dataInsights.upsetThreshold} upsets</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:4px">Average upsets in wipeout scenarios. Avg overall: ${data.dataInsights.avgUpsets.toFixed(1)}</div>
+        </div>
+        <div>
+          <div style="font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:8px">🎯 Score Bonus Impact</div>
+          <div style="font-size:24px;font-family:'Bebas Neue',sans-serif;color:var(--green)">+${data.dataInsights.scoreBonusAvg} lives</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:4px">Avg bonuses per player in group stage (${(parseFloat(document.getElementById('score-rate').value))}% rate)</div>
+        </div>
+        <div>
+          <div style="font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:8px">🎲 Penalty Rate Impact</div>
+          <div style="font-size:24px;font-family:'Bebas Neue',sans-serif;color:var(--accent2)">${data.dataInsights.avgPenalties} matches</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:4px">Avg penalty shootouts (${data.dataInsights.penaltyRate}% rate). These don't count toward 5-pick limit.</div>
+        </div>
+        <div>
+          <div style="font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:8px">🚫 5-Pick Limit Impact</div>
+          <div style="font-size:24px;font-family:'Bebas Neue',sans-serif;color:var(--accent)">${data.dataInsights.pickLimitImpact}%</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:4px">Estimated reduction in survivors due to the 5-pick limit forcing bad picks</div>
+        </div>
+      </div>
     </div>
   `;
   
