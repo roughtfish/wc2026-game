@@ -1572,44 +1572,54 @@ function renderResultEntry(g,match,area){
     });
   }
 
-  area.querySelector('#submit-result-btn').addEventListener("click",async()=>{
+  const submitBtn=area.querySelector('#submit-result-btn');
+  submitBtn.addEventListener("click",async()=>{
     const h=parseInt(document.getElementById('score-home').value)||0;
     const a=parseInt(document.getElementById('score-away').value)||0;
     const penWinner=area.querySelector('.pen-btn.active')?.dataset?.pen||null;
     // Block submission if KO and draw but no pen winner selected
     if(isKO&&h===a&&!penWinner){alert('Please select the penalty shootout winner.');return;}
-    const actual=h>a?'home':a>h?'away':(penWinner||'draw');
-    const f=await loadGame(me.code);
-    const mp=f.predictions[f.currentMatchIdx]||{};
-    f.players.forEach(p=>{
-      if(p.eliminated)return;
-      if(mp[p.name]===actual){p.correct++;}
-      else if(mp[p.name]!=null){p.lives=Math.max(0,p.lives-1);if(p.lives===0)p.eliminated=true;}
-      else{p.lives=Math.max(0,p.lives-2);if(p.lives===0)p.eliminated=true;}
-      // Exact score bonus: +1 life if they predicted the correct score
-      const sc=mp[p.name+'_score'];
-      if(sc&&sc.home===h&&sc.away===a){p.lives++;p.scoreBonus=(p.scoreBonus||0)+1;}
-    });
-    f.currentResult={home:h,away:a,penWinner:penWinner||undefined};
-    // Store result for standings calculation
-    if(!f.results)f.results={};
-    f.results[f.currentMatchIdx]={home:h,away:a,...(penWinner?{penWinner}:{})};
-    // Auto-populate KO bracket
-    const curMatch=f.matches[f.currentMatchIdx];
-    if(curMatch.group){
-      // Check if this was the last group match → populate R32
-      const groupMatches=f.matches.filter(m=>m.group);
-      const resultsSoFar=Object.keys(f.results).filter(idx=>f.matches[idx]?.group).length;
-      if(resultsSoFar>=groupMatches.length){
-        populateKnockoutBracket(f);
+    submitBtn.textContent='Saving…';submitBtn.disabled=true;
+    try{
+      const actual=h>a?'home':a>h?'away':(penWinner||'draw');
+      const f=await loadGame(me.code);
+      if(!f){submitBtn.textContent='CONFIRM RESULT & REVEAL';submitBtn.disabled=false;alert('Could not load game — check your connection.');return;}
+      const mp=f.predictions[f.currentMatchIdx]||{};
+      f.players.forEach(p=>{
+        if(p.eliminated)return;
+        if(mp[p.name]===actual){p.correct++;}
+        else if(mp[p.name]!=null){p.lives=Math.max(0,p.lives-1);if(p.lives===0)p.eliminated=true;}
+        else{p.lives=Math.max(0,p.lives-2);if(p.lives===0)p.eliminated=true;}
+        // Exact score bonus: +1 life if they predicted the correct score
+        const sc=mp[p.name+'_score'];
+        if(sc&&sc.home===h&&sc.away===a){p.lives++;p.scoreBonus=(p.scoreBonus||0)+1;}
+      });
+      f.currentResult={home:h,away:a,penWinner:penWinner||undefined};
+      // Store result for standings calculation
+      if(!f.results)f.results={};
+      f.results[f.currentMatchIdx]={home:h,away:a,...(penWinner?{penWinner}:{})};
+      // Auto-populate KO bracket
+      const curMatch=f.matches[f.currentMatchIdx];
+      if(curMatch.group){
+        // Check if this was the last group match → populate R32
+        const groupMatches=f.matches.filter(m=>m.group);
+        const resultsSoFar=Object.keys(f.results).filter(idx=>f.matches[idx]?.group).length;
+        if(resultsSoFar>=groupMatches.length){
+          populateKnockoutBracket(f);
+        }
+      } else if(curMatch.round){
+        // Propagate KO winner to next round
+        populateNextKORound(f, f.currentMatchIdx);
       }
-    } else if(curMatch.round){
-      // Propagate KO winner to next round
-      populateNextKORound(f, f.currentMatchIdx);
+      f.status='reveal:'+f.currentMatchIdx;
+      await saveGame(f);
+      renderReveal(f);
+    }catch(e){
+      console.error('submit-result failed',e);
+      submitBtn.textContent='CONFIRM RESULT & REVEAL';submitBtn.disabled=false;
+      alert('Failed to save result: '+e.message+'
+Please try again.');
     }
-    f.status='reveal:'+f.currentMatchIdx;
-    await saveGame(f);
-    renderReveal(f);
   });
 }
 
