@@ -251,7 +251,10 @@ function render(g){
   if(subEl)subEl.innerHTML=`Live Stats &nbsp;·&nbsp; <span class="status-chip ${statusClass}">${statusLabel}</span>`;
   renderLeaderboard(g);
   renderHistory(g);
-  }catch(e){console.error('render failed',e);}
+  }catch(e){
+    console.error('render failed',e);
+    document.getElementById('leaderboard').innerHTML=`<div style="color:red;padding:12px;font-size:12px">Render error: ${e.message}</div>`;
+  }
 }
 
 function closeModal(){document.getElementById('player-modal').style.display='none';}
@@ -263,7 +266,8 @@ function showPlayerModal(playerName){
   const p=g.players.find(pl=>pl.name===playerName);
   if(!p)return;
   const results=g.results||{};
-  const playedIdxs=Object.keys(results).map(Number).sort((a,b)=>a-b);
+  const playedIdxs=Object.keys(results).map(Number).filter(n=>!isNaN(n)).sort((a,b)=>a-b);
+  if(!g.predictions)g.predictions={};
   const maxLives=g.lives;
   const livePct=maxLives>0?Math.round(p.lives/maxLives*100):0;
   const barCol=livePct>60?'var(--green)':livePct>30?'var(--accent)':'var(--red)';
@@ -326,7 +330,8 @@ function renderLeaderboard(g){
   });
   const maxLives=g.lives;
   // Count played matches
-  const playedIdxsLb=Object.keys(g.results||{}).map(Number);
+  const playedIdxsLb=Object.keys(g.results||{}).map(Number).filter(n=>!isNaN(n));
+  if(!g.predictions)g.predictions={};
   const el=document.getElementById('leaderboard');
   el.innerHTML=sorted.map((p,i)=>{
     const rankClass=i===0&&!p.eliminated?'gold':i===1&&!p.eliminated?'silver':i===2&&!p.eliminated?'bronze':'';
@@ -367,7 +372,8 @@ function renderHistory(g){
     return b.lives-a.lives||b.correct-a.correct;
   });
   const results=g.results||{};
-  const playedIdxs=Object.keys(results).map(Number).sort((a,b)=>a-b);
+  const playedIdxs=Object.keys(results).map(Number).filter(n=>!isNaN(n)).sort((a,b)=>a-b);
+  if(!g.predictions)g.predictions={};
   if(playedIdxs.length===0){
     document.getElementById('history-body').innerHTML=`<tr><td colspan="${players.length+3}" style="text-align:center;color:var(--muted);padding:24px">No matches played yet</td></tr>`;
     document.getElementById('history-head').innerHTML='';
