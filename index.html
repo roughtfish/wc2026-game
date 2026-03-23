@@ -148,6 +148,27 @@
   .eliminated-stats{font-size:13px;color:var(--muted);margin-bottom:28px}
   .eliminated-stats strong{color:var(--text)}
   .score-predict-row{display:flex;align-items:center;gap:8px;justify-content:center;margin-top:8px;padding:7px 0 2px;border-top:0.5px solid rgba(255,255,255,0.06)}
+  /* Player Predictions Modal */
+  .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:100;display:none;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(4px);animation:fadeIn 0.2s ease}
+  .modal-overlay.active{display:flex}
+  .modal{background:var(--surface);border:1px solid var(--border);border-radius:16px;width:100%;max-width:600px;max-height:85vh;overflow:hidden;display:flex;flex-direction:column}
+  .modal-header{display:flex;align-items:center;justify-content:space-between;padding:18px 20px;border-bottom:1px solid var(--border)}
+  .modal-title{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:2px;color:var(--accent)}
+  .modal-close{background:transparent;border:none;color:var(--muted);font-size:24px;cursor:pointer;padding:0;width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:6px;transition:all 0.2s}
+  .modal-close:hover{background:var(--surface2);color:var(--text)}
+  .modal-body{padding:20px;overflow-y:auto;flex:1}
+  .modal-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px}
+  .modal-stat-card{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px;text-align:center}
+  .modal-stat-value{font-family:'Bebas Neue',sans-serif;font-size:28px;letter-spacing:2px;color:var(--accent2)}
+  .modal-stat-label{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-top:2px}
+  .modal-section-title{font-family:'Bebas Neue',sans-serif;font-size:12px;letter-spacing:2px;color:var(--muted);margin:16px 0 10px;text-transform:uppercase}
+  .modal-pred-item{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:var(--surface2);border-radius:8px;margin-bottom:6px;font-size:13px}
+  .modal-pred-match{display:flex;align-items:center;gap:6px;flex:1}
+  .modal-pred-result{font-family:'Bebas Neue',sans-serif;font-size:14px;padding:4px 10px;border-radius:6px;white-space:nowrap}
+  .modal-pred-result.correct{background:rgba(34,197,94,0.15);color:var(--green)}
+  .modal-pred-result.incorrect{background:rgba(239,68,68,0.15);color:var(--red)}
+  .modal-pred-result.pending{background:var(--surface);color:var(--muted);border:1px solid var(--border)}
+  .modal-match-badge{font-size:9px;padding:2px 6px;border-radius:4px;background:rgba(45,212,191,0.1);color:var(--accent2);margin-left:6px}
   .score-predict-toggle{font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);cursor:pointer;padding:3px 8px;border:1px solid var(--border);border-radius:6px;background:transparent;transition:all 0.15s}
   .score-predict-toggle:hover{color:var(--accent2);border-color:var(--accent2)}
   .score-predict-toggle.active{color:var(--accent2);border-color:var(--accent2);background:rgba(45,212,191,0.07)}
@@ -1134,7 +1155,7 @@ function renderScoreboard(g,elId){
     if(mx<=7)h=`<div style="display:flex;gap:2px;">${Array.from({length:mx},(_,j)=>`<span class="heart${j>=p.lives?' lost':''}">❤️</span>`).join('')}</div>`;
     else{const pct=p.lives/mx;const col=pct>0.6?'var(--green)':pct>0.3?'var(--accent)':'var(--red)';h=`<div style="font-size:11px;font-weight:600;color:${col}">❤️${p.lives}<span style="color:var(--muted);font-size:10px;">/${mx}</span></div>`;}
     const online=onlineSet.has(p.name);
-    return`<div class="player-chip${p.eliminated?' eliminated':''}"><div class="name"><span class="presence-dot${online?'':' presence-offline'}" data-player="${p.name}" title="${p.name}${online?' is online':' is offline'}"></span>${p.name}</div>${h}<div style="font-size:10px;color:var(--muted)">${p.correct}✓</div></div>`;
+    return`<div class="player-chip${p.eliminated?' eliminated':''}" onclick="showPlayerPredictions('${p.name.replace(/'/g,"\\'")}')" style="cursor:pointer"><div class="name"><span class="presence-dot${online?'':' presence-offline'}" data-player="${p.name}" title="${p.name}${online?' is online':' is offline'}"></span>${p.name}</div>${h}<div style="font-size:10px;color:var(--muted)">${p.correct}✓</div></div>`;
   }).join('');
 }
 const KO_ROUND_LABELS={'Round of 32':'R32','Round of 16':'R16','Quarter-final':'QF','Semi-final':'SF','3rd Place Play-off':'3rd','Final':'F'};
@@ -1175,6 +1196,150 @@ function renderRoster(g,elId){
       :`<span class="roster-badge badge-waiting pulse">Waiting…</span>`;
     return`<div class="roster-item"><span>${p.name}</span>${badge}</div>`;
   }).join('');
+}
+
+// ─── PLAYER PREDICTIONS MODAL ────────────────────────────────────────────────
+function closePlayerModal(){
+  document.getElementById('player-modal').classList.remove('active');
+}
+
+// Close modal on Escape key
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closePlayerModal();});
+
+function showPlayerPredictions(playerName){
+  if(!game || !game.state)return;
+  const g = game.state;
+  
+  // Check if predictions are locked (game is playing or done, or in reveal mode)
+  const predictionsLocked = g.status === 'playing' || g.status === 'done' || (g.status && g.status.startsWith('reveal:'));
+  if(!predictionsLocked){
+    alert('Predictions are not visible yet. They will be shown once the game starts!');
+    return;
+  }
+  
+  const player = g.players.find(p => p.name === playerName);
+  if(!player)return;
+  
+  // Set player name in header
+  document.getElementById('modal-player-name').textContent = playerName;
+  
+  // Calculate stats
+  const results = g.results || {};
+  const playedIdxs = Object.keys(results).map(Number).filter(n => !isNaN(n) && results[n] != null).sort((a,b) => a-b);
+  const predictions = g.predictions || {};
+  
+  let correct = 0;
+  let scoreBonuses = 0;
+  playedIdxs.forEach(idx => {
+    const r = results[idx];
+    const pred = (predictions[idx] || {})[playerName];
+    const scorePred = (predictions[idx] || {})[playerName + '_score'];
+    if(pred){
+      const actual = getActualOutcome(r);
+      if(pred === actual) correct++;
+    }
+    if(scorePred && r && scorePred.home === r.home && scorePred.away === r.away){
+      scoreBonuses++;
+    }
+  });
+  
+  const accuracy = playedIdxs.length > 0 ? Math.round(correct / playedIdxs.length * 100) : 0;
+  
+  // Render stats cards
+  document.getElementById('modal-stats').innerHTML = `
+    <div class="modal-stat-card">
+      <div class="modal-stat-value" style="color:${player.lives > g.lives * 0.6 ? 'var(--green)' : player.lives > g.lives * 0.3 ? 'var(--accent)' : 'var(--red)'}">❤️ ${player.lives}</div>
+      <div class="modal-stat-label">Lives Left</div>
+    </div>
+    <div class="modal-stat-card">
+      <div class="modal-stat-value">✓ ${correct}</div>
+      <div class="modal-stat-label">Correct</div>
+    </div>
+    <div class="modal-stat-card">
+      <div class="modal-stat-value">${accuracy}%</div>
+      <div class="modal-stat-label">Accuracy</div>
+    </div>
+  `;
+  
+  // Render predictions
+  const predHtml = g.matches.map((match, idx) => {
+    const pred = (predictions[idx] || {})[playerName];
+    const scorePred = (predictions[idx] || {})[playerName + '_score'];
+    const result = results[idx];
+    
+    if(!pred) return ''; // Skip if no prediction
+    
+    let statusClass = 'pending';
+    let statusText = '—';
+    
+    if(result){
+      const actual = getActualOutcome(result);
+      const isCorrect = pred === actual;
+      statusClass = isCorrect ? 'correct' : 'incorrect';
+      
+      const predTeam = pred === 'home' ? match.home : pred === 'away' ? match.away : 'Draw';
+      const scoreMatch = scorePred && scorePred.home === result.home && scorePred.away === result.away;
+      
+      statusText = `${isCorrect ? '✅' : '❌'} ${predTeam}`;
+      if(scorePred){
+        statusText += ` (${scorePred.home}-${scorePred.away}${scoreMatch ? ' 🎯' : ''})`;
+      }
+    } else {
+      const predTeam = pred === 'home' ? match.home : pred === 'away' ? match.away : 'Draw';
+      statusText = predTeam;
+      if(scorePred){
+        statusText += ` (${scorePred.home}-${scorePred.away})`;
+      }
+    }
+    
+    const groupBadge = match.group ? `<span class="modal-match-badge">Grp ${match.group}</span>` : 
+                       match.round ? `<span class="modal-match-badge">${match.round}</span>` : '';
+    
+    return `
+      <div class="modal-pred-item">
+        <div class="modal-pred-match">
+          <span style="font-size:16px">${getFlag(match.home)}</span>
+          <span style="font-size:11px;font-weight:600">${match.home}</span>
+          <span style="color:var(--muted);font-size:10px">vs</span>
+          <span style="font-size:11px;font-weight:600">${match.away}</span>
+          <span style="font-size:16px">${getFlag(match.away)}</span>
+          ${groupBadge}
+        </div>
+        <div class="modal-pred-result ${statusClass}">${statusText}</div>
+      </div>
+    `;
+  }).filter(Boolean).join('');
+  
+  document.getElementById('modal-predictions').innerHTML = predHtml || '<div style="color:var(--muted);text-align:center;padding:20px">No predictions yet</div>';
+  
+  // Show modal
+  document.getElementById('player-modal').classList.add('active');
+}
+
+function getActualOutcome(result){
+  if(!result) return null;
+  if(result.home > result.away) return 'home';
+  if(result.away > result.home) return 'away';
+  if(result.penWinner) return result.penWinner;
+  return 'draw';
+}
+
+function getFlag(team){
+  const flags = {
+    'Mexico':'🇲🇽','South Africa':'🇿🇦','South Korea':'🇰🇷','Canada':'🇨🇦','USA':'🇺🇸',
+    'Paraguay':'🇵🇾','Australia':'🇦🇺','Qatar':'🇶🇦','Switzerland':'🇨🇭','Brazil':'🇧🇷',
+    'Morocco':'🇲🇦','Argentina':'🇦🇷','France':'🇫🇷','Spain':'🇪🇸','Germany':'🇩🇪',
+    'Belgium':'🇧🇪','Portugal':'🇵🇹','Netherlands':'🇳🇱','Uruguay':'🇺🇾','Colombia':'🇨🇴',
+    'England':'🏴󠁧󠁢󠁥󠁮󠁧󠁿','Croatia':'🇭🇷','Ghana':'🇬🇭','Panama':'🇵🇦','Poland':'🇵🇱',
+    'Albania':'🇦🇱','Sweden':'🇸🇪','Ukraine':'🇺🇦','Italy':'🇮🇹','Wales':'🏴󠁧󠁢󠁷󠁬󠁳󠁿',
+    'Bosnia':'🇧🇦','Turkey':'🇹🇷','Romania':'🇷🇴','Slovakia':'🇸🇰','DR Congo':'🇨🇩',
+    'Jamaica':'🇯🇲','New Caledonia':'🇳🇨','Iraq':'🇮🇶','Bolivia':'🇧🇴','Suriname':'🇸🇷',
+    'Japan':'🇯🇵','Senegal':'🇸🇳','Iran':'🇮🇷','Ecuador':'🇪🇨','Peru':'🇵🇪',
+    'Chile':'🇨🇱','Denmark':'🇩🇰','Nigeria':'🇳🇬','Cameroon':'🇨🇲','Egypt':'🇪🇬',
+    'Algeria':'🇩🇿','Tunisia':'🇹🇳','Mali':'🇲🇱','Costa Rica':'🇨🇷','Saudi Arabia':'🇸🇦',
+    'Iceland':'🇮🇸','Serbia':'🇷🇸','Venezuela':'🇻🇪','Honduras':'🇭🇳','UAE':'🇦🇪'
+  };
+  return flags[team] || '⚽';
 }
 
 // ─── LANDING ─────────────────────────────────────────────────────────────────
@@ -2867,5 +3032,21 @@ document.getElementById('pill-code-display').addEventListener('click',()=>{
   document.getElementById('pill-copy-btn').click();
 });
 </script>
+
+<!-- Player Predictions Modal -->
+<div class="modal-overlay" id="player-modal" onclick="if(event.target===this)closePlayerModal()">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-player-name"></div>
+      <button class="modal-close" onclick="closePlayerModal()">✕</button>
+    </div>
+    <div class="modal-body" id="modal-body">
+      <div class="modal-stats" id="modal-stats"></div>
+      <div class="modal-section-title">Predictions</div>
+      <div id="modal-predictions"></div>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
