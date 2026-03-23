@@ -65,6 +65,8 @@
   .filter-btn.active{color:var(--accent2);border-color:var(--accent2);background:rgba(45,212,191,0.08)}
   .export-btn{margin-left:auto;font-size:11px;letter-spacing:1px;padding:4px 10px;border:1px solid var(--border);border-radius:6px;background:transparent;color:var(--muted);cursor:pointer;font-family:'DM Sans',sans-serif;transition:all 0.15s}
   .export-btn:hover{color:var(--accent);border-color:var(--accent)}
+  .chart-pill{font-size:11px;padding:3px 10px;border-radius:20px;cursor:pointer;border:1.5px solid;transition:opacity 0.15s;user-select:none;font-family:'DM Sans',sans-serif}
+  .chart-pill.hidden{opacity:0.25}
   .round-section{margin-bottom:16px;border:1px solid var(--border);border-radius:10px;overflow:hidden}
   .round-section-header{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;cursor:pointer;background:var(--surface2);user-select:none}
   .round-section-header:hover{background:rgba(255,255,255,0.04)}
@@ -146,7 +148,7 @@
     <div class="section-title">STANDINGS</div>
     <div class="leaderboard" id="leaderboard"></div>
     <div class="section-title">LIVES OVER TIME</div>
-    <div class="chart-wrap"><canvas id="lives-chart" class="chart-canvas"></canvas></div>
+    <div class="chart-wrap"><canvas id="lives-chart" class="chart-canvas"></canvas><div id="chart-legend" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;"></div></div>
     <div class="section-title">MATCH HISTORY</div>
     <div class="history-controls">
       <button class="filter-btn active" data-filter="all">All</button>
@@ -285,34 +287,52 @@ function render(g){
 }
 
 // ─── LIVES CHART ─────────────────────────────────────────────────────────────
+const hiddenChartPlayers=new Set();
+const PLAYER_COLORS=['#e8b84b','#2dd4bf','#ef4444','#a78bfa','#34d399','#f97316','#60a5fa','#f472b6'];
+
 function renderLivesChart(g){
   const canvas=document.getElementById('lives-chart');
   if(!canvas)return;
   const results=g.results||{};
   const playedIdxs=Object.keys(results).map(Number).filter(n=>!isNaN(n)&&results[n]!=null).sort((a,b)=>a-b);
-  if(playedIdxs.length===0){canvas.style.display='none';return;}
+  if(playedIdxs.length===0){canvas.style.display='none';document.getElementById('chart-legend').innerHTML='';return;}
   canvas.style.display='block';
+
+  const players=Array.isArray(g.players)?g.players:Object.values(g.players||{});
+  const maxLives=g.lives;
+
+  // Build / update HTML legend pills
+  const legend=document.getElementById('chart-legend');
+  if(legend.children.length!==players.length){
+    legend.innerHTML=players.map((p,pi)=>{
+      const col=PLAYER_COLORS[pi%PLAYER_COLORS.length];
+      return`<span class="chart-pill${hiddenChartPlayers.has(p.name)?' hidden':''}" data-player="${p.name}" style="color:${col};border-color:${col}">${p.name}</span>`;
+    }).join('');
+    legend.querySelectorAll('.chart-pill').forEach(pill=>{
+      pill.addEventListener('click',()=>{
+        const name=pill.dataset.player;
+        if(hiddenChartPlayers.has(name))hiddenChartPlayers.delete(name);
+        else hiddenChartPlayers.add(name);
+        pill.classList.toggle('hidden');
+        renderLivesChart(currentGame);
+      });
+    });
+  }
+
   const dpr=window.devicePixelRatio||1;
-  const W=canvas.offsetWidth||800, H=200;
+  const W=canvas.offsetWidth||800, H=190;
   canvas.width=W*dpr; canvas.height=H*dpr;
   canvas.style.width=W+'px'; canvas.style.height=H+'px';
   const ctx=canvas.getContext('2d');
   ctx.scale(dpr,dpr);
   ctx.clearRect(0,0,W,H);
 
-  const PAD={t:16,r:16,b:28,l:36};
+  const PAD={t:16,r:16,b:16,l:36};
   const cW=W-PAD.l-PAD.r, cH=H-PAD.t-PAD.b;
 
-  // Build lives timeline per player
-  const players=g.players;
-  const maxLives=g.lives;
-  const PLAYER_COLORS=['#e8b84b','#2dd4bf','#ef4444','#a78bfa','#34d399','#f97316','#60a5fa','#f472b6'];
-
-  // Compute lives at each match result
-  const timelines={}; // playerName -> [lives after each match]
+  // Compute lives timeline per player
+  const timelines={};
   players.forEach(p=>{timelines[p.name]=[g.lives];});
-
-  // replay
   const tempPlayers=players.map(p=>({name:p.name,lives:g.lives,correct:0,eliminated:false}));
   playedIdxs.forEach(idx=>{
     const r=results[idx];
@@ -331,10 +351,9 @@ function renderLivesChart(g){
   });
 
   const pts=playedIdxs.length+1;
-  const xStep=pts>1?cW/(pts-1):cW;
 
   // Y gridlines
-  ctx.strokeStyle='rgba(255,255,255,0.05)'; ctx.lineWidth=1;
+  ctx.strokeStyle='rgba(255,255,255,0.05)';ctx.lineWidth=1;
   [0,0.25,0.5,0.75,1].forEach(f=>{
     const y=PAD.t+cH*(1-f);
     ctx.beginPath();ctx.moveTo(PAD.l,y);ctx.lineTo(PAD.l+cW,y);ctx.stroke();
@@ -342,8 +361,9 @@ function renderLivesChart(g){
     ctx.fillText(Math.round(f*maxLives),PAD.l-4,y+3);
   });
 
-  // Lines per player
+  // Lines per player (skip hidden)
   players.forEach((p,pi)=>{
+    if(hiddenChartPlayers.has(p.name))return;
     const col=PLAYER_COLORS[pi%PLAYER_COLORS.length];
     const tl=timelines[p.name];
     ctx.beginPath();ctx.strokeStyle=col;ctx.lineWidth=2;ctx.lineJoin='round';
@@ -353,20 +373,9 @@ function renderLivesChart(g){
       i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
     });
     ctx.stroke();
-    // Last point dot
     const lastX=PAD.l+(tl.length>1?(tl.length-1)*cW/(pts-1):0);
     const lastY=PAD.t+cH*(1-tl[tl.length-1]/maxLives);
     ctx.beginPath();ctx.arc(lastX,lastY,3,0,Math.PI*2);ctx.fillStyle=col;ctx.fill();
-  });
-
-  // Legend
-  const legX=PAD.l, legY=H-10;
-  players.forEach((p,pi)=>{
-    const col=PLAYER_COLORS[pi%PLAYER_COLORS.length];
-    const offset=pi*(Math.min(80,cW/players.length));
-    ctx.fillStyle=col; ctx.fillRect(legX+offset,legY-7,10,3);
-    ctx.fillStyle='rgba(255,255,255,0.5)';ctx.font='9px DM Sans';ctx.textAlign='left';
-    ctx.fillText(p.name.length>8?p.name.slice(0,7)+'…':p.name,legX+offset+13,legY);
   });
 }
 
