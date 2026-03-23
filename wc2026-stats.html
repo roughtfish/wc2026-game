@@ -266,7 +266,8 @@ function showPlayerModal(playerName){
   const livePct=maxLives>0?Math.round(p.lives/maxLives*100):0;
   const barCol=livePct>60?'var(--green)':livePct>30?'var(--accent)':'var(--red)';
   const played=playedIdxs.length;
-  const accuracy=played>0?Math.round(p.correct/played*100):0;
+  const predicted=playedIdxs.filter(idx=>{const v=(g.predictions[idx]||{})[playerName];return v!=null;}).length;
+  const accuracy=predicted>0?Math.round(p.correct/predicted*100):0;
   const scoreBonuses=playedIdxs.filter(idx=>{
     const r=results[idx];
     const sc=(g.predictions[idx]||{})[playerName+'_score'];
@@ -323,13 +324,14 @@ function renderLeaderboard(g){
   });
   const maxLives=g.lives;
   // Count played matches
-  const played=Object.keys(g.results||{}).length;
+  const playedIdxsLb=Object.keys(g.results||{}).map(Number);
   const el=document.getElementById('leaderboard');
   el.innerHTML=sorted.map((p,i)=>{
     const rankClass=i===0&&!p.eliminated?'gold':i===1&&!p.eliminated?'silver':i===2&&!p.eliminated?'bronze':'';
     const livePct=maxLives>0?Math.round(p.lives/maxLives*100):0;
     const barCol=livePct>60?'var(--green)':livePct>30?'var(--accent)':'var(--red)';
-    const accuracy=played>0?Math.round(p.correct/played*100):0;
+    const predictedLb=playedIdxsLb.filter(idx=>{const v=(g.predictions[idx]||{})[p.name];return v!=null;}).length;
+    const accuracy=predictedLb>0?Math.round(p.correct/predictedLb*100):0;
     return`<div class="lb-row${p.eliminated?' eliminated':''}">
       <div class="lb-rank ${rankClass}">${p.eliminated?'💀':i+1}</div>
       <div>
