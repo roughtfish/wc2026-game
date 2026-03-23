@@ -136,6 +136,14 @@
   .bulk-toggle button.active-away{background:rgba(45,212,191,0.16);color:var(--accent2)}
   .sticky-submit{position:sticky;bottom:0;background:var(--bg);padding:12px 0 5px;margin-top:12px;border-top:1px solid var(--border)}
   .bulk-progress-info{display:flex;align-items:center;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:12px}
+  .eliminated-splash{position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:999;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:32px;animation:splashIn 0.4s ease}
+  @keyframes splashIn{from{opacity:0;transform:scale(0.95)}to{opacity:1;transform:scale(1)}}
+  .eliminated-skull{font-size:80px;margin-bottom:16px;animation:skullBounce 0.6s ease 0.3s both}
+  @keyframes skullBounce{0%{transform:scale(0)}60%{transform:scale(1.2)}100%{transform:scale(1)}}
+  .eliminated-title{font-family:'Bebas Neue',sans-serif;font-size:52px;letter-spacing:4px;color:var(--red);margin-bottom:8px}
+  .eliminated-sub{font-size:15px;color:var(--muted);margin-bottom:8px}
+  .eliminated-stats{font-size:13px;color:var(--muted);margin-bottom:28px}
+  .eliminated-stats strong{color:var(--text)}
   .score-predict-row{display:flex;align-items:center;gap:8px;justify-content:center;margin-top:8px;padding:7px 0 2px;border-top:0.5px solid rgba(255,255,255,0.06)}
   .score-predict-toggle{font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);cursor:pointer;padding:3px 8px;border:1px solid var(--border);border-radius:6px;background:transparent;transition:all 0.15s}
   .score-predict-toggle:hover{color:var(--accent2);border-color:var(--accent2)}
@@ -1966,7 +1974,32 @@ async function watchGame(g){
   },2200);
 }
 
+function showEliminatedSplash(g){
+  const p=g.players.find(x=>x.name===me.name);
+  if(!p)return;
+  const existing=document.getElementById('eliminated-splash');
+  if(existing)return; // already showing
+  const splash=document.createElement('div');
+  splash.className='eliminated-splash';
+  splash.id='eliminated-splash';
+  splash.innerHTML=`
+    <div class="eliminated-skull">💀</div>
+    <div class="eliminated-title">ELIMINATED</div>
+    <div class="eliminated-sub">Your lives ran out</div>
+    <div class="eliminated-stats"><strong>${p.correct}</strong> correct predictions · finished with <strong>0</strong> lives</div>
+    <button class="btn btn-secondary" onclick="document.getElementById('eliminated-splash').remove()" style="min-width:180px">Continue watching</button>
+  `;
+  document.body.appendChild(splash);
+}
+
 async function renderWatchScreen(g){
+  // Detect if this player just got eliminated
+  const myPlayer=g.players.find(p=>p.name===me.name);
+  const wasAlive=!sessionStorage.getItem('kf_was_eliminated_'+me.code);
+  if(myPlayer&&myPlayer.eliminated&&wasAlive&&me.role!=='host'){
+    sessionStorage.setItem('kf_was_eliminated_'+me.code,'1');
+    showEliminatedSplash(g);
+  }
   renderScoreboard(g,'watch-players-grid');
   renderProgress(g,'watch-progress-bar');
   // Show "My Group Picks" button during group stage
@@ -2143,7 +2176,14 @@ function renderFinalLB(g){
   </div>`;
 }
 
-document.getElementById('play-again-btn').addEventListener('click',()=>{try{sessionStorage.removeItem('kf_me');}catch(e){}me={};show('screen-landing');});
+document.getElementById('play-again-btn').addEventListener('click',()=>{
+  try{
+    sessionStorage.removeItem('kf_me');
+    // Clear any eliminated flags
+    Object.keys(sessionStorage).filter(k=>k.startsWith('kf_was_eliminated_')).forEach(k=>sessionStorage.removeItem(k));
+  }catch(e){}
+  me={};show('screen-landing');
+});
 
 // ─── HISTORY CORRECTION ──────────────────────────────────────────────────────
 let historyReturnFn = null; // function to call when returning from history screen
