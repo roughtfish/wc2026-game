@@ -231,6 +231,7 @@ function updateTimestamp(){
 
 let currentGame=null;
 function render(g){
+  try{
   currentGame=g;
   updateTimestamp();
   // Show game status chip
@@ -250,6 +251,7 @@ function render(g){
   if(subEl)subEl.innerHTML=`Live Stats &nbsp;·&nbsp; <span class="status-chip ${statusClass}">${statusLabel}</span>`;
   renderLeaderboard(g);
   renderHistory(g);
+  }catch(e){console.error('render failed',e);}
 }
 
 function closeModal(){document.getElementById('player-modal').style.display='none';}
@@ -332,6 +334,8 @@ function renderLeaderboard(g){
     const barCol=livePct>60?'var(--green)':livePct>30?'var(--accent)':'var(--red)';
     const predictedLb=playedIdxsLb.filter(idx=>{const v=(g.predictions[idx]||{})[p.name];return v!=null;}).length;
     const accuracy=predictedLb>0?Math.round(p.correct/predictedLb*100):0;
+    let scoreBonusLb=0;
+    playedIdxsLb.forEach(idx=>{const r=(g.results||{})[idx];const sc=r&&(g.predictions[idx]||{})[p.name+'_score'];if(sc&&sc.home===r.home&&sc.away===r.away)scoreBonusLb++;});
     return`<div class="lb-row${p.eliminated?' eliminated':''}">
       <div class="lb-rank ${rankClass}">${p.eliminated?'💀':i+1}</div>
       <div>
@@ -340,7 +344,7 @@ function renderLeaderboard(g){
       </div>
       <div class="lb-lives" style="color:${barCol}" data-tip="Lives remaining out of ${maxLives}">❤️ ${p.lives}<span style="font-size:10px;color:var(--muted)">/${maxLives}</span></div>
       <div class="lb-correct" data-tip="Correct predictions">✓ ${p.correct}</div>
-      <div class="lb-pct lb-pct-tip" data-tip="Exact score bonuses" style="color:var(--accent2);font-size:12px">🎯 ${(()=>{let b=0;Object.keys(g.results||{}).forEach(idx=>{const r=g.results[idx];const sc=(g.predictions[idx]||{})[p.name+'_score'];if(sc&&sc.home===r.home&&sc.away===r.away)b++;});return b;})()}</div>
+      <div class="lb-pct lb-pct-tip" data-tip="Exact score bonuses" style="color:var(--accent2);font-size:12px">🎯 ${scoreBonusLb}</div>
       <div class="lb-pct lb-pct-tip" data-tip="Prediction accuracy (correct / matches played)">${accuracy}%</div>
     </div>`;
   }).join('');
