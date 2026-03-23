@@ -38,7 +38,7 @@
   /* Leaderboard */
   .section-title{font-family:'Bebas Neue',sans-serif;font-size:14px;letter-spacing:3px;color:var(--accent2);margin:22px 0 10px}
   .leaderboard{background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;margin-bottom:22px}
-  .lb-row{display:grid;grid-template-columns:36px 1fr auto auto auto auto auto;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--border)}
+  .lb-row{display:grid;grid-template-columns:36px 1fr auto auto auto auto auto auto;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--border)}
   .lb-row:last-child{border-bottom:none}
   .lb-row.eliminated{opacity:0.35;filter:grayscale(1)}
   .lb-rank{font-family:'Bebas Neue',sans-serif;font-size:20px;color:var(--muted);text-align:center}
@@ -65,6 +65,22 @@
   .filter-btn.active{color:var(--accent2);border-color:var(--accent2);background:rgba(45,212,191,0.08)}
   .export-btn{margin-left:auto;font-size:11px;letter-spacing:1px;padding:4px 10px;border:1px solid var(--border);border-radius:6px;background:transparent;color:var(--muted);cursor:pointer;font-family:'DM Sans',sans-serif;transition:all 0.15s}
   .export-btn:hover{color:var(--accent);border-color:var(--accent)}
+  .surv-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:0.5px solid var(--border);font-size:13px}
+  .surv-row:last-child{border-bottom:none}
+  .surv-name{min-width:80px;font-weight:600}
+  .surv-bar-wrap{flex:1;height:10px;background:var(--surface2);border-radius:5px;overflow:hidden}
+  .surv-bar{height:100%;border-radius:5px;transition:width 0.4s}
+  .surv-pct{min-width:42px;text-align:right;font-weight:600;font-size:13px}
+  .surv-lives{font-size:11px;color:var(--muted);min-width:56px;text-align:right}
+  .upset-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px 20px;margin-bottom:22px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+  .upset-match{flex:1;min-width:180px}
+  .upset-teams{font-size:15px;font-weight:600;margin-bottom:3px}
+  .upset-meta{font-size:11px;color:var(--muted)}
+  .upset-bar-wrap{flex:2;min-width:160px}
+  .upset-bar-row{display:flex;align-items:center;gap:8px;margin-bottom:4px;font-size:12px}
+  .upset-bar-label{min-width:56px;color:var(--muted)}
+  .upset-bar-track{flex:1;height:8px;background:var(--surface2);border-radius:4px;overflow:hidden}
+  .upset-bar-fill{height:100%;border-radius:4px}
   .chart-pill{font-size:11px;padding:3px 10px;border-radius:20px;cursor:pointer;border:1.5px solid;transition:opacity 0.15s;user-select:none;font-family:'DM Sans',sans-serif}
   .chart-pill.hidden{opacity:0.25}
   .round-section{margin-bottom:16px;border:1px solid var(--border);border-radius:10px;overflow:hidden}
@@ -147,6 +163,10 @@
     <div class="refresh-note"><span class="spinner"></span>Auto-refreshing every 10s &nbsp;·&nbsp; <span id="last-updated"></span></div>
     <div class="section-title">STANDINGS</div>
     <div class="leaderboard" id="leaderboard"></div>
+    <div class="section-title">BIGGEST UPSET</div>
+    <div id="biggest-upset"></div>
+    <div class="section-title">SURVIVAL PROBABILITY</div>
+    <div id="survival-prob"></div>
     <div class="section-title">LIVES OVER TIME</div>
     <div class="chart-wrap"><canvas id="lives-chart" class="chart-canvas"></canvas><div id="chart-legend" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;"></div></div>
     <div class="section-title">MATCH HISTORY</div>
@@ -278,6 +298,8 @@ function render(g){
   const subEl=document.querySelector('.header .sub');
   if(subEl)subEl.innerHTML=`Live Stats &nbsp;·&nbsp; <span class="status-chip ${statusClass}">${statusLabel}</span>`;
   renderLeaderboard(g);
+  renderBiggestUpset(g);
+  renderSurvivalProb(g);
   renderLivesChart(g);
   renderHistory(g);
   }catch(e){
@@ -287,6 +309,137 @@ function render(g){
 }
 
 // ─── LIVES CHART ─────────────────────────────────────────────────────────────
+function renderSurvivalProb(g){
+  const el=document.getElementById('survival-prob');
+  if(!el)return;
+  const players=Array.isArray(g.players)?g.players:Object.values(g.players||{});
+  const results=g.results||{};
+  const playedIdxs=Object.keys(results).map(Number).filter(n=>!isNaN(n)&&results[n]!=null);
+  const totalMatches=Array.isArray(g.matches)?g.matches.length:Object.values(g.matches||{}).length;
+  const remaining=totalMatches-g.currentMatchIdx;
+
+  // If game is done or no remaining matches, skip
+  if(g.status==='done'||remaining<=0){el.innerHTML='';return;}
+
+  // Calculate each player's historical accuracy from played matches
+  const accuracy={};
+  players.forEach(p=>{
+    const predicted=playedIdxs.filter(idx=>{
+      const v=(g.predictions[idx]||{})[p.name];
+      return v!=null;
+    });
+    const correct=playedIdxs.filter(idx=>{
+      const r=results[idx];
+      const v=(g.predictions[idx]||{})[p.name];
+      return v!=null&&v===actualOutcome(r);
+    }).length;
+    // Personal accuracy, floor at 20% ceiling at 85% to be realistic
+    accuracy[p.name]=predicted.length>5
+      ?Math.max(0.20,Math.min(0.85,correct/predicted.length))
+      :0.40; // default before enough data
+  });
+
+  // Monte Carlo simulation: run 2000 games per player
+  const SIMS=2000;
+  const survivalPct={};
+
+  players.forEach(p=>{
+    if(p.eliminated){survivalPct[p.name]=0;return;}
+    const acc=accuracy[p.name];
+    // Per match: correct (acc) = no loss, wrong (1-acc)*0.85 = -1, missed (1-acc)*0.15 = -2
+    // Simplification: assume all remaining matches have a prediction (no missed)
+    // Wrong prob = 1 - acc, lose 1 life; ~5% chance of no prediction, lose 2
+    const pWrong=(1-acc)*0.92;
+    const pMiss=(1-acc)*0.08;
+    let survived=0;
+    for(let s=0;s<SIMS;s++){
+      let lives=p.lives;
+      for(let m=0;m<remaining;m++){
+        const r=Math.random();
+        if(r<pWrong) lives=Math.max(0,lives-1);
+        else if(r<pWrong+pMiss) lives=Math.max(0,lives-2);
+        // ~8% chance of score bonus +1 life
+        if(Math.random()<0.08) lives++;
+        if(lives<=0)break;
+      }
+      if(lives>0)survived++;
+    }
+    survivalPct[p.name]=Math.round(survived/SIMS*100);
+  });
+
+  const sorted=[...players].sort((a,b)=>survivalPct[b.name]-survivalPct[a.name]);
+  const maxPct=Math.max(...sorted.map(p=>survivalPct[p.name]),1);
+
+  el.innerHTML=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px 20px;margin-bottom:22px">
+    <div style="font-size:11px;color:var(--muted);margin-bottom:12px">Based on ${remaining} remaining match${remaining===1?'':'es'} and each player's accuracy so far (${SIMS} simulations)</div>
+    ${sorted.map(p=>{
+      const pct=survivalPct[p.name];
+      const col=pct>=70?'var(--green)':pct>=35?'var(--accent)':'var(--red)';
+      const acc=accuracy[p.name];
+      return`<div class="surv-row${p.eliminated?' ':''}">
+        <div class="surv-name">${p.name}${p.eliminated?' 💀':''}</div>
+        <div class="surv-bar-wrap"><div class="surv-bar" style="width:${Math.round(pct/maxPct*100)}%;background:${col}"></div></div>
+        <div class="surv-pct" style="color:${col}">${pct}%</div>
+        <div class="surv-lives">❤️${p.lives} · ${Math.round(acc*100)}% acc</div>
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+
+function renderBiggestUpset(g){
+  const el=document.getElementById('biggest-upset');
+  if(!el)return;
+  const results=g.results||{};
+  const players=Array.isArray(g.players)?g.players:Object.values(g.players||{});
+  const playedIdxs=Object.keys(results).map(Number).filter(n=>!isNaN(n)&&results[n]!=null).sort((a,b)=>a-b);
+  if(playedIdxs.length===0){el.innerHTML='<div style="color:var(--muted);font-size:13px;padding:12px 0">No matches played yet</div>';return;}
+
+  let worstIdx=null, worstWrong=0, worstTotal=0;
+  playedIdxs.forEach(idx=>{
+    const r=results[idx];
+    const actual=actualOutcome(r);
+    const preds=g.predictions[idx]||{};
+    const eligible=players.filter(p=>preds[p.name]!=null);
+    const wrong=eligible.filter(p=>preds[p.name]!==actual).length;
+    if(wrong>worstWrong||(wrong===worstWrong&&eligible.length>worstTotal)){
+      worstWrong=wrong; worstTotal=eligible.length; worstIdx=idx;
+    }
+  });
+
+  if(worstIdx===null){el.innerHTML='';return;}
+  const match=g.matches[worstIdx];
+  const r=results[worstIdx];
+  const actual=actualOutcome(r);
+  const preds=g.predictions[worstIdx]||{};
+  const eligible=players.filter(p=>preds[p.name]!=null);
+  const wrong=eligible.filter(p=>preds[p.name]!==actual).length;
+  const right=eligible.length-wrong;
+  const wrongPct=eligible.length>0?Math.round(wrong/eligible.length*100):0;
+  const rightPct=100-wrongPct;
+  const round=match.group?'Group '+match.group:(match.round||'KO');
+  const resultLabel=actual==='home'?match.home:actual==='away'?match.away:'Draw';
+  const penLabel=r.penWinner?' (pens)':'';
+
+  el.innerHTML=`<div class="upset-card">
+    <div class="upset-match">
+      <div class="upset-teams">${flag(match.home,16)} ${match.home} ${r.home}–${r.away} ${flag(match.away,16)} ${match.away}</div>
+      <div class="upset-meta">${round} · Result: ${flag(resultLabel==='Draw'?'':resultLabel,14)} ${resultLabel}${penLabel}</div>
+    </div>
+    <div class="upset-bar-wrap">
+      <div class="upset-bar-row">
+        <span class="upset-bar-label">❌ Wrong</span>
+        <div class="upset-bar-track"><div class="upset-bar-fill" style="width:${wrongPct}%;background:var(--red)"></div></div>
+        <span style="font-size:12px;font-weight:600;color:var(--red)">${wrong}/${eligible.length}</span>
+      </div>
+      <div class="upset-bar-row">
+        <span class="upset-bar-label">✅ Correct</span>
+        <div class="upset-bar-track"><div class="upset-bar-fill" style="width:${rightPct}%;background:var(--green)"></div></div>
+        <span style="font-size:12px;font-weight:600;color:var(--green)">${right}/${eligible.length}</span>
+      </div>
+    </div>
+  </div>`;
+}
+
 const hiddenChartPlayers=new Set();
 const PLAYER_COLORS=['#e8b84b','#2dd4bf','#ef4444','#a78bfa','#34d399','#f97316','#60a5fa','#f472b6'];
 
@@ -446,6 +599,7 @@ function showPlayerModal(playerName){
     const v=(g.predictions[idx]||{})[playerName];
     return v===r.penWinner;
   }).length;
+  const streak=calcStreaks(playerName,playedIdxs,results,g.predictions||{});
   document.getElementById('modal-player-name').textContent=playerName;
   document.getElementById('modal-stats').innerHTML=`
     <div class="modal-stat"><div class="modal-stat-val" style="color:${barCol}">❤️ ${p.lives}</div><div class="modal-stat-label">Lives left</div></div>
@@ -453,6 +607,7 @@ function showPlayerModal(playerName){
     <div class="modal-stat"><div class="modal-stat-val">${accuracy}%</div><div class="modal-stat-label">Accuracy</div></div>
     <div class="modal-stat"><div class="modal-stat-val" style="color:var(--accent2)">🎯 ${scoreBonuses}</div><div class="modal-stat-label">Score bonuses</div></div>
     ${penWins>0?`<div class="modal-stat"><div class="modal-stat-val" style="color:var(--accent2)">🥅 ${penWins}</div><div class="modal-stat-label">Pen wins</div></div>`:''}
+    ${streak.best>0?`<div class="modal-stat"><div class="modal-stat-val">🔥 ${streak.best}</div><div class="modal-stat-label">Best streak</div></div>`:''}
     <div class="modal-stat"><div class="modal-stat-val" style="color:${p.eliminated?'var(--red)':'var(--green)'}">${p.eliminated?'OUT':'LIVE'}</div><div class="modal-stat-label">Status</div></div>
   `;
 
@@ -490,6 +645,18 @@ function showPlayerModal(playerName){
   document.getElementById('player-modal').style.display='flex';
 }
 
+function calcStreaks(playerName, playedIdxs, results, predictions){
+  let best=0, current=0;
+  playedIdxs.forEach(idx=>{
+    const r=results[idx];
+    const actual=actualOutcome(r);
+    const v=(predictions[idx]||{})[playerName];
+    if(v!=null&&v===actual){current++;best=Math.max(best,current);}
+    else{current=0;}
+  });
+  return{best,current};
+}
+
 function renderLeaderboard(g){
   const sorted=[...g.players].sort((a,b)=>{
     if(a.eliminated&&!b.eliminated)return 1;
@@ -511,6 +678,7 @@ function renderLeaderboard(g){
     playedIdxsLb.forEach(idx=>{const r=(g.results||{})[idx];const sc=r&&(g.predictions[idx]||{})[p.name+'_score'];if(sc&&sc.home===r.home&&sc.away===r.away)scoreBonusLb++;});
     let penWinsLb=0;
     playedIdxsLb.forEach(idx=>{const r=(g.results||{})[idx];if(!r||!r.penWinner)return;const v=(g.predictions[idx]||{})[p.name];const actual=r.penWinner;if(v===actual)penWinsLb++;});
+    const streakLb=calcStreaks(p.name,playedIdxsLb.sort((a,b)=>a-b),g.results||{},g.predictions||{});
     return`<div class="lb-row${p.eliminated?' eliminated':''}">
       <div class="lb-rank ${rankClass}">${p.eliminated?'💀':i+1}</div>
       <div>
@@ -521,6 +689,7 @@ function renderLeaderboard(g){
       <div class="lb-correct" data-tip="Correct predictions">✓ ${p.correct}</div>
       <div class="lb-pct lb-pct-tip" data-tip="Exact score bonuses" style="color:var(--accent2);font-size:12px">🎯 ${scoreBonusLb}</div>
       <div class="lb-pct lb-pct-tip" data-tip="Penalty shootout wins correctly predicted" style="color:var(--accent2);font-size:12px">${penWinsLb>0?'🥅 '+penWinsLb:''}</div>
+      <div class="lb-pct lb-pct-tip" data-tip="Longest correct prediction streak">${streakLb.best>0?'🔥 '+streakLb.best:''}</div>
       <div class="lb-pct lb-pct-tip" data-tip="Prediction accuracy (correct / matches played)">${accuracy}%</div>
     </div>`;
   }).join('');
