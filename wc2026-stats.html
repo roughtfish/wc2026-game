@@ -369,7 +369,7 @@ function renderLeaderboard(g){
       <div class="lb-lives" style="color:${barCol}" data-tip="Lives remaining out of ${maxLives}">❤️ ${p.lives}<span style="font-size:10px;color:var(--muted)">/${maxLives}</span></div>
       <div class="lb-correct" data-tip="Correct predictions">✓ ${p.correct}</div>
       <div class="lb-pct lb-pct-tip" data-tip="Exact score bonuses" style="color:var(--accent2);font-size:12px">🎯 ${scoreBonusLb}</div>
-      ${penWinsLb>0?`<div class="lb-pct lb-pct-tip" data-tip="Penalty shootout wins correctly predicted" style="color:var(--accent2);font-size:12px">🥅 ${penWinsLb}</div>`:'<div class="lb-pct"></div>'}
+      <div class="lb-pct lb-pct-tip" data-tip="Penalty shootout wins correctly predicted" style="color:var(--accent2);font-size:12px">${penWinsLb>0?'🥅 '+penWinsLb:''}</div>
       <div class="lb-pct lb-pct-tip" data-tip="Prediction accuracy (correct / matches played)">${accuracy}%</div>
     </div>`;
   }).join('');
