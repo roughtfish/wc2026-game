@@ -1356,7 +1356,7 @@ async function startBulk(g){
   scoreDraft={};
   document.getElementById('bulk-player-name').textContent=me.name+(me.role==='host'?' (Host)':'');
   const bulkQuitBtn=document.getElementById('bulk-quit-btn');
-  if(bulkQuitBtn) bulkQuitBtn.style.display=me.role==='host'?'inline-block':'none';
+  if(bulkQuitBtn) bulkQuitBtn.style.display='inline-block';
   const _ba=document.getElementById('bulk-area'); if(_ba) _ba._watchCommit=null;
   show('screen-bulk');
   // Silently restore any partial draft saved previously
@@ -2572,7 +2572,7 @@ async function startKOBulk(g, round) {
   document.getElementById('bulk-player-name').textContent = me.name + (me.role === 'host' ? ' (Host)' : '');
   document.getElementById('bulk-round-label').textContent = 'Predicting ' + round + ' matches';
   const bulkQuitBtnKO=document.getElementById('bulk-quit-btn');
-  if(bulkQuitBtnKO) bulkQuitBtnKO.style.display=me.role==='host'?'inline-block':'none';
+  if(bulkQuitBtnKO) bulkQuitBtnKO.style.display='inline-block';
   const _baKO=document.getElementById('bulk-area'); if(_baKO) _baKO._watchCommit=null;
   show('screen-bulk');
   // Restore any saved draft
