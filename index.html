@@ -672,6 +672,13 @@ function autoFillPredictions(g){
 
     // KO predictions filled per-round as bracket is populated (see isNewKORound handler)
   });
+  // Fill null sentinels for any group matches where both teams hit the limit
+  gms.forEach(({i})=>{
+    if(!g.predictions[i])g.predictions[i]={};
+    g.players.forEach(p=>{
+      if(g.predictions[i][p.name]===undefined) g.predictions[i][p.name]=null;
+    });
+  });
 
   // Mark all as submitted
   g.bulkSubmitted={};
@@ -708,6 +715,13 @@ function autoFillKORound(g, round){
       g.predictions[i][p.name]=pick;
       if(pick==='home')teamPicks[m.home]=(teamPicks[m.home]||0)+1;
       else teamPicks[m.away]=(teamPicks[m.away]||0)+1;
+    });
+  });
+  // Fill null sentinels for blocked matches so allDone check passes
+  gms.forEach(({i})=>{
+    if(!g.predictions[i])g.predictions[i]={};
+    g.players.forEach(p=>{
+      if(g.predictions[i][p.name]===undefined) g.predictions[i][p.name]=null;
     });
   });
 }
