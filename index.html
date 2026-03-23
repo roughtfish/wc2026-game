@@ -1101,17 +1101,9 @@ function renderBulkForm(g){
 
   // Count how many times each team has been picked as a winner across all submitted players + current draft
   const MAX_PICKS = 5;
+  const MAX_DRAWS = 24;
   const teamPicks = {}; // teamName -> count of 'win' predictions
-  // Count already-submitted players
-  Object.values(g.predictions||{}).forEach(matchPreds=>{
-    Object.entries(matchPreds).forEach(([player, pred])=>{
-      if(pred==='home'||pred==='away'){
-        // find the match to get the team name
-        const matchEntry = gms.find(({i})=> g.predictions && g.predictions[i] && g.predictions[i][player]===pred);
-      }
-    });
-  });
-  // Simpler: iterate gms and count from g.predictions
+  // Simpler: iterate gms and count from g.predictions (excluding own submitted picks)
   gms.forEach(({m,i})=>{
     const matchPreds = g.predictions[i]||{};
     Object.entries(matchPreds).forEach(([player,pred])=>{
@@ -1126,6 +1118,9 @@ function renderBulkForm(g){
     if(sel==='home'){teamPicks[m.home]=(teamPicks[m.home]||0)+1;}
     else if(sel==='away'){teamPicks[m.away]=(teamPicks[m.away]||0)+1;}
   });
+  // Count draws in current player's draft
+  const drawCount = gms.filter(({i})=>bulkDraft[i]==='draw').length;
+  const drawAtLimit = drawCount >= MAX_DRAWS;
 
   let html=`<div class="bulk-progress-info"><span><span class="bulk-done-count">${done}</span>/${gms.length} predicted</span><span>${rem>0?rem+' left':'✓ All done!'}</span></div>
   <div class="card" style="padding:14px 18px;margin-bottom:12px;">`;
@@ -1145,7 +1140,7 @@ function renderBulkForm(g){
         <div class="bulk-team"><span class="bulk-team-flag">${flag(m.home,20)}</span><span>${m.home}</span><span style="font-size:10px;color:${homeAtLimit?'var(--red)':homeCount>=MAX_PICKS-1?'var(--accent)':'var(--muted)'};margin-left:4px;font-weight:600">${homeCount}/${MAX_PICKS}</span></div>
         <div class="bulk-toggle">
           <button data-idx="${idx}" data-val="home" class="${sel==='home'?'active-home':''}" title="${m.home} win${homeAtLimit?' — limit reached':''}" style="font-size:16px;padding:5px 9px;${homeAtLimit?'opacity:0.3;cursor:not-allowed;':''}" ${homeAtLimit?'disabled':''}>${flag(m.home,20)}</button>
-          <button data-idx="${idx}" data-val="draw" class="${sel==='draw'?'active-draw':''}" title="Draw" style="font-size:14px;padding:5px 8px;"><span style="font-weight:900">=</span></button>
+          <button data-idx="${idx}" data-val="draw" class="${sel==='draw'?'active-draw':''}" title="Draw${drawAtLimit&&sel!=='draw'?' — draw limit reached':''}" style="font-size:14px;padding:5px 8px;${drawAtLimit&&sel!=='draw'?'opacity:0.3;cursor:not-allowed;':''}" ${drawAtLimit&&sel!=='draw'?'disabled':''}><span style="font-weight:900">=</span></button>
           <button data-idx="${idx}" data-val="away" class="${sel==='away'?'active-away':''}" title="${m.a} win${awayAtLimit?' — limit reached':''}" style="font-size:16px;padding:5px 9px;${awayAtLimit?'opacity:0.3;cursor:not-allowed;':''}" ${awayAtLimit?'disabled':''}>${flag(m.away,20)}</button>
         </div>
         <div class="bulk-team away"><span style="font-size:10px;color:${awayAtLimit?'var(--red)':awayCount>=MAX_PICKS-1?'var(--accent)':'var(--muted)'};margin-right:4px;font-weight:600">${awayCount}/${MAX_PICKS}</span><span>${m.away}</span><span class="bulk-team-flag">${flag(m.away,20)}</span></div>
@@ -1157,7 +1152,7 @@ function renderBulkForm(g){
   const isWatchMode=!!area._watchCommit;
   html+=`</div>
     <div style="padding:12px 0 6px;border-top:0.5px solid var(--border);margin-top:10px;">
-      <div style="font-size:10px;color:var(--muted);text-align:center;margin-bottom:7px;letter-spacing:1px;">Each team can only win <b>${MAX_PICKS}</b> times across all predictions · <span style="font-weight:900">=</span> Draw</div>
+      <div style="font-size:10px;color:var(--muted);text-align:center;margin-bottom:7px;letter-spacing:1px;">Each team can only win <b>${MAX_PICKS}</b> times · Draws: <b style="color:${drawAtLimit?'var(--red)':'inherit'}">${drawCount}/${MAX_DRAWS}</b></div>
       ${isWatchMode
         ? `<button class="btn btn-secondary" id="bulk-back-btn">← Back</button>`
         : `<button class="btn btn-primary" id="bulk-submit-btn">${rem>0?'Predict '+rem+' more to continue':'Lock in my predictions ✓'}</button>
