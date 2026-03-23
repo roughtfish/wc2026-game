@@ -334,8 +334,8 @@ function renderSurvivalProb(g){
       return v!=null&&v===actualOutcome(r);
     }).length;
     // Personal accuracy, floor at 20% ceiling at 85% to be realistic
-    accuracy[p.name]=predicted.length>5
-      ?Math.max(0.20,Math.min(0.85,correct/predicted.length))
+    accuracy[p.name]=playedIdxs.length>5
+      ?Math.max(0.20,Math.min(0.85,correct/playedIdxs.length))
       :0.40; // default before enough data
   });
 
@@ -586,7 +586,7 @@ function showPlayerModal(playerName){
   const barCol=livePct>60?'var(--green)':livePct>30?'var(--accent)':'var(--red)';
   const played=playedIdxs.length;
   const predicted=playedIdxs.filter(idx=>{const v=(g.predictions[idx]||{})[playerName];return v!=null;}).length;
-  const accuracy=predicted>0?Math.round(p.correct/predicted*100):0;
+  const accuracy=played>0?Math.round(p.correct/played*100):0;
   const scoreBonuses=playedIdxs.filter(idx=>{
     const r=results[idx];
     const sc=(g.predictions[idx]||{})[playerName+'_score'];
@@ -673,7 +673,7 @@ function renderLeaderboard(g){
     const livePct=maxLives>0?Math.round(p.lives/maxLives*100):0;
     const barCol=livePct>60?'var(--green)':livePct>30?'var(--accent)':'var(--red)';
     const predictedLb=playedIdxsLb.filter(idx=>{const v=(g.predictions[idx]||{})[p.name];return v!=null;}).length;
-    const accuracy=predictedLb>0?Math.round(p.correct/predictedLb*100):0;
+    const accuracy=playedIdxsLb.length>0?Math.round(p.correct/playedIdxsLb.length*100):0;
     let scoreBonusLb=0;
     playedIdxsLb.forEach(idx=>{const r=(g.results||{})[idx];const sc=r&&(g.predictions[idx]||{})[p.name+'_score'];if(sc&&sc.home===r.home&&sc.away===r.away)scoreBonusLb++;});
     let penWinsLb=0;
