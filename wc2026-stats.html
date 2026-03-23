@@ -266,7 +266,7 @@ function showPlayerModal(playerName){
   const p=g.players.find(pl=>pl.name===playerName);
   if(!p)return;
   const results=g.results||{};
-  const playedIdxs=Object.keys(results).map(Number).filter(n=>!isNaN(n)).sort((a,b)=>a-b);
+  const playedIdxs=Object.keys(results).map(Number).filter(n=>!isNaN(n)&&results[n]!=null).sort((a,b)=>a-b);
   if(!g.predictions)g.predictions={};
   const maxLives=g.lives;
   const livePct=maxLives>0?Math.round(p.lives/maxLives*100):0;
@@ -330,7 +330,7 @@ function renderLeaderboard(g){
   });
   const maxLives=g.lives;
   // Count played matches
-  const playedIdxsLb=Object.keys(g.results||{}).map(Number).filter(n=>!isNaN(n));
+  const playedIdxsLb=Object.keys(g.results||{}).map(Number).filter(n=>!isNaN(n)&&(g.results||{})[n]!=null);
   if(!g.predictions)g.predictions={};
   const el=document.getElementById('leaderboard');
   el.innerHTML=sorted.map((p,i)=>{
@@ -372,7 +372,7 @@ function renderHistory(g){
     return b.lives-a.lives||b.correct-a.correct;
   });
   const results=g.results||{};
-  const playedIdxs=Object.keys(results).map(Number).filter(n=>!isNaN(n)).sort((a,b)=>a-b);
+  const playedIdxs=Object.keys(results).map(Number).filter(n=>!isNaN(n)&&results[n]!=null).sort((a,b)=>a-b);
   if(!g.predictions)g.predictions={};
   if(playedIdxs.length===0){
     document.getElementById('history-body').innerHTML=`<tr><td colspan="${players.length+3}" style="text-align:center;color:var(--muted);padding:24px">No matches played yet</td></tr>`;
