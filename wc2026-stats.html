@@ -318,13 +318,14 @@ function showPlayerModal(playerName){
       const sc=(preds[playerName+'_score']);
       const scoreOk=sc&&sc.home===r.home&&sc.away===r.away;
       const scoreLabel=sc?` <span style="font-size:10px;color:${scoreOk?'var(--accent2)':'var(--muted)'}">(${sc.home}–${sc.away}${scoreOk?' +1❤️':''})</span>`:'';
+      const pensLabel=correct&&r.penWinner?` <span style="font-size:10px;color:var(--accent2)">(pens)</span>`:'';
       return`<div class="modal-match">
         <div class="modal-match-name">
           ${roundBadge}
           <span style="margin-left:5px">${flag(match.home)}${match.home} vs ${flag(match.away)}${match.away}</span><br>
           <span style="color:var(--muted);font-size:11px">${r.home}–${r.away} · ${resultLabel}</span>
         </div>
-        <div class="modal-pred" style="color:${correct?'var(--green)':wrong?'var(--red)':'var(--muted)'}">${correct?'✅':wrong?'❌':'<span style="opacity:0.3">—</span>'} ${v?predLabel:''}${scoreLabel}</div>
+        <div class="modal-pred" style="color:${correct?'var(--green)':wrong?'var(--red)':'var(--muted)'}">${correct?'✅':wrong?'❌':'<span style="opacity:0.3">—</span>'} ${v?predLabel:''}${pensLabel}${scoreLabel}</div>
       </div>`;
     }).join('');
   }
@@ -392,7 +393,8 @@ function buildRoundRows(idxs, g, players, results) {
       const sc = preds[p.name+'_score'];
       const scoreOk = sc&&sc.home===r.home&&sc.away===r.away;
       const scoreBadge = sc?`<span style="font-size:10px;margin-left:4px;padding:1px 5px;border-radius:4px;background:${scoreOk?'rgba(45,212,191,0.15)':'rgba(255,255,255,0.05)'};color:${scoreOk?'var(--accent2)':'var(--muted)'}">${sc.home}–${sc.away}${scoreOk?' 🎯':''}</span>`:'';
-      return `<td class="pred-cell ${correct?'pred-hit':'pred-miss'}" style="white-space:nowrap">${correct?'✅':'❌'} ${pickedFlag}${pickedTeam}${scoreBadge}</td>`;
+      const pensBadge = correct&&r.penWinner?`<span style="font-size:10px;margin-left:3px;padding:1px 5px;border-radius:4px;background:rgba(45,212,191,0.1);color:var(--accent2)">(pens)</span>`:'';
+      return `<td class="pred-cell ${correct?'pred-hit':'pred-miss'}" style="white-space:nowrap">${correct?'✅':'❌'} ${pickedFlag}${pickedTeam}${pensBadge}${scoreBadge}</td>`;
     }).join('');
     return `<tr>
       <td style="color:var(--muted);font-size:11px">${parseInt(idx)+1}</td>
