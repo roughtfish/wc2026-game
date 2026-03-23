@@ -21,8 +21,22 @@
       radial-gradient(2px 2px at 10% 80%,rgba(232,184,75,0.2) 0%,transparent 100%)}
   .app{position:relative;z-index:1;max-width:860px;margin:0 auto;padding:20px 16px 60px}
   .header{text-align:center;padding:28px 0 24px}
-  .header-flag{display:flex;justify-content:center;gap:6px;margin-bottom:12px}
-  .flag-stripe{width:8px;height:40px;border-radius:4px}
+  .header-flag{display:flex;justify-content:center;margin-bottom:12px}
+  .ball-wind{font-size:32px;animation:ballblow 2.8s ease-in-out infinite;display:inline-block;transform-origin:center}
+  .wind-lines{font-size:18px;animation:windpuff 2.8s ease-in-out infinite;display:inline-block;opacity:0;margin-left:4px}
+  @keyframes ballblow{
+    0%{transform:translateX(0) rotate(0deg)}
+    30%{transform:translateX(6px) rotate(40deg)}
+    60%{transform:translateX(14px) rotate(90deg)}
+    80%{transform:translateX(10px) rotate(70deg)}
+    100%{transform:translateX(0) rotate(0deg)}
+  }
+  @keyframes windpuff{
+    0%{opacity:0;transform:translateX(-4px)}
+    20%{opacity:0.7;transform:translateX(0)}
+    60%{opacity:0.4;transform:translateX(6px)}
+    100%{opacity:0;transform:translateX(12px)}
+  }
   .header h1{font-family:'Bebas Neue',sans-serif;font-size:clamp(36px,7vw,64px);letter-spacing:4px;line-height:1;
     background:linear-gradient(135deg,#fff 0%,var(--accent) 60%,#fff 100%);
     -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
@@ -172,14 +186,8 @@
 <div class="app">
   <div class="header">
     <div class="header-flag">
-      <div class="flag-stripe" style="background:#c8102e"></div>
-      <div class="flag-stripe" style="background:#fff"></div>
-      <div class="flag-stripe" style="background:#002868"></div>
-      <div class="flag-stripe" style="background:#006847"></div>
-      <div class="flag-stripe" style="background:#ce1126"></div>
-      <div class="flag-stripe" style="background:#cf142b"></div>
-      <div class="flag-stripe" style="background:#fff"></div>
-      <div class="flag-stripe" style="background:#cf142b"></div>
+      <span class="wind-lines">💨</span>
+      <span class="ball-wind">⚽</span>
     </div>
     <h1>KAMIKAZE FOOTBALL WC'26</h1>
     <p class="sub">Prediction Survival Game &nbsp;·&nbsp; <a href="wc2026-rules.html" target="_blank" class="rules-link">📖 Rules</a><span id="header-player-name" style="display:none"> &nbsp;·&nbsp; <span style="color:var(--accent)"></span></span></p>
