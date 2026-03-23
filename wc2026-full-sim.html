@@ -335,9 +335,23 @@ function simulatePlayers(groupMatches, koMatches, numPlayers, startingLives, ski
       const rating2 = TEAM_RATINGS[match.away] || 0.5;
       const ratingDiff = rating1 - rating2;
       
-      const favoriteBonus = ratingDiff * skillLevel * 2;
-      const pickHome = Math.random() < (0.5 + favoriteBonus);
-      const prediction = pickHome ? match.home : match.away;
+      // Players can pick: home win, away win, or draw
+      // Skilled players are less likely to pick draws unless teams are evenly matched
+      const drawLikelihood = Math.max(0.15, 0.30 - Math.abs(ratingDiff) * 0.5);
+      
+      let prediction;
+      const rand = Math.random();
+      
+      // Determine player's prediction
+      if (Math.abs(ratingDiff) < 0.1 && rand < drawLikelihood * (1 - skillLevel * 0.5)) {
+        // Evenly matched + player considers draw
+        prediction = 'draw';
+      } else {
+        // Pick a winner
+        const favoriteBonus = ratingDiff * skillLevel * 2;
+        const pickHome = Math.random() < (0.5 + favoriteBonus);
+        prediction = pickHome ? match.home : match.away;
+      }
       
       const correct = prediction === match.result.winner;
       
@@ -361,7 +375,9 @@ function simulatePlayers(groupMatches, koMatches, numPlayers, startingLives, ski
       
       let prediction;
       if (!homeAvailable && !awayAvailable) {
-        prediction = Math.random() < 0.5 ? koMatch.home : koMatch.away;
+        // Both teams at 5-pick limit - forced violation, -2 lives penalty
+        player.lives -= 2;
+        return; // Skip this match
       } else if (!homeAvailable) {
         prediction = koMatch.away;
       } else if (!awayAvailable) {
