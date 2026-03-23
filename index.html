@@ -670,17 +670,7 @@ function autoFillPredictions(g){
       }
     });
 
-    // KO predictions — weighted, respecting 5-pick limit
-    g.matches.forEach((m,i)=>{
-      if(m.group||m.home==='TBD'||m.away==='TBD')return;
-      const hc=teamPicks[m.home]||0, ac=teamPicks[m.away]||0;
-      const pick=weightedPick(m.home,m.away,hc<MAX_PICKS,ac<MAX_PICKS,false,true);
-      if(!pick)return;
-      if(!g.predictions[i])g.predictions[i]={};
-      g.predictions[i][p.name]=pick;
-      if(pick==='home')teamPicks[m.home]=(teamPicks[m.home]||0)+1;
-      else teamPicks[m.away]=(teamPicks[m.away]||0)+1;
-    });
+    // KO predictions filled per-round as bracket is populated (see isNewKORound handler)
   });
 
   // Mark all as submitted
@@ -689,6 +679,36 @@ function autoFillPredictions(g){
   g.players.forEach(p=>{
     g.bulkSubmitted[p.name]=true;
     g.koBulkSubmitted[p.name]=true;
+  });
+}
+
+function autoFillKORound(g, round){
+  const MAX_PICKS=5;
+  const gms=g.matches.reduce((acc,m,i)=>{
+    if(m.round===round&&m.home!=='TBD'&&m.away!=='TBD') acc.push({m,i});
+    return acc;
+  },[]);
+  g.players.forEach(p=>{
+    // Count existing picks for this player
+    const teamPicks={};
+    g.matches.forEach((m,i)=>{
+      const pred=(g.predictions[i]||{})[p.name];
+      const winner=pred==='home'?m.home:pred==='away'?m.away:null;
+      if(!winner)return;
+      const r=(g.results||{})[i];
+      if(r&&r.penWinner&&!m.group)return; // pen win free pick
+      teamPicks[winner]=(teamPicks[winner]||0)+1;
+    });
+    gms.forEach(({m,i})=>{
+      if((g.predictions[i]||{})[p.name]!=null)return; // already has pick
+      const hc=teamPicks[m.home]||0, ac=teamPicks[m.away]||0;
+      const pick=weightedPick(m.home,m.away,hc<MAX_PICKS,ac<MAX_PICKS,false,true);
+      if(!pick)return;
+      if(!g.predictions[i])g.predictions[i]={};
+      g.predictions[i][p.name]=pick;
+      if(pick==='home')teamPicks[m.home]=(teamPicks[m.home]||0)+1;
+      else teamPicks[m.away]=(teamPicks[m.away]||0)+1;
+    });
   });
 }
 
@@ -1873,13 +1893,32 @@ async function renderReveal(g){
       (!prevMatch.group)&&nextMatch.round!==prevMatch.round&&
       nextMatch.home!=='TBD'&&nextMatch.away!=='TBD';
     if(isNewKORound){
-      f.status='ko-bulk:'+nextMatch.round;
-      f.koBulkSubmitted={};
-      f.currentResult=null;
-      await saveGame(f);
-      stopPolling();
-      startKOBulk(f,nextMatch.round);
+      if(f.mode==='test'){
+        // Test mode: auto-fill this round's predictions, mark all submitted, go straight to playing
+        autoFillKORound(f, nextMatch.round);
+        if(!f.koBulkSubmitted)f.koBulkSubmitted={};
+        f.players.forEach(p=>{f.koBulkSubmitted[p.name]=true;});
+        f.currentResult=null;
+        f.status='playing';
+        await saveGame(f);
+        renderGameHost(f);
+      } else {
+        f.status='ko-bulk:'+nextMatch.round;
+        f.koBulkSubmitted={};
+        f.currentResult=null;
+        await saveGame(f);
+        stopPolling();
+        startKOBulk(f,nextMatch.round);
+      }
       return;
+    }
+    // Check if we just moved from group stage to R32 in test mode
+    const prevMatchF=f.matches[f.currentMatchIdx-1];
+    const isGroupToR32=f.mode==='test'&&prevMatchF&&prevMatchF.group&&nextMatch&&!nextMatch.group&&nextMatch.home!=='TBD';
+    if(isGroupToR32){
+      autoFillKORound(f,'Round of 32');
+      if(!f.koBulkSubmitted)f.koBulkSubmitted={};
+      f.players.forEach(p=>{f.koBulkSubmitted[p.name]=true;});
     }
     // Also check: if nextMatch is a TBD KO slot, just advance normally
     f.currentResult=null;f.status='playing';
