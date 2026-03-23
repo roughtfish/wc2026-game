@@ -193,7 +193,13 @@
   <div id="stats-area" style="display:none">
     <div class="refresh-note"><span class="spinner"></span>Auto-refreshing every 10s &nbsp;·&nbsp; <span id="last-updated"></span></div>
     <div id="h2h-banner" style="display:none"></div>
-    <div class="section-title">STANDINGS</div>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+      <div class="section-title" style="margin:0;flex:1">STANDINGS</div>
+      <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);cursor:pointer;user-select:none">
+        <input type="checkbox" id="h2h-mode-toggle" style="width:16px;height:16px;cursor:pointer;accent-color:var(--accent2)">
+        <span>H2H Compare Mode</span>
+      </label>
+    </div>
     <div class="leaderboard" id="leaderboard"></div>
     <div class="section-title">STREAKS 🔥</div>
     <div id="streak-stats"></div>
@@ -743,6 +749,18 @@ document.addEventListener('keydown',e=>{
   }
 });
 
+// Clear H2H selection when toggle is turned off
+document.addEventListener('DOMContentLoaded', () => {
+  const toggle = document.getElementById('h2h-mode-toggle');
+  if(toggle){
+    toggle.addEventListener('change', () => {
+      if(!toggle.checked){
+        clearH2HSelection();
+      }
+    });
+  }
+});
+
 function toggleH2HSelection(playerName){
   const idx = h2hSelectedPlayers.indexOf(playerName);
   if(idx >= 0){
@@ -958,7 +976,14 @@ function renderLeaderboard(g){
     </div>`;
   }).join('');
   el.querySelectorAll('.lb-name-btn').forEach(btn=>{
-    btn.addEventListener('click',()=>toggleH2HSelection(btn.dataset.player));
+    btn.addEventListener('click',()=>{
+      const h2hMode = document.getElementById('h2h-mode-toggle')?.checked;
+      if(h2hMode){
+        toggleH2HSelection(btn.dataset.player);
+      } else {
+        showPlayerModal(btn.dataset.player);
+      }
+    });
   });
   updateLeaderboardSelection(); // Apply selection styling if needed
 }
