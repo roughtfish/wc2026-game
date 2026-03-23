@@ -1927,10 +1927,24 @@ function showFinalLeaderboard(g){
 }
 function renderFinalLB(g){
   const s=[...g.players].sort((a,b)=>b.lives-a.lives||b.correct-a.correct);
+  // Count exact score bonuses per player
+  const scoreBonuses={};
+  Object.keys(g.results||{}).forEach(idx=>{
+    const r=(g.results||{})[idx];
+    if(!r)return;
+    g.players.forEach(p=>{
+      const sc=(g.predictions[idx]||{})[p.name+'_score'];
+      if(sc&&sc.home===r.home&&sc.away===r.away)scoreBonuses[p.name]=(scoreBonuses[p.name]||0)+1;
+    });
+  });
   document.getElementById('final-leaderboard').innerHTML=`<div class="card"><h3>FINAL STANDINGS</h3>
-    ${s.map((p,i)=>`<div class="leaderboard-row"><div class="lb-rank${i===0?' gold':''}">${i+1}</div><div class="lb-name">${p.name}</div><div class="lb-score">${p.correct}✓</div>
-    <div>${g.lives<=7?Array.from({length:g.lives},(_,j)=>`<span class="heart${j>=p.lives?' lost':''}">❤️</span>`).join(''):`<span style="font-size:11px;font-weight:600;color:${p.lives/g.lives>0.6?'var(--green)':p.lives/g.lives>0.3?'var(--accent)':'var(--red)'}">❤️${p.lives}/${g.lives}</span>`}</div>
-    </div>`).join('')}
+    ${s.map((p,i)=>{
+      const bonuses=scoreBonuses[p.name]||0;
+      return`<div class="leaderboard-row"><div class="lb-rank${i===0?' gold':''}">${i+1}</div><div class="lb-name">${p.name}</div>
+      <div class="lb-score">${p.correct}✓${bonuses>0?` <span style="font-size:10px;color:var(--accent2)">🎯${bonuses}</span>`:''}</div>
+      <div>${g.lives<=7?Array.from({length:g.lives},(_,j)=>`<span class="heart${j>=p.lives?' lost':''}">❤️</span>`).join(''):`<span style="font-size:11px;font-weight:600;color:${p.lives/g.lives>0.6?'var(--green)':p.lives/g.lives>0.3?'var(--accent)':'var(--red)'}">❤️${p.lives}/${g.lives}</span>`}</div>
+      </div>`;
+    }).join('')}
   </div>`;
 }
 
