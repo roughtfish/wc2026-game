@@ -1617,8 +1617,7 @@ function renderResultEntry(g,match,area){
     }catch(e){
       console.error('submit-result failed',e);
       submitBtn.textContent='CONFIRM RESULT & REVEAL';submitBtn.disabled=false;
-      alert('Failed to save result: '+e.message+'
-Please try again.');
+      alert('Failed to save result: '+e.message+'\nPlease try again.');
     }
   });
 }
