@@ -586,6 +586,23 @@ function buildMatches(mode){
     :GROUP_MATCHES.map(m=>({...m}));
 }
 
+function populateKnockoutsOnly(g){
+  // Extract all unique teams from group matches, shuffle, pair into R32
+  const allTeams=[...new Set(GROUP_MATCHES.flatMap(m=>[m.home,m.away]))];
+  // Shuffle
+  for(let i=allTeams.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [allTeams[i],allTeams[j]]=[allTeams[j],allTeams[i]];
+  }
+  // Take first 32 teams and fill R32 slots
+  const r32=g.matches.filter(m=>m.round==='Round of 32');
+  r32.forEach((m,i)=>{
+    m.home=allTeams[i*2]||'Team '+(i*2+1);
+    m.away=allTeams[i*2+1]||'Team '+(i*2+2);
+    m.koSlot=false;
+  });
+}
+
 // ─── GROUP STANDINGS ─────────────────────────────────────────────────────────
 function calcGroupStandings(g){
   // Returns {A:[{team,p,w,d,l,gf,ga,gd},...],...}
@@ -1011,6 +1028,7 @@ document.getElementById('create-game-btn').addEventListener("click",async()=>{
     matches:buildMatches(selectedMode),
     predictions:{},currentMatchIdx:0,currentResult:null,bulkSubmitted:{},
   };
+  if(selectedMode==='knockouts') populateKnockoutsOnly(g);
   show('screen-host-lobby');
   document.getElementById('host-roster').innerHTML='<div style="color:var(--muted);font-size:13px;">Creating game…</div>';
   document.getElementById('lobby-code-display').textContent='…';
@@ -1038,10 +1056,20 @@ async function pollHostLobby(){
 
 document.getElementById('start-game-btn').addEventListener("click",async()=>{
   const g=await loadGame(me.code);if(!g)return;
-  g.status=g.matches.some(m=>m.group)?'bulk':'playing';
-  await saveGame(g);
-  stopPolling();
-  if(g.status==='bulk')startBulk(g);else enterGame(g);
+  const hasGroups=g.matches.some(m=>m.group);
+  if(hasGroups){
+    g.status='bulk';
+    await saveGame(g);
+    stopPolling();
+    startBulk(g);
+  } else {
+    // KO-only mode: go straight to R32 predictions
+    g.status='ko-bulk:Round of 32';
+    g.koBulkSubmitted={};
+    await saveGame(g);
+    stopPolling();
+    startKOBulk(g,'Round of 32');
+  }
 });
 
 // ─── PLAYER: JOIN ─────────────────────────────────────────────────────────────
