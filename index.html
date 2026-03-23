@@ -136,6 +136,22 @@
   .bulk-toggle button.active-away{background:rgba(45,212,191,0.16);color:var(--accent2)}
   .sticky-submit{position:sticky;bottom:0;background:var(--bg);padding:12px 0 5px;margin-top:12px;border-top:1px solid var(--border)}
   .bulk-progress-info{display:flex;align-items:center;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:12px}
+  .score-predict-row{display:flex;align-items:center;gap:8px;justify-content:center;margin-top:8px;padding:7px 0 2px;border-top:0.5px solid rgba(255,255,255,0.06)}
+  .score-predict-toggle{font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);cursor:pointer;padding:3px 8px;border:1px solid var(--border);border-radius:6px;background:transparent;transition:all 0.15s}
+  .score-predict-toggle:hover{color:var(--accent2);border-color:var(--accent2)}
+  .score-predict-toggle.active{color:var(--accent2);border-color:var(--accent2);background:rgba(45,212,191,0.07)}
+  .score-inputs{display:flex;align-items:center;gap:6px;margin-left:8px}
+  .score-input-mini{width:36px;text-align:center;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:14px;font-weight:600;padding:3px 4px;-moz-appearance:textfield}
+  .score-input-mini::-webkit-inner-spin-button,.score-input-mini::-webkit-outer-spin-button{-webkit-appearance:none}
+  .score-bonus-badge{font-size:10px;color:var(--accent2);letter-spacing:1px;opacity:0.7}
+  .score-pred-row{display:flex;align-items:center;gap:6px;justify-content:center;margin-top:6px;padding-top:6px;border-top:0.5px solid var(--border)}
+  .score-pred-toggle{font-size:10px;letter-spacing:1px;color:var(--muted);background:transparent;border:1px solid var(--border);border-radius:6px;padding:3px 8px;cursor:pointer;transition:all 0.15s;font-family:'DM Sans',sans-serif}
+  .score-pred-toggle:hover{color:var(--accent2);border-color:var(--accent2)}
+  .score-pred-toggle.active{color:var(--accent2);border-color:var(--accent2);background:rgba(45,212,191,0.08)}
+  .score-pred-inputs{display:flex;align-items:center;gap:5px}
+  .score-pred-inputs input{width:36px;text-align:center;font-size:14px;font-weight:600;padding:3px 4px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--text)}
+  .score-pred-inputs .score-dash{color:var(--muted);font-size:12px}
+  .score-pred-badge{font-size:10px;color:var(--accent2);letter-spacing:1px;margin-left:4px}
   .draw-float{position:sticky;top:8px;z-index:10;display:flex;justify-content:center;pointer-events:none;margin-bottom:10px}
   .draw-float-pill{background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:5px 14px;font-size:12px;color:var(--muted);letter-spacing:1px;font-family:'Bebas Neue',sans-serif;font-size:14px;transition:color 0.2s,border-color 0.2s}
   .draw-float-pill.warn{color:var(--accent);border-color:rgba(232,184,75,0.4)}
@@ -871,6 +887,7 @@ let me={role:null,name:'',code:''};
 let pollTimer=null;
 let selectedMode='full';
 let bulkDraft={};
+let scoreDraft={}; // exact score predictions: {matchIdx: {home, away}}
 
 
 
@@ -1079,6 +1096,8 @@ startPolling(async()=>{
 // ─── BULK PREDICTION ─────────────────────────────────────────────────────────
 async function startBulk(g){
   bulkDraft={};
+  scoreDraft={};
+  scoreDraft={};
   document.getElementById('bulk-player-name').textContent=me.name+(me.role==='host'?' (Host)':'');
   const bulkQuitBtn=document.getElementById('bulk-quit-btn');
   if(bulkQuitBtn) bulkQuitBtn.style.display=me.role==='host'?'inline-block':'none';
@@ -1088,6 +1107,7 @@ async function startBulk(g){
   const saved=await loadDraft();
   if(saved&&Object.keys(saved).length>0){
     // Only restore picks for matches not yet submitted
+    if(saved.__scores){scoreDraft=saved.__scores;delete saved.__scores;}
     const submitted=g.predictions||{};
     Object.entries(saved).forEach(([k,v])=>{
       const idx=parseInt(k);
@@ -1141,6 +1161,8 @@ function renderBulkForm(g){
       const awayAtLimit = awayCount >= MAX_PICKS && sel!=='away';
       const homeLabel = homeAtLimit ? `${flag(m.home,20)} <small style="font-size:10px">(${MAX_PICKS}/${MAX_PICKS})</small>` : flag(m.home,20);
       const awayLabel = awayAtLimit ? `${flag(m.away,20)} <small style="font-size:10px">(${MAX_PICKS}/${MAX_PICKS})</small>` : flag(m.away,20);
+      const sc=scoreDraft[idx];
+      const hasScore=!!sc;
       html+=`<div class="bulk-match-row${sel===undefined?' unpredicted':''}">
         <div class="bulk-team"><span class="bulk-team-flag">${flag(m.home,20)}</span><span>${m.home}</span><span style="font-size:10px;color:${homeAtLimit?'var(--red)':homeCount>=MAX_PICKS-1?'var(--accent)':'var(--muted)'};margin-left:4px;font-weight:600">${homeCount}/${MAX_PICKS}</span></div>
         <div class="bulk-toggle">
@@ -1149,6 +1171,10 @@ function renderBulkForm(g){
           <button data-idx="${idx}" data-val="away" class="${sel==='away'?'active-away':''}" title="${m.a} win${awayAtLimit?' — limit reached':''}" style="font-size:16px;padding:5px 9px;${awayAtLimit?'opacity:0.3;cursor:not-allowed;':''}" ${awayAtLimit?'disabled':''}>${flag(m.away,20)}</button>
         </div>
         <div class="bulk-team away"><span style="font-size:10px;color:${awayAtLimit?'var(--red)':awayCount>=MAX_PICKS-1?'var(--accent)':'var(--muted)'};margin-right:4px;font-weight:600">${awayCount}/${MAX_PICKS}</span><span>${m.away}</span><span class="bulk-team-flag">${flag(m.away,20)}</span></div>
+        ${sel!==undefined?`<div class="score-predict-row">
+          <button class="score-predict-toggle${hasScore?' active':''}" data-score-idx="${idx}">${hasScore?'✓ Score: '+sc.home+'–'+sc.away:'+1 ❤️ Predict score'}</button>
+          ${hasScore?`<div class="score-inputs">${flag(m.home,16)}<input type="number" class="score-input-mini" data-score-home="${idx}" value="${sc.home}" min="0" max="20">&ndash;<input type="number" class="score-input-mini" data-score-away="${idx}" value="${sc.away}" min="0" max="20">${flag(m.away,16)}<span class="score-bonus-badge">+1 ❤️</span></div>`:''}
+        </div>`:''}
       </div>`;
     });
   });
@@ -1190,6 +1216,7 @@ function renderBulkForm(g){
     if(cb){
       cb.addEventListener('click',()=>{
         bulkDraft={};
+        scoreDraft={};
         saveDraft(bulkDraft);
         renderBulkForm(g);
       });
@@ -1199,8 +1226,35 @@ function renderBulkForm(g){
   area.querySelectorAll('.bulk-toggle button').forEach(btn=>{
     btn.addEventListener('click',()=>{
       bulkDraft[parseInt(btn.dataset.idx)]=btn.dataset.val;
-      saveDraft(bulkDraft); // persist immediately — fire and forget
+      const _draftWithScores={...bulkDraft,__scores:scoreDraft};
+      saveDraft(_draftWithScores); // persist immediately — fire and forget
       renderBulkForm(g);
+    });
+  });
+
+  // Score toggle buttons
+  area.querySelectorAll('.score-predict-toggle').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const idx=parseInt(btn.dataset.scoreIdx);
+      if(scoreDraft[idx]){
+        delete scoreDraft[idx];
+      } else {
+        scoreDraft[idx]={home:1,away:0};
+      }
+      saveDraft({...bulkDraft,__scores:scoreDraft});
+      renderBulkForm(g);
+    });
+  });
+
+  // Score number inputs
+  area.querySelectorAll('.score-input-mini').forEach(input=>{
+    input.addEventListener('change',()=>{
+      const isHome=input.dataset.scoreHome!==undefined;
+      const idx=parseInt(isHome?input.dataset.scoreHome:input.dataset.scoreAway);
+      if(!scoreDraft[idx])scoreDraft[idx]={home:0,away:0};
+      const val=Math.max(0,Math.min(20,parseInt(input.value)||0));
+      if(isHome)scoreDraft[idx].home=val; else scoreDraft[idx].away=val;
+      saveDraft({...bulkDraft,__scores:scoreDraft});
     });
   });
 }
@@ -1219,6 +1273,8 @@ async function commitBulk(g){
       const idx=parseInt(i);
       if(!fresh.predictions[idx])fresh.predictions[idx]={};
       fresh.predictions[idx][me.name]=v;
+      // Save exact score prediction if provided
+      if(scoreDraft[idx])fresh.predictions[idx][me.name+'_score']=scoreDraft[idx];
     });
     if(!fresh.bulkSubmitted)fresh.bulkSubmitted={};
     fresh.bulkSubmitted[me.name]=true;
@@ -1522,6 +1578,9 @@ function renderResultEntry(g,match,area){
       if(mp[p.name]===actual){p.correct++;}
       else if(mp[p.name]!=null){p.lives=Math.max(0,p.lives-1);if(p.lives===0)p.eliminated=true;}
       else{p.lives=Math.max(0,p.lives-2);if(p.lives===0)p.eliminated=true;}
+      // Exact score bonus: +1 life if they predicted the correct score
+      const sc=mp[p.name+'_score'];
+      if(sc&&sc.home===h&&sc.away===a){p.lives++;p.scoreBonus=(p.scoreBonus||0)+1;}
     });
     f.currentResult={home:h,away:a,penWinner:penWinner||undefined};
     // Store result for standings calculation
@@ -1575,6 +1634,9 @@ function reverseResult(g, matchIdx){
       p.lives=Math.min(g.lives,p.lives+2);
       if(p.eliminated&&p.lives>0)p.eliminated=false;
     }
+    // Undo exact score bonus
+    const sc=preds[p.name+'_score'];
+    if(sc&&sc.home===r.home&&sc.away===r.away){p.lives=Math.max(0,p.lives-1);}
   });
   // Remove stored result
   delete g.results[matchIdx];
@@ -1610,7 +1672,7 @@ async function renderReveal(g){
       <div class="team-block"><div class="team-flag-emoji">${flag(match.away,48)}</div><div class="team-name">${match.away}</div></div>
     </div>
     <div style="text-align:center;margin-bottom:16px;"><span style="font-size:12px;color:var(--muted)">Result: </span><span style="font-weight:600;font-size:14px;">${lbl}</span></div>
-    <div>${g.players.map(p=>{const v=preds[p.name];const ok=v===actual;return`<div class="pred-recap-item"><span class="pred-name">${p.name}</span><span class="pred-choice">${v==='home'?flag(match.home,16)+' '+match.home:v==='away'?flag(match.away,16)+' '+match.away:'<span style="font-weight:900">=</span> Draw'}</span><span>${ok?'✅':'❌'}</span></div>`;}).join('')}</div>
+    <div>${g.players.map(p=>{const v=preds[p.name];const ok=v===actual;const sc=preds[p.name+'_score'];const scoreOk=sc&&sc.home===f.currentResult?.home&&sc.away===f.currentResult?.away;return`<div class="pred-recap-item"><span class="pred-name">${p.name}</span><span class="pred-choice">${v==='home'?flag(match.home,16)+' '+match.home:v==='away'?flag(match.away,16)+' '+match.away:'<span style="font-weight:900">=</span> Draw'}${sc?` <span style="font-size:10px;color:var(--muted)">(${sc.home}–${sc.away}${scoreOk?' ❤️+1':''})</span>`:''}</span><span>${ok?'✅':'❌'}</span></div>`;}).join('')}</div>
     <div style="display:flex;gap:9px;margin-top:12px;">
       <button class="btn-next" id="correct-result-btn" style="flex:0 0 auto;width:auto;padding:12px 16px;font-size:13px;color:var(--muted);border-color:rgba(255,255,255,0.1)">✎ Edit Result</button>
       <button class="btn-next" id="next-match-btn" style="flex:1">${alive.length<=1?'SEE RESULTS 🏆':(()=>{
@@ -1724,7 +1786,7 @@ async function renderWatchScreen(g){
         <div class="team-block"><div class="team-flag-emoji">${flag(match.away,48)}</div><div class="team-name">${match.away}</div></div>
       </div>
       <div style="text-align:center;margin-bottom:16px;"><span style="font-size:12px;color:var(--muted)">Result: </span><span style="font-weight:600;font-size:14px;">${lbl}</span></div>
-      <div>${g.players.map(p=>{const v=preds[p.name];const ok=v===actual;return`<div class="pred-recap-item"><span class="pred-name" style="${p.name===me.name?'color:var(--accent);font-weight:700':''}>${p.name}</span><span class="pred-choice">${v==='home'?flag(match.home,16)+' '+match.home:v==='away'?flag(match.away,16)+' '+match.away:'<span style="font-weight:900">=</span> Draw'}</span><span>${ok?'✅':'❌'}</span></div>`;}).join('')}</div>
+      <div>${g.players.map(p=>{const v=preds[p.name];const ok=v===actual;const sc=preds[p.name+'_score'];const scoreOk=sc&&sc.home===g.currentResult?.home&&sc.away===g.currentResult?.away;return`<div class="pred-recap-item"><span class="pred-name" style="${p.name===me.name?'color:var(--accent);font-weight:700':''}>${p.name}</span><span class="pred-choice">${v==='home'?flag(match.home,16)+' '+match.home:v==='away'?flag(match.away,16)+' '+match.away:'<span style="font-weight:900">=</span> Draw'}${sc?` <span style="font-size:10px;color:var(--muted)">(${sc.home}–${sc.away}${scoreOk?' ❤️+1':''})</span>`:''}</span><span>${ok?'✅':'❌'}</span></div>`;}).join('')}</div>
       <div style="text-align:center;margin-top:12px;font-size:11px;color:var(--muted)"><span class="spinner"></span>Waiting for host to advance…</div>
     </div>`;
   } else {
@@ -1972,6 +2034,9 @@ async function correctHistoricResult(g, targetIdx) {
           if (preds[p.name] === actual) { p.correct++; }
           else if (preds[p.name] != null) { p.lives = Math.max(0, p.lives - 1); if (p.lives === 0) p.eliminated = true; }
           else { p.lives = Math.max(0, p.lives - 2); if (p.lives === 0) p.eliminated = true; }
+          // Exact score bonus
+          const sc=preds[p.name+'_score'];
+          if(sc&&sc.home===res.home&&sc.away===res.away){p.lives++;}
         });
 
         // Repopulate brackets — must set currentResult before calling populateNextKORound
