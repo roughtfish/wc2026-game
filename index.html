@@ -136,6 +136,9 @@
   .bulk-toggle button.active-away{background:rgba(45,212,191,0.16);color:var(--accent2)}
   .sticky-submit{position:sticky;bottom:0;background:var(--bg);padding:12px 0 5px;margin-top:12px;border-top:1px solid var(--border)}
   .bulk-progress-info{display:flex;align-items:center;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:12px}
+  .presence-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--green);margin-right:4px;vertical-align:middle;animation:pulse-dot 2s ease-in-out infinite}
+  @keyframes pulse-dot{0%,100%{opacity:1}50%{opacity:0.4}}
+  .presence-offline{background:var(--muted);animation:none}
   .eliminated-splash{position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:999;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:32px;animation:splashIn 0.4s ease}
   @keyframes splashIn{from{opacity:0;transform:scale(0.95)}to{opacity:1;transform:scale(1)}}
   .eliminated-skull{font-size:80px;margin-bottom:16px;animation:skullBounce 0.6s ease 0.3s both}
@@ -370,6 +373,7 @@
         <div class="scoreboard-title" style="margin:0">STANDINGS</div>
         <div style="display:flex;gap:7px">
         <button class="btn btn-secondary btn-sm" id="open-ko-preds-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7;display:none">🎯 My Picks</button>
+        <button class="btn btn-secondary btn-sm" id="undo-result-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7;display:none">↩ Undo</button>
         <button class="btn btn-secondary btn-sm" id="open-history-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7">✎ Edit Result</button>
         <button class="btn btn-secondary btn-sm" id="quit-game-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7;color:var(--red);border-color:rgba(239,68,68,0.3)">✕ Quit</button>
       </div>
@@ -413,7 +417,7 @@
   <div id="screen-winner" class="screen">
     <div class="winner-banner">
       <div class="trophy">🏆</div>
-      <p class="winner-sub">Last standing</p>
+      <p class="winner-sub" id="winner-sub">Last standing</p>
       <div class="winner-name" id="winner-name"></div>
       <p style="color:var(--muted);font-size:12px;margin-top:9px;" id="winner-detail"></p>
       <button class="btn btn-primary" id="play-again-btn" style="max-width:260px;margin:32px auto 0;">PLAY AGAIN</button>
@@ -994,6 +998,48 @@ async function loadGameByCode(code){
   return loadGame(code.toUpperCase().trim());
 }
 
+// ─── PRESENCE ─────────────────────────────────────────────────────────────────
+let presenceTimer=null;
+
+async function heartbeat(){
+  const base=getFirebaseUrl();
+  if(!base||!me.code||!me.name)return;
+  try{
+    await fetchWithTimeout(`${base}/games/${me.code}/presence/${encodeURIComponent(me.name)}.json`,{
+      method:'PUT',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(Date.now())
+    });
+  }catch(e){}
+}
+
+function startPresence(){
+  heartbeat();
+  if(presenceTimer)clearInterval(presenceTimer);
+  presenceTimer=setInterval(heartbeat,15000);
+}
+
+function stopPresence(){
+  if(presenceTimer){clearInterval(presenceTimer);presenceTimer=null;}
+  // Remove own presence on leave
+  const base=getFirebaseUrl();
+  if(base&&me.code&&me.name){
+    fetch(`${base}/games/${me.code}/presence/${encodeURIComponent(me.name)}.json`,{method:'DELETE'}).catch(()=>{});
+  }
+}
+
+async function getOnlinePlayers(code){
+  const base=getFirebaseUrl();
+  if(!base)return[];
+  try{
+    const r=await fetchWithTimeout(`${base}/games/${code}/presence.json`);
+    if(!r.ok)return[];
+    const data=await r.json();
+    if(!data)return[];
+    const now=Date.now();
+    return Object.entries(data).filter(([,ts])=>now-ts<30000).map(([name])=>decodeURIComponent(name));
+  }catch(e){return[];}
+}
+
 async function saveDraft(draft){
   const base=getFirebaseUrl();
   if(!base||!me.code||!me.name)return;
@@ -1067,11 +1113,23 @@ function startPolling(fn,ms=2500){stopPolling();fn();pollTimer=setInterval(fn,ms
 function renderScoreboard(g,elId){
   const el=document.getElementById(elId);if(!el)return;
   const mx=g.lives;
+  // Use cached online set, refresh async
+  const presenceKey='kf_online_'+g.code;
+  let onlineSet=new Set(JSON.parse(sessionStorage.getItem(presenceKey)||'[]'));
+  getOnlinePlayers(g.code).then(names=>{
+    try{sessionStorage.setItem(presenceKey,JSON.stringify(names));}catch(e){}
+    el.querySelectorAll('.presence-dot').forEach(dot=>{
+      const online=names.includes(dot.dataset.player);
+      dot.className='presence-dot'+(online?'':' presence-offline');
+      dot.title=(online?dot.dataset.player+' is online':dot.dataset.player+' is offline');
+    });
+  }).catch(()=>{});
   el.innerHTML=g.players.map(p=>{
     let h;
     if(mx<=7)h=`<div style="display:flex;gap:2px;">${Array.from({length:mx},(_,j)=>`<span class="heart${j>=p.lives?' lost':''}">❤️</span>`).join('')}</div>`;
     else{const pct=p.lives/mx;const col=pct>0.6?'var(--green)':pct>0.3?'var(--accent)':'var(--red)';h=`<div style="font-size:11px;font-weight:600;color:${col}">❤️${p.lives}<span style="color:var(--muted);font-size:10px;">/${mx}</span></div>`;}
-    return`<div class="player-chip${p.eliminated?' eliminated':''}"><div class="name">${p.name}</div>${h}<div style="font-size:10px;color:var(--muted)">${p.correct}✓</div></div>`;
+    const online=onlineSet.has(p.name);
+    return`<div class="player-chip${p.eliminated?' eliminated':''}"><div class="name"><span class="presence-dot${online?'':' presence-offline'}" data-player="${p.name}" title="${p.name}${online?' is online':' is offline'}"></span>${p.name}</div>${h}<div style="font-size:10px;color:var(--muted)">${p.correct}✓</div></div>`;
   }).join('');
 }
 const KO_ROUND_LABELS={'Round of 32':'R32','Round of 16':'R16','Quarter-final':'QF','Semi-final':'SF','3rd Place Play-off':'3rd','Final':'F'};
@@ -1520,6 +1578,7 @@ async function pollBulkDone(){
 // ─── HOST GAME ────────────────────────────────────────────────────────────────
 async function enterGame(g){
   show('screen-game');
+  startPresence();
   renderGameHost(g);
   startPolling(async()=>{
     const f=await loadGame(me.code);
@@ -1555,6 +1614,12 @@ async function enterGame(g){
 
 async function renderGameHost(g){
   renderScoreboard(g,'players-grid');
+  // Show undo button if there are any entered results
+  const undoBtn=document.getElementById('undo-result-btn');
+  if(undoBtn){
+    const hasResults=g.results&&Object.keys(g.results).filter(k=>!isNaN(k)&&(g.results||{})[k]!=null).length>0;
+    undoBtn.style.display=hasResults?'inline-block':'none';
+  }
   renderProgress(g,'progress-bar');
   const alive=g.players.filter(p=>!p.eliminated);
   if(alive.length<=1){showWinner(g);return;}
@@ -1959,6 +2024,7 @@ async function renderReveal(g){
 // ─── PLAYER WATCH ────────────────────────────────────────────────────────────
 async function watchGame(g){
   show('screen-watch');
+  startPresence();
   renderWatchScreen(g);
   startPolling(async()=>{
     const f=await loadGame(me.code);if(!f)return;
@@ -2138,19 +2204,65 @@ async function renderWatchScreen(g){
 }
 
 // ─── WINNER / LEADERBOARD ────────────────────────────────────────────────────
+function determineWinner(g){
+  const alive=g.players.filter(p=>!p.eliminated);
+  const pool=alive.length>0?alive:g.players;
+  const sorted=[...pool].sort((a,b)=>b.lives-a.lives||b.correct-a.correct);
+  const winner=sorted[0];
+  // Work out how it was decided
+  let method='last-standing',tiebreakUsed=false;
+  if(alive.length===0) method='all-eliminated';
+  else if(alive.length===1) method='last-standing';
+  else{
+    // Multiple alive at end — decided by standings
+    method='most-lives';
+    if(sorted.length>1&&sorted[0].lives===sorted[1].lives){
+      tiebreakUsed=true;
+      method='tiebreak-correct';
+    }
+  }
+  return{winner,sorted,method,tiebreakUsed,alive};
+}
+
+function setWinnerBanner(g){
+  const{winner,method,tiebreakUsed,alive}=determineWinner(g);
+  const subEl=document.getElementById('winner-sub');
+  const nameEl=document.getElementById('winner-name');
+  const detailEl=document.getElementById('winner-detail');
+  if(method==='all-eliminated'){
+    if(subEl)subEl.textContent='Everyone eliminated';
+    nameEl.textContent='EVERYONE';
+    detailEl.textContent='All players eliminated — no survivors!';
+    return;
+  }
+  if(method==='last-standing'){
+    if(subEl)subEl.textContent='Last standing';
+    nameEl.textContent=winner.name;
+    detailEl.textContent=`${winner.correct} correct · ${winner.lives} ${winner.lives===1?'life':'lives'} remaining`;
+    return;
+  }
+  if(method==='most-lives'){
+    if(subEl)subEl.textContent='Most lives remaining';
+    nameEl.textContent=winner.name;
+    detailEl.textContent=`${winner.lives} lives remaining · ${winner.correct} correct · ${alive.length} players survived`;
+    return;
+  }
+  if(method==='tiebreak-correct'){
+    if(subEl)subEl.textContent='Won on tiebreak';
+    nameEl.textContent=winner.name;
+    detailEl.innerHTML=`<span style="color:var(--accent)">Tiebreak:</span> equal lives — decided by most correct predictions<br><span style="color:var(--muted);font-size:11px">${winner.lives} lives · ${winner.correct} correct</span>`;
+    return;
+  }
+}
+
 function showWinner(g){
   stopPolling();show('screen-winner');
-  const alive=g.players.filter(p=>!p.eliminated);
-  const winner=[...alive].sort((a,b)=>b.lives-a.lives||b.correct-a.correct)[0];
-  if(winner){document.getElementById('winner-name').textContent=winner.name;document.getElementById('winner-detail').textContent=`${winner.correct} correct · ${winner.lives} ${winner.lives===1?'life':'lives'} remaining`;}
-  else{document.getElementById('winner-name').textContent='EVERYONE';document.getElementById('winner-detail').textContent='All players eliminated!';}
+  setWinnerBanner(g);
   renderFinalLB(g);
 }
 function showFinalLeaderboard(g){
   stopPolling();show('screen-winner');
-  const s=[...g.players].sort((a,b)=>b.lives-a.lives||b.correct-a.correct);
-  document.getElementById('winner-name').textContent=s[0]?s[0].name:'???';
-  document.getElementById('winner-detail').textContent=s[0]?`${s[0].correct} correct · ${s[0].lives} lives left`:'';
+  setWinnerBanner(g);
   renderFinalLB(g);
 }
 function renderFinalLB(g){
@@ -2165,10 +2277,16 @@ function renderFinalLB(g){
       if(sc&&sc.home===r.home&&sc.away===r.away)scoreBonuses[p.name]=(scoreBonuses[p.name]||0)+1;
     });
   });
+  const{tiebreakUsed}=determineWinner(g);
+  // Find the lives value shared by tied players (if any)
+  const tiedLives=tiebreakUsed&&s.length>1&&s[0].lives===s[1].lives?s[0].lives:null;
   document.getElementById('final-leaderboard').innerHTML=`<div class="card"><h3>FINAL STANDINGS</h3>
+    ${tiebreakUsed?`<div style="font-size:11px;color:var(--accent);background:rgba(232,184,75,0.08);border:1px solid rgba(232,184,75,0.2);border-radius:6px;padding:7px 12px;margin-bottom:10px">⚖️ Tiebreak applied — equal lives, decided by most correct predictions</div>`:''}
     ${s.map((p,i)=>{
       const bonuses=scoreBonuses[p.name]||0;
-      return`<div class="leaderboard-row"><div class="lb-rank${i===0?' gold':''}">${i+1}</div><div class="lb-name">${p.name}</div>
+      const isTied=tiedLives!==null&&p.lives===tiedLives;
+      const tieMarker=isTied?`<span style="font-size:10px;color:var(--accent);margin-left:5px">⚖️</span>`:'';
+      return`<div class="leaderboard-row"><div class="lb-rank${i===0?' gold':''}">${i===0?'🏆':i+1}</div><div class="lb-name">${p.name}${tieMarker}</div>
       <div class="lb-score">${p.correct}✓${bonuses>0?` <span style="font-size:10px;color:var(--accent2)">🎯${bonuses}</span>`:''}</div>
       <div>${g.lives<=7?Array.from({length:g.lives},(_,j)=>`<span class="heart${j>=p.lives?' lost':''}">❤️</span>`).join(''):`<span style="font-size:11px;font-weight:600;color:${p.lives/g.lives>0.6?'var(--green)':p.lives/g.lives>0.3?'var(--accent)':'var(--red)'}">❤️${p.lives}/${g.lives}</span>`}</div>
       </div>`;
@@ -2197,7 +2315,7 @@ document.getElementById('bulk-quit-btn').addEventListener('click',()=>{
 });
 document.getElementById('quit-game-btn').addEventListener('click',()=>{
   if(!confirm('Quit game and return to main menu? The game will remain saved and players can still rejoin.')) return;
-  stopPolling();
+  stopPolling();stopPresence();
   try{sessionStorage.removeItem('kf_me');}catch(e){}
   me={};
   show('screen-landing');
@@ -2209,6 +2327,34 @@ document.getElementById('watch-quit-btn').addEventListener('click',()=>{
   me={};
   show('screen-landing');
 });
+document.getElementById('undo-result-btn').addEventListener('click', async () => {
+  const g = await loadGame(me.code);
+  if (!g) return;
+  const resultIdxs = Object.keys(g.results||{}).map(Number).filter(n=>!isNaN(n)&&g.results[n]!=null).sort((a,b)=>a-b);
+  if (!resultIdxs.length) return;
+  const lastIdx = resultIdxs[resultIdxs.length - 1];
+  const m = g.matches[lastIdx];
+  const r = g.results[lastIdx];
+  if (!confirm(`Undo last result: ${m.home} ${r.home}–${r.away} ${m.away}?
+
+Scores will be recalculated.`)) return;
+  const btn = document.getElementById('undo-result-btn');
+  btn.textContent = 'Undoing…'; btn.disabled = true;
+  try {
+    reverseResult(g, lastIdx);
+    g.currentMatchIdx = lastIdx;
+    g.currentResult = null;
+    g.status = 'playing';
+    await saveGame(g);
+    renderGameHost(g);
+  } catch(e) {
+    console.error('undo failed', e);
+    alert('Failed to undo: ' + e.message);
+  } finally {
+    btn.textContent = '↩ Undo'; btn.disabled = false;
+  }
+});
+
 document.getElementById('open-history-btn').addEventListener('click', async () => {
   stopPolling();
   show('screen-history');
