@@ -969,6 +969,11 @@ async function loadGame(code){
     if(!state) return null;
     const predictions = predsRes.ok ? await predsRes.json() : {};
     state.predictions = predictions || {};
+    // Firebase can return arrays as objects — normalise back to arrays
+    if(state.players && !Array.isArray(state.players))
+      state.players = Object.values(state.players);
+    if(state.matches && !Array.isArray(state.matches))
+      state.matches = Object.values(state.matches);
     return state;
   }catch(e){ console.error('loadGame',e); return null; }
 }
