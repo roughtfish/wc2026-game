@@ -1107,6 +1107,7 @@ async function hashPassword(pw){
 function saveSession(){try{sessionStorage.setItem('kf_me',JSON.stringify(me));}catch(e){}}
 function loadSession(){try{const s=sessionStorage.getItem('kf_me');return s?JSON.parse(s):null;}catch(e){return null;}}
 let me={role:null,name:'',code:''};
+let currentGame = null; // Store current game state globally for modal access
 let pollTimer=null;
 let selectedMode='full';
 let bulkDraft={};
@@ -1137,6 +1138,7 @@ function stopPolling(){if(pollTimer){clearInterval(pollTimer);pollTimer=null;}}
 function startPolling(fn,ms=2500){stopPolling();fn();pollTimer=setInterval(fn,ms);}
 
 function renderScoreboard(g,elId){
+  currentGame = g; // Store for modal access
   const el=document.getElementById(elId);if(!el)return;
   const mx=g.lives;
   // Use cached online set, refresh async
@@ -1207,8 +1209,8 @@ function closePlayerModal(){
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closePlayerModal();});
 
 function showPlayerPredictions(playerName){
-  if(!game || !game.state)return;
-  const g = game.state;
+  if(!currentGame)return;
+  const g = currentGame;
   
   // Check if predictions are locked (game is playing or done, or in reveal mode)
   const predictionsLocked = g.status === 'playing' || g.status === 'done' || (g.status && g.status.startsWith('reveal:'));
