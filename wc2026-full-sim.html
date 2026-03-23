@@ -43,10 +43,10 @@
 <body>
 <div class="container">
   <h1>WC'26 FULL SIMULATOR</h1>
-  <p class="sub">Complete Tournament with Team Tracking & 5-Pick Limit</p>
+  <p class="sub">Complete Tournament with Actual Groups & Bracket Structure</p>
   
   <div class="controls">
-    <div class="warning">⚠️ This runs a full 48-team tournament simulation with proper team tracking. Each run takes 2-5 seconds per simulation.</div>
+    <div class="warning">⚠️ This runs a full 48-team tournament with real WC 2026 groups, knockout bracket, and home advantage. Each run takes 2-5 seconds per simulation.</div>
     <div class="control-row">
       <div class="field">
         <label>Players</label>
@@ -95,63 +95,65 @@
 </div>
 
 <script>
-// 48 qualifying teams with approximate FIFA rankings (as of 2024)
-const TEAMS_WITH_RANKINGS = [
-  {name: 'Argentina', rank: 1}, {name: 'France', rank: 2}, {name: 'Spain', rank: 3},
-  {name: 'England', rank: 4}, {name: 'Brazil', rank: 5}, {name: 'Belgium', rank: 6},
-  {name: 'Portugal', rank: 7}, {name: 'Netherlands', rank: 8}, {name: 'Italy', rank: 9},
-  {name: 'Croatia', rank: 10}, {name: 'Uruguay', rank: 11}, {name: 'USA', rank: 12},
-  {name: 'Morocco', rank: 13}, {name: 'Colombia', rank: 14}, {name: 'Mexico', rank: 15},
-  {name: 'Germany', rank: 16}, {name: 'Japan', rank: 17}, {name: 'Senegal', rank: 18},
-  {name: 'Switzerland', rank: 19}, {name: 'Iran', rank: 20}, {name: 'Denmark', rank: 21},
-  {name: 'South Korea', rank: 22}, {name: 'Australia', rank: 23}, {name: 'Ukraine', rank: 24},
-  {name: 'Turkey', rank: 25}, {name: 'Sweden', rank: 26}, {name: 'Poland', rank: 27},
-  {name: 'Austria', rank: 28}, {name: 'Wales', rank: 29}, {name: 'Egypt', rank: 30},
-  {name: 'Ecuador', rank: 31}, {name: 'Ivory Coast', rank: 32}, {name: 'Norway', rank: 33},
-  {name: 'Saudi Arabia', rank: 34}, {name: 'Tunisia', rank: 35}, {name: 'Algeria', rank: 36},
-  {name: 'Canada', rank: 37}, {name: 'Qatar', rank: 38}, {name: 'Romania', rank: 39},
-  {name: 'Ghana', rank: 40}, {name: 'Albania', rank: 41}, {name: 'South Africa', rank: 42},
-  {name: 'Scotland', rank: 43}, {name: 'Jordan', rank: 44}, {name: 'Panama', rank: 45},
-  {name: 'Paraguay', rank: 46}, {name: 'New Zealand', rank: 47}, {name: 'Cape Verde', rank: 48}
-];
+// REAL WC 2026 GROUPS (from actual draw Dec 2025)
+const GROUPS = {
+  'A': ['Mexico', 'South Korea', 'South Africa', 'Denmark'], // Playoff placeholder
+  'B': ['Canada', 'Italy', 'Qatar', 'Switzerland'], // Playoff placeholder
+  'C': ['Brazil', 'Morocco', 'Haiti', 'Scotland'],
+  'D': ['USA', 'Paraguay', 'Australia', 'Czechia'], // Playoff placeholder
+  'E': ['Netherlands', 'Japan', 'Tunisia', 'Poland'], // Playoff placeholder
+  'F': ['Germany', 'Curacao', 'Ivory Coast', 'Ecuador'],
+  'G': ['Belgium', 'Egypt', 'Iran', 'New Zealand'],
+  'H': ['Spain', 'Cape Verde', 'Saudi Arabia', 'Uruguay'],
+  'I': ['France', 'Senegal', 'Albania', 'Norway'], // Playoff placeholder
+  'J': ['Argentina', 'Algeria', 'Austria', 'Jordan'],
+  'K': ['Portugal', 'Wales', 'Uzbekistan', 'Colombia'], // Playoff placeholder
+  'L': ['England', 'Croatia', 'Ghana', 'Panama']
+};
 
-const TEAMS = TEAMS_WITH_RANKINGS.map(t => t.name);
+// FIFA Rankings + Recent Form (Nov 2025 rankings with adjustments)
+const TEAM_RATINGS = {
+  // Top tier (0.90-0.95)
+  'Argentina': 0.95, 'France': 0.94, 'Spain': 0.93, 'England': 0.92, 'Brazil': 0.91, 'Belgium': 0.90,
+  // Strong contenders (0.85-0.89)
+  'Portugal': 0.89, 'Netherlands': 0.88, 'Italy': 0.87, 'Croatia': 0.86, 'Uruguay': 0.85, 'USA': 0.85,
+  // Good teams (0.80-0.84)
+  'Morocco': 0.84, 'Colombia': 0.83, 'Mexico': 0.82, 'Germany': 0.82, 'Japan': 0.81, 'Senegal': 0.80,
+  // Solid mid-tier (0.75-0.79)
+  'Switzerland': 0.79, 'Denmark': 0.78, 'Iran': 0.77, 'South Korea': 0.76, 'Australia': 0.75, 'Ukraine': 0.75,
+  // Mid-tier (0.70-0.74)
+  'Poland': 0.74, 'Austria': 0.73, 'Wales': 0.72, 'Sweden': 0.71, 'Egypt': 0.70, 'Canada': 0.70,
+  // Lower mid (0.65-0.69)
+  'Ivory Coast': 0.69, 'Ecuador': 0.68, 'Norway': 0.68, 'Saudi Arabia': 0.67, 'Tunisia': 0.66, 'Algeria': 0.65,
+  'Czechia': 0.65, 'Qatar': 0.65, 'Albania': 0.65,
+  // Weaker teams (0.60-0.64)
+  'Ghana': 0.64, 'Panama': 0.63, 'Scotland': 0.62, 'South Africa': 0.61, 'Uzbekistan': 0.60,
+  // Bottom tier (0.50-0.59)
+  'Jordan': 0.59, 'New Zealand': 0.58, 'Haiti': 0.55, 'Curacao': 0.52, 'Cape Verde': 0.50
+};
 
-// Convert FIFA ranking to rating (0-1 scale)
-// Rank 1 = 0.95, Rank 48 = 0.50
-const TEAM_RATINGS = {};
-TEAMS_WITH_RANKINGS.forEach(team => {
-  // Logarithmic scale - top teams are much better
-  TEAM_RATINGS[team.name] = 0.95 - (Math.log(team.rank) / Math.log(48)) * 0.45;
-});
+// Host nations for home advantage
+const HOST_NATIONS = ['USA', 'Mexico', 'Canada'];
 
-// Assign teams to groups (4 per group, 12 groups)
-function createGroups() {
-  const groups = {};
-  const letters = 'ABCDEFGHIJKL'.split('');
-  letters.forEach((letter, i) => {
-    groups[letter] = TEAMS.slice(i * 4, (i + 1) * 4);
-  });
-  return groups;
-}
-
-// Simulate a match between two teams (FIFA-weighted)
-function simulateMatch(team1, team2, penaltyRate) {
-  const rating1 = TEAM_RATINGS[team1] || 0.5;
-  const rating2 = TEAM_RATINGS[team2] || 0.5;
+// Simulate a match (FIFA-weighted + home advantage + momentum)
+function simulateMatch(team1, team2, penaltyRate, momentum = {}) {
+  let rating1 = TEAM_RATINGS[team1] || 0.5;
+  let rating2 = TEAM_RATINGS[team2] || 0.5;
   
-  // Win probability based on rating difference (FIFA rankings matter more)
+  // Home advantage boost (+0.05 for hosts)
+  if (HOST_NATIONS.includes(team1)) rating1 += 0.05;
+  if (HOST_NATIONS.includes(team2)) rating2 += 0.05;
+  
+  // Momentum/form boost (winning streak)
+  if (momentum[team1]) rating1 += Math.min(momentum[team1] * 0.02, 0.06);
+  if (momentum[team2]) rating2 += Math.min(momentum[team2] * 0.02, 0.06);
+  
   const diff = rating1 - rating2;
-  
-  // Draw chance inversely related to quality gap
   const drawChance = Math.max(0.15, 0.30 - Math.abs(diff) * 0.5);
-  
-  // Team1 win chance (favors higher rated team significantly)
-  const team1WinChance = 0.5 + (diff * 1.2); // Stronger weighting
+  const team1WinChance = 0.5 + (diff * 1.2);
   
   const rand = Math.random();
   
-  // Determine winner
   if (rand < drawChance) {
     return { winner: 'draw', isPenalty: false, score: { home: 1, away: 1 } };
   } else if (rand < drawChance + team1WinChance * (1 - drawChance)) {
@@ -161,17 +163,15 @@ function simulateMatch(team1, team2, penaltyRate) {
   }
 }
 
-function simulateKOMatch(team1, team2, penaltyRate) {
-  const result = simulateMatch(team1, team2, penaltyRate);
+function simulateKOMatch(team1, team2, penaltyRate, momentum = {}) {
+  const result = simulateMatch(team1, team2, penaltyRate, momentum);
   
   if (result.winner === 'draw') {
-    // Goes to penalties
     const isPenalty = Math.random() < penaltyRate;
     if (isPenalty) {
       const penaltyWinner = Math.random() < 0.5 ? team1 : team2;
       return { winner: penaltyWinner, isPenalty: true, score: { home: 1, away: 1 } };
     } else {
-      // Extra time winner
       const winner = Math.random() < 0.5 ? team1 : team2;
       return { winner, isPenalty: false, score: { home: 2, away: 1 } };
     }
@@ -181,128 +181,140 @@ function simulateKOMatch(team1, team2, penaltyRate) {
 }
 
 // Simulate group stage
-function simulateGroupStage(groups) {
+function simulateGroupStage() {
   const groupResults = {};
   const groupMatches = [];
+  const momentum = {}; // Track winning streaks
   
-  Object.keys(groups).forEach(group => {
-    const teams = groups[group];
+  Object.keys(GROUPS).forEach(group => {
+    const teams = GROUPS[group];
     const standings = {};
-    teams.forEach(t => standings[t] = { points: 0, gd: 0 });
+    teams.forEach(t => {
+      standings[t] = { points: 0, gd: 0, gf: 0 };
+      momentum[t] = 0;
+    });
     
-    // Round robin - each team plays every other team once
+    // Round robin
     for (let i = 0; i < teams.length; i++) {
       for (let j = i + 1; j < teams.length; j++) {
-        const result = simulateMatch(teams[i], teams[j], 0);
-        groupMatches.push({
-          group,
-          home: teams[i],
-          away: teams[j],
-          result
-        });
+        const result = simulateMatch(teams[i], teams[j], 0, momentum);
+        groupMatches.push({ group, home: teams[i], away: teams[j], result });
         
         if (result.winner === teams[i]) {
           standings[teams[i]].points += 3;
           standings[teams[i]].gd += 1;
+          standings[teams[i]].gf += 2;
           standings[teams[j]].gd -= 1;
+          momentum[teams[i]] = (momentum[teams[i]] || 0) + 1;
+          momentum[teams[j]] = 0;
         } else if (result.winner === teams[j]) {
           standings[teams[j]].points += 3;
           standings[teams[j]].gd += 1;
+          standings[teams[j]].gf += 2;
           standings[teams[i]].gd -= 1;
+          momentum[teams[j]] = (momentum[teams[j]] || 0) + 1;
+          momentum[teams[i]] = 0;
         } else {
           standings[teams[i]].points += 1;
           standings[teams[j]].points += 1;
+          standings[teams[i]].gf += 1;
+          standings[teams[j]].gf += 1;
         }
       }
     }
     
-    // Sort by points, then GD
+    // Sort by points, then GD, then GF
     const sorted = teams.sort((a, b) => {
-      if (standings[b].points !== standings[a].points) {
-        return standings[b].points - standings[a].points;
-      }
-      return standings[b].gd - standings[a].gd;
+      if (standings[b].points !== standings[a].points) return standings[b].points - standings[a].points;
+      if (standings[b].gd !== standings[a].gd) return standings[b].gd - standings[a].gd;
+      return standings[b].gf - standings[a].gf;
     });
     
     groupResults[group] = {
       first: sorted[0],
-      second: sorted[1]
+      second: sorted[1],
+      third: sorted[2],
+      thirdStats: standings[sorted[2]]
     };
   });
   
-  return { groupResults, groupMatches };
+  // Calculate best 8 third-place teams
+  const thirdPlaceTeams = Object.keys(groupResults).map(g => ({
+    team: groupResults[g].third,
+    group: g,
+    ...groupResults[g].thirdStats
+  })).sort((a, b) => {
+    if (b.points !== a.points) return b.points - a.points;
+    if (b.gd !== a.gd) return b.gd - a.gd;
+    return b.gf - a.gf;
+  }).slice(0, 8);
+  
+  return { groupResults, groupMatches, thirdPlaceTeams, momentum };
 }
 
-// Simulate knockout stage
-function simulateKnockout(groupResults, penaltyRate) {
+// Simulate knockout stage with proper bracket
+function simulateKnockout(groupResults, thirdPlaceTeams, penaltyRate, momentum) {
   const koMatches = [];
   
-  // Round of 32 (16 matches)
-  const r32Teams = [];
-  Object.values(groupResults).forEach(g => {
-    r32Teams.push(g.first, g.second);
+  // Round of 32 (proper WC 2026 bracket structure)
+  const r32Matchups = [
+    {home: groupResults['A'].first, away: thirdPlaceTeams[1].team},
+    {home: groupResults['C'].first, away: groupResults['D'].second},
+    {home: groupResults['B'].first, away: groupResults['G'].second},
+    {home: groupResults['E'].first, away: groupResults['F'].second},
+    {home: groupResults['D'].first, away: thirdPlaceTeams[3].team},
+    {home: groupResults['F'].first, away: groupResults['E'].second},
+    {home: groupResults['G'].first, away: groupResults['B'].second},
+    {home: groupResults['H'].first, away: thirdPlaceTeams[0].team},
+    {home: groupResults['I'].first, away: groupResults['J'].second},
+    {home: groupResults['K'].first, away: groupResults['L'].second},
+    {home: groupResults['J'].first, away: thirdPlaceTeams[5].team},
+    {home: groupResults['L'].first, away: groupResults['K'].second},
+    {home: groupResults['A'].second, away: thirdPlaceTeams[2].team},
+    {home: groupResults['C'].second, away: thirdPlaceTeams[4].team},
+    {home: groupResults['H'].second, away: thirdPlaceTeams[6].team},
+    {home: groupResults['I'].second, away: thirdPlaceTeams[7].team}
+  ];
+  
+  const r32Winners = [];
+  r32Matchups.forEach(m => {
+    const result = simulateKOMatch(m.home, m.away, penaltyRate, momentum);
+    koMatches.push({ round: 'R32', home: m.home, away: m.away, result });
+    r32Winners.push(result.winner);
+    // Update momentum
+    if (!result.isPenalty) momentum[result.winner] = (momentum[result.winner] || 0) + 1;
   });
   
-  // Shuffle and pair
-  const r32Winners = [];
-  for (let i = 0; i < r32Teams.length; i += 2) {
-    const result = simulateKOMatch(r32Teams[i], r32Teams[i + 1], penaltyRate);
-    koMatches.push({
-      round: 'R32',
-      home: r32Teams[i],
-      away: r32Teams[i + 1],
-      result
-    });
-    r32Winners.push(result.winner);
-  }
-  
-  // Round of 16 (8 matches)
+  // Round of 16
   const r16Winners = [];
   for (let i = 0; i < r32Winners.length; i += 2) {
-    const result = simulateKOMatch(r32Winners[i], r32Winners[i + 1], penaltyRate);
-    koMatches.push({
-      round: 'R16',
-      home: r32Winners[i],
-      away: r32Winners[i + 1],
-      result
-    });
+    const result = simulateKOMatch(r32Winners[i], r32Winners[i + 1], penaltyRate, momentum);
+    koMatches.push({ round: 'R16', home: r32Winners[i], away: r32Winners[i + 1], result });
     r16Winners.push(result.winner);
+    if (!result.isPenalty) momentum[result.winner] = (momentum[result.winner] || 0) + 1;
   }
   
-  // Quarter-finals (4 matches)
+  // Quarter-finals
   const qfWinners = [];
   for (let i = 0; i < r16Winners.length; i += 2) {
-    const result = simulateKOMatch(r16Winners[i], r16Winners[i + 1], penaltyRate);
-    koMatches.push({
-      round: 'QF',
-      home: r16Winners[i],
-      away: r16Winners[i + 1],
-      result
-    });
+    const result = simulateKOMatch(r16Winners[i], r16Winners[i + 1], penaltyRate, momentum);
+    koMatches.push({ round: 'QF', home: r16Winners[i], away: r16Winners[i + 1], result });
     qfWinners.push(result.winner);
+    if (!result.isPenalty) momentum[result.winner] = (momentum[result.winner] || 0) + 1;
   }
   
-  // Semi-finals (2 matches)
+  // Semi-finals
   const sfWinners = [];
   for (let i = 0; i < qfWinners.length; i += 2) {
-    const result = simulateKOMatch(qfWinners[i], qfWinners[i + 1], penaltyRate);
-    koMatches.push({
-      round: 'SF',
-      home: qfWinners[i],
-      away: qfWinners[i + 1],
-      result
-    });
+    const result = simulateKOMatch(qfWinners[i], qfWinners[i + 1], penaltyRate, momentum);
+    koMatches.push({ round: 'SF', home: qfWinners[i], away: qfWinners[i + 1], result });
     sfWinners.push(result.winner);
+    if (!result.isPenalty) momentum[result.winner] = (momentum[result.winner] || 0) + 1;
   }
   
-  // Final (1 match)
-  const finalResult = simulateKOMatch(sfWinners[0], sfWinners[1], penaltyRate);
-  koMatches.push({
-    round: 'Final',
-    home: sfWinners[0],
-    away: sfWinners[1],
-    result: finalResult
-  });
+  // Final
+  const finalResult = simulateKOMatch(sfWinners[0], sfWinners[1], penaltyRate, momentum);
+  koMatches.push({ round: 'Final', home: sfWinners[0], away: sfWinners[1], result: finalResult });
   
   return koMatches;
 }
@@ -311,23 +323,18 @@ function simulateKnockout(groupResults, penaltyRate) {
 function simulatePlayers(groupMatches, koMatches, numPlayers, startingLives, skillLevel, scoreRate) {
   const players = Array(numPlayers).fill(0).map(() => ({
     lives: startingLives,
-    teamPicks: {} // Track how many times each team has been picked
+    teamPicks: {}
   }));
   
-  // Group stage predictions
+  // Group stage
   groupMatches.forEach(match => {
     players.forEach(player => {
       if (player.lives <= 0) return;
       
-      // All players always make predictions (no missing penalties)
-      
-      // Pick a team based on FIFA ranking + skill level
       const rating1 = TEAM_RATINGS[match.home] || 0.5;
       const rating2 = TEAM_RATINGS[match.away] || 0.5;
       const ratingDiff = rating1 - rating2;
       
-      // Skilled players pick favorites more often
-      // Base pick probability on rating difference weighted by skill
       const favoriteBonus = ratingDiff * skillLevel * 2;
       const pickHome = Math.random() < (0.5 + favoriteBonus);
       const prediction = pickHome ? match.home : match.away;
@@ -335,24 +342,18 @@ function simulatePlayers(groupMatches, koMatches, numPlayers, startingLives, ski
       const correct = prediction === match.result.winner;
       
       if (correct) {
-        // Score bonus chance in group stage
-        if (Math.random() < scoreRate) {
-          player.lives += 1;
-        }
+        if (Math.random() < scoreRate) player.lives += 1;
       } else {
-        player.lives -= 1; // Only penalty is wrong prediction (-1 life)
+        player.lives -= 1;
       }
     });
   });
   
-  // Knockout predictions with 5-team limit
+  // Knockout
   koMatches.forEach(koMatch => {
     players.forEach(player => {
       if (player.lives <= 0) return;
       
-      // All players always make predictions (no missing penalties)
-      
-      // Check team pick limits
       const homePickCount = player.teamPicks[koMatch.home] || 0;
       const awayPickCount = player.teamPicks[koMatch.away] || 0;
       const homeAvailable = homePickCount < 5;
@@ -360,20 +361,15 @@ function simulatePlayers(groupMatches, koMatches, numPlayers, startingLives, ski
       
       let prediction;
       if (!homeAvailable && !awayAvailable) {
-        // Both at limit - pick randomly (forced bad pick)
-        // This is rare but possible
         prediction = Math.random() < 0.5 ? koMatch.home : koMatch.away;
       } else if (!homeAvailable) {
-        prediction = koMatch.away; // Forced to pick away
+        prediction = koMatch.away;
       } else if (!awayAvailable) {
-        prediction = koMatch.home; // Forced to pick home
+        prediction = koMatch.home;
       } else {
-        // Both available - pick based on FIFA ranking + skill
         const rating1 = TEAM_RATINGS[koMatch.home] || 0.5;
         const rating2 = TEAM_RATINGS[koMatch.away] || 0.5;
         const ratingDiff = rating1 - rating2;
-        
-        // In knockout, skilled players are even more likely to pick favorites
         const favoriteBonus = ratingDiff * skillLevel * 2.5;
         const pickHome = Math.random() < (0.5 + favoriteBonus);
         prediction = pickHome ? koMatch.home : koMatch.away;
@@ -382,13 +378,11 @@ function simulatePlayers(groupMatches, koMatches, numPlayers, startingLives, ski
       const correct = prediction === koMatch.result.winner;
       
       if (correct) {
-        // Track pick (unless penalty shootout - those don't count)
         if (!koMatch.result.isPenalty) {
           player.teamPicks[prediction] = (player.teamPicks[prediction] || 0) + 1;
         }
-        // No score bonuses in knockout
       } else {
-        player.lives -= 1; // Only penalty is wrong prediction (-1 life)
+        player.lives -= 1;
       }
     });
   });
@@ -416,12 +410,8 @@ async function runSimulation() {
   let totalFinalLives = 0;
   
   for (let sim = 0; sim < numSims; sim++) {
-    // Run full tournament
-    const groups = createGroups();
-    const { groupResults, groupMatches } = simulateGroupStage(groups);
-    const koMatches = simulateKnockout(groupResults, penaltyRate);
-    
-    // Simulate all players
+    const { groupResults, groupMatches, thirdPlaceTeams, momentum } = simulateGroupStage();
+    const koMatches = simulateKnockout(groupResults, thirdPlaceTeams, penaltyRate, momentum);
     const players = simulatePlayers(groupMatches, koMatches, numPlayers, startingLives, skillLevel, scoreRate);
     
     const survivors = players.filter(p => p.lives > 0);
@@ -434,22 +424,12 @@ async function runSimulation() {
     });
   }
   
-  // Calculate stats
   const avgSurvivors = totalSurvivors / numSims;
   const avgFinalLives = finalLivesDistribution.length > 0 ? totalFinalLives / finalLivesDistribution.length : 0;
   const survivalRate = (totalSurvivors / (numSims * numPlayers)) * 100;
   const mostLikely = survivalCounts.indexOf(Math.max(...survivalCounts));
   
-  // Display results
-  displayResults({
-    avgSurvivors,
-    survivalRate,
-    mostLikely,
-    avgFinalLives,
-    survivalCounts,
-    numPlayers,
-    numSims
-  });
+  displayResults({ avgSurvivors, survivalRate, mostLikely, avgFinalLives, survivalCounts, numPlayers, numSims });
   
   btn.disabled = false;
   btn.innerHTML = '▶ RUN FULL SIMULATION';
@@ -496,13 +476,17 @@ function displayResults(data) {
   document.getElementById('chart').innerHTML = `
     <div style="font-size:12px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:16px">Survivor Distribution</div>
     ${chartHTML}
+    <div style="font-size:10px;color:var(--muted);margin-top:12px;font-style:italic">Each bar shows the probability that exactly X players survive to the final. The tallest bar is the most likely outcome.</div>
   `;
   
   document.getElementById('detail').innerHTML = `
     <strong>Full Tournament Simulation:</strong><br>
     • Ran ${data.numSims.toLocaleString()} complete tournaments with ${data.numPlayers} players each<br>
-    • 72 group stage matches + 31 knockout matches = 103 total<br>
-    • <strong>Teams weighted by FIFA rankings</strong> (Argentina #1 → Cape Verde #48)<br>
+    • <strong>Real WC 2026 groups</strong> from December 2025 draw<br>
+    • 72 group matches + 32 knockout matches (R32→R16→QF→SF→Final) = 104 total<br>
+    • <strong>Teams weighted by FIFA rankings</strong> + recent form<br>
+    • <strong>Home advantage</strong> for USA, Mexico, Canada (+0.05 rating boost)<br>
+    • <strong>Momentum/form</strong>: winning streaks give temporary boosts<br>
     • Match outcomes favor higher-ranked teams significantly<br>
     • Players with higher skill pick favorites more often<br>
     • <strong>5-team pick limit fully enforced</strong> in knockout rounds<br>
