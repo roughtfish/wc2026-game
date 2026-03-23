@@ -1901,11 +1901,12 @@ document.getElementById('quit-game-btn').addEventListener('click',()=>{
   show('screen-landing');
 });
 document.getElementById('open-history-btn').addEventListener('click', async () => {
-  const g = await loadGame(me.code);
-  if (!g) return;
   stopPolling();
-  historyReturnFn = () => { enterGame(g); };
   show('screen-history');
+  document.getElementById('history-match-list').innerHTML = '<div style="color:var(--muted);font-size:13px;text-align:center;padding:20px">Loading…</div>';
+  const g = await loadGame(me.code);
+  if (!g) { document.getElementById('history-match-list').innerHTML = '<div class="warn-box">Could not load game.</div>'; return; }
+  historyReturnFn = () => { enterGame(g); };
   renderHistoryList(g);
 });
 
@@ -1916,7 +1917,7 @@ document.getElementById('history-back-btn').addEventListener('click', () => {
 
 function renderHistoryList(g) {
   const results = g.results || {};
-  const playedIdxs = Object.keys(results).map(Number).sort((a, b) => a - b);
+  const playedIdxs = Object.keys(results).map(Number).filter(n=>!isNaN(n)).sort((a, b) => a - b);
   const list = document.getElementById('history-match-list');
 
   if (playedIdxs.length === 0) {
@@ -1924,10 +1925,11 @@ function renderHistoryList(g) {
     return;
   }
 
-  list.innerHTML = playedIdxs.map(idx => {
+  const rows = playedIdxs.map(idx => {
     const m = g.matches[idx];
     if (!m) return '';
     const r = results[idx];
+    if (!r) return '';
     const round = m.group ? 'Group ' + m.group : (m.round || 'KO');
     return `<div class="history-match-row" data-idx="${idx}">
       <div>
@@ -1937,7 +1939,14 @@ function renderHistoryList(g) {
       <div class="history-match-score">${r.home}–${r.away}</div>
       <button class="history-correct-btn" data-idx="${idx}">✎ Edit</button>
     </div>`;
-  }).join('');
+  }).filter(Boolean);
+
+  if (rows.length === 0) {
+    list.innerHTML = '<div class="warn-box">No completed matches to correct yet.</div>';
+    return;
+  }
+
+  list.innerHTML = rows.join('');
 
   list.querySelectorAll('.history-correct-btn').forEach(btn => {
     btn.addEventListener('click', async () => {
