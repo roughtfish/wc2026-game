@@ -268,7 +268,12 @@
           <button class="btn btn-sm btn-secondary mode-tab" data-mode="group">Group Stage</button>
           <button class="btn btn-sm btn-secondary mode-tab" data-mode="knockouts">Knockouts Only</button>
           <button class="btn btn-sm btn-secondary mode-tab" data-mode="demo">Demo (8+KO)</button>
+          <button class="btn btn-sm btn-secondary mode-tab" data-mode="test">🧪 Test Mode</button>
         </div>
+      </div>
+      <div class="field" id="test-players-field" style="display:none;margin-top:12px">
+        <label>Number of simulated players (inc. you as host)</label>
+        <input type="number" id="test-player-count" value="4" min="2" max="20">
       </div>
       <div style="display:flex;gap:9px;margin-top:18px;">
         <button class="btn btn-secondary" id="back-to-landing" style="width:auto;padding:13px 18px;">← Back</button>
@@ -583,7 +588,7 @@ function buildKO(){const o=[];KO_ROUNDS.forEach(r=>{for(let i=0;i<r.count;i++)o.
 function buildMatches(mode){
   return mode==='demo'?[...GROUP_MATCHES.slice(0,8).map(m=>({...m})),...buildKO()]
     :mode==='knockouts'?buildKO()
-    :mode==='full'?[...GROUP_MATCHES.map(m=>({...m})),...buildKO()]
+    :(mode==='full'||mode==='test')?[...GROUP_MATCHES.map(m=>({...m})),...buildKO()]
     :GROUP_MATCHES.map(m=>({...m}));
 }
 
@@ -601,6 +606,69 @@ function populateKnockoutsOnly(g){
     m.home=allTeams[i*2]||'Team '+(i*2+1);
     m.away=allTeams[i*2+1]||'Team '+(i*2+2);
     m.koSlot=false;
+  });
+}
+
+// ─── AUTO-FILL PREDICTIONS (test mode) ───────────────────────────────────────
+function autoFillPredictions(g){
+  const MAX_PICKS=5, MAX_DRAWS=24;
+  const gms=g.matches.reduce((acc,m,i)=>{if(m.group)acc.push({m,i});return acc;},[]);
+  const groups=[...new Set(gms.map(({m})=>m.group))];
+
+  g.players.forEach(p=>{
+    const teamPicks={};
+    let drawCount=0;
+    const usedScoreGroup=new Set();
+
+    gms.forEach(({m,i})=>{
+      // Build pick options
+      const hc=teamPicks[m.home]||0, ac=teamPicks[m.away]||0;
+      const canHome=hc<MAX_PICKS, canAway=ac<MAX_PICKS, canDraw=drawCount<MAX_DRAWS;
+      const opts=[];
+      if(canHome)opts.push('home');
+      if(canAway)opts.push('away');
+      if(canDraw)opts.push('draw','draw'); // slight draw weighting
+      if(!opts.length)return; // both at limit — skip
+
+      const pick=opts[Math.floor(Math.random()*opts.length)];
+      if(!g.predictions[i])g.predictions[i]={};
+      g.predictions[i][p.name]=pick;
+
+      if(pick==='draw')drawCount++;
+      else if(pick==='home')teamPicks[m.home]=(teamPicks[m.home]||0)+1;
+      else teamPicks[m.away]=(teamPicks[m.away]||0)+1;
+
+      // Score prediction: 1 per group
+      if(!usedScoreGroup.has(m.group)&&Math.random()<0.6){
+        const sh=Math.floor(Math.random()*4);
+        const sa=Math.floor(Math.random()*4);
+        g.predictions[i][p.name+'_score']={home:sh,away:sa};
+        usedScoreGroup.add(m.group);
+      }
+    });
+
+    // KO predictions — all rounds, respecting 5-pick limit
+    g.matches.forEach((m,i)=>{
+      if(m.group||m.home==='TBD'||m.away==='TBD')return;
+      const hc=teamPicks[m.home]||0, ac=teamPicks[m.away]||0;
+      const opts=[];
+      if(hc<MAX_PICKS)opts.push('home');
+      if(ac<MAX_PICKS)opts.push('away');
+      if(!opts.length)return;
+      const pick=opts[Math.floor(Math.random()*opts.length)];
+      if(!g.predictions[i])g.predictions[i]={};
+      g.predictions[i][p.name]=pick;
+      if(pick==='home')teamPicks[m.home]=(teamPicks[m.home]||0)+1;
+      else teamPicks[m.away]=(teamPicks[m.away]||0)+1;
+    });
+  });
+
+  // Mark all as submitted
+  g.bulkSubmitted={};
+  g.koBulkSubmitted={};
+  g.players.forEach(p=>{
+    g.bulkSubmitted[p.name]=true;
+    g.koBulkSubmitted[p.name]=true;
   });
 }
 
@@ -1013,6 +1081,7 @@ document.getElementById('mode-tabs').addEventListener('click',e=>{
   document.querySelectorAll('.mode-tab').forEach(b=>{
     b.className='btn btn-sm mode-tab '+(b===btn?'btn-teal':'btn-secondary');
   });
+  document.getElementById('test-players-field').style.display=selectedMode==='test'?'block':'none';
 });
 
 // ─── HOST: CREATE ─────────────────────────────────────────────────────────────
@@ -1022,10 +1091,15 @@ document.getElementById('create-game-btn').addEventListener("click",async()=>{
   const lives=parseInt(document.getElementById('host-lives').value)||15;
   const code=genCode();
   me.name=hostName;me.role='host';me.code=code;saveSession();
+  const testPlayerCount=selectedMode==='test'?Math.max(2,Math.min(20,parseInt(document.getElementById('test-player-count').value)||4)):1;
+  const testPlayers=[{name:hostName,lives,correct:0,eliminated:false,isHost:true}];
+  if(selectedMode==='test'){
+    for(let i=2;i<=testPlayerCount;i++) testPlayers.push({name:'Player '+i,lives,correct:0,eliminated:false,isHost:false,pwHash:'test'});
+  }
   const g={
     code,hostName,lives,mode:selectedMode,
     status:'lobby',
-    players:[{name:hostName,lives,correct:0,eliminated:false,isHost:true}],
+    players:testPlayers,
     matches:buildMatches(selectedMode),
     predictions:{},currentMatchIdx:0,currentResult:null,bulkSubmitted:{},
   };
@@ -1058,7 +1132,14 @@ async function pollHostLobby(){
 document.getElementById('start-game-btn').addEventListener("click",async()=>{
   const g=await loadGame(me.code);if(!g)return;
   const hasGroups=g.matches.some(m=>m.group);
-  if(hasGroups){
+  if(g.mode==='test'){
+    // Test mode: auto-fill all predictions and go straight to playing
+    autoFillPredictions(g);
+    g.status='playing';
+    await saveGame(g);
+    stopPolling();
+    enterGame(g);
+  } else if(hasGroups){
     g.status='bulk';
     await saveGame(g);
     stopPolling();
@@ -1119,6 +1200,10 @@ document.getElementById('join-game-btn').addEventListener("click",async()=>{
   if(g.status!=='lobby'){err.textContent='This game has already started. Use the same name you originally joined with to rejoin.';err.style.display='block';return;}
   me.name=name;me.code=g.code;me.role='player';saveSession();
   g.players.push({name,pwHash,lives:g.lives,correct:0,eliminated:false,isHost:false});
+  // In test mode, auto-fill this player's predictions immediately
+  if(g.mode==='test'){
+    autoFillPredictions(g);
+  }
   await saveGame(g);
   show('screen-player-lobby');
   startPolling(pollPlayerLobby);
