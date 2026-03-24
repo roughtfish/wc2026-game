@@ -373,6 +373,7 @@
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
         <div class="scoreboard-title" style="margin:0">STANDINGS</div>
         <div style="display:flex;gap:7px">
+        <button class="btn btn-secondary btn-sm" id="complete-day-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7;display:none">📊 Complete Day</button>
         <button class="btn btn-secondary btn-sm" id="open-ko-preds-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7;display:none">🎯 My Picks</button>
         <button class="btn btn-secondary btn-sm" id="undo-result-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7;display:none">↩ Undo</button>
         <button class="btn btn-secondary btn-sm" id="open-history-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7">✎ Edit Result</button>
@@ -424,6 +425,50 @@
       <button class="btn btn-primary" id="play-again-btn" style="max-width:260px;margin:32px auto 0;">PLAY AGAIN</button>
     </div>
     <div id="final-leaderboard" style="margin-top:14px;"></div>
+  </div>
+  
+  <!-- Daily Summary Screen -->
+  <div id="screen-daily-summary" class="screen">
+    <div class="card">
+      <h2>📊 TODAY'S RESULTS</h2>
+      <div id="daily-summary-date" style="color:var(--muted);font-size:13px;margin-bottom:20px;"></div>
+      
+      <!-- Personal Stats -->
+      <div id="daily-personal-stats" style="background:var(--surface2);border-radius:12px;padding:20px;margin-bottom:20px;">
+        <h3 style="color:var(--accent);margin-bottom:16px;">YOUR PERFORMANCE</h3>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;text-align:center;">
+          <div>
+            <div style="font-size:11px;color:var(--muted);margin-bottom:6px;">RECORD</div>
+            <div id="daily-record" style="font-size:20px;font-family:'Bebas Neue',sans-serif;"></div>
+          </div>
+          <div>
+            <div style="font-size:11px;color:var(--muted);margin-bottom:6px;">LIVES</div>
+            <div id="daily-lives-change" style="font-size:20px;font-family:'Bebas Neue',sans-serif;"></div>
+          </div>
+          <div>
+            <div style="font-size:11px;color:var(--muted);margin-bottom:6px;">RANK</div>
+            <div id="daily-rank" style="font-size:20px;font-family:'Bebas Neue',sans-serif;"></div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Standings Snapshot -->
+      <div style="margin-bottom:20px;">
+        <h3 style="color:var(--accent);margin-bottom:12px;">CURRENT STANDINGS</h3>
+        <div id="daily-standings"></div>
+      </div>
+      
+      <!-- Today's Drama -->
+      <div id="daily-drama" style="background:var(--surface2);border-radius:12px;padding:16px;margin-bottom:20px;">
+        <h3 style="color:var(--accent);margin-bottom:12px;">TODAY'S HIGHLIGHTS</h3>
+        <div id="daily-highlights"></div>
+      </div>
+      
+      <!-- What's Next -->
+      <div id="daily-next" style="color:var(--muted);font-size:13px;text-align:center;padding:16px;background:var(--bg);border-radius:8px;margin-bottom:20px;"></div>
+      
+      <button class="btn btn-primary" onclick="closeDailySummary()">CONTINUE</button>
+    </div>
   </div>
 </div>
 
@@ -1620,6 +1665,13 @@ async function enterGame(g){
 
 async function renderGameHost(g){
   renderScoreboard(g,'players-grid');
+  
+  // Show Complete Day button if there are matches entered today
+  const completeDayBtn=document.getElementById('complete-day-btn');
+  if(completeDayBtn){
+    completeDayBtn.style.display=todaysMatches.length>0?'inline-block':'none';
+  }
+  
   // Show undo button if there are any entered results
   const undoBtn=document.getElementById('undo-result-btn');
   if(undoBtn){
@@ -1871,6 +1923,12 @@ function renderResultEntry(g,match,area){
       // Store result for standings calculation
       if(!f.results)f.results={};
       f.results[f.currentMatchIdx]={home:h,away:a,...(penWinner?{penWinner}:{})};
+      
+      // Track this match for daily summary
+      if(!todaysMatches.includes(f.currentMatchIdx)){
+        todaysMatches.push(f.currentMatchIdx);
+      }
+      
       // Auto-populate KO bracket
       const curMatch=f.matches[f.currentMatchIdx];
       if(curMatch.group){
@@ -2034,6 +2092,18 @@ async function watchGame(g){
   renderWatchScreen(g);
   startPolling(async()=>{
     const f=await loadGame(me.code);if(!f)return;
+    
+    // Check if host has triggered daily summary
+    if(f.showDailySummary && f.showDailySummary.timestamp){
+      const lastShown = sessionStorage.getItem('kf_last_summary_'+me.code);
+      if(!lastShown || parseInt(lastShown) < f.showDailySummary.timestamp){
+        sessionStorage.setItem('kf_last_summary_'+me.code, f.showDailySummary.timestamp.toString());
+        stopPolling();
+        showDailySummary(f, f.showDailySummary.matches);
+        return;
+      }
+    }
+    
     if(f.status&&f.status.startsWith('ko-bulk:')){
       stopPolling();
       if(f.koBulkSubmitted&&f.koBulkSubmitted[me.name]){show('screen-bulk-done');startPolling(pollBulkDone);}
@@ -2867,6 +2937,201 @@ document.getElementById('pill-copy-btn').addEventListener('click',()=>{
 document.getElementById('pill-code-display').addEventListener('click',()=>{
   document.getElementById('pill-copy-btn').click();
 });
+
+// ─── DAILY SUMMARY ───────────────────────────────────────────────────────────
+let todaysMatches = []; // Track which matches happened today
+let dailySummaryData = null;
+
+function showDailySummary(g, matchIndices) {
+  // Calculate stats for today's matches
+  const player = g.players.find(p => p.name === me.name);
+  if (!player) return;
+  
+  let correct = 0;
+  let wrong = 0;
+  let startingLives = player.lives; // Current lives
+  
+  // Calculate what happened today
+  matchIndices.forEach(idx => {
+    const match = g.matches[idx];
+    const result = g.results?.[idx];
+    const prediction = g.predictions[idx]?.[me.name];
+    
+    if (result && prediction !== undefined && prediction !== null) {
+      const actualWinner = actualOutcome(result);
+      if (prediction === actualWinner) {
+        correct++;
+      } else {
+        wrong++;
+      }
+    }
+  });
+  
+  // Estimate lives change based on wrong predictions
+  const livesChange = -wrong;
+  
+  // Get current standings
+  const standings = [...g.players].sort((a,b) => {
+    if (b.lives !== a.lives) return b.lives - a.lives;
+    return (b.correct || 0) - (a.correct || 0);
+  });
+  
+  const myRank = standings.findIndex(p => p.name === me.name) + 1;
+  
+  // Find highlights
+  const highlights = [];
+  matchIndices.forEach(idx => {
+    const match = g.matches[idx];
+    const result = g.results?.[idx];
+    if (result) {
+      // Check for upsets
+      let correctCount = 0;
+      let totalPredictions = 0;
+      
+      if(g.predictions[idx]){
+        const actualWinner = actualOutcome(result);
+        Object.entries(g.predictions[idx]).forEach(([name, pred]) => {
+          if(!name.endsWith('_score')){
+            totalPredictions++;
+            if(pred === actualWinner) correctCount++;
+          }
+        });
+      }
+      
+      if (totalPredictions > 0 && correctCount / totalPredictions < 0.3) {
+        highlights.push(`Upset: ${match.home} ${result.home}-${result.away} ${match.away}`);
+      }
+    }
+  });
+  
+  // Check for perfect players today
+  const perfectPlayers = g.players.filter(p => {
+    let dayCorrect = 0;
+    let dayTotal = 0;
+    matchIndices.forEach(idx => {
+      const pred = g.predictions[idx]?.[p.name];
+      const result = g.results?.[idx];
+      if(pred !== undefined && pred !== null && result){
+        dayTotal++;
+        if(pred === actualOutcome(result)) dayCorrect++;
+      }
+    });
+    return dayTotal > 0 && dayCorrect === dayTotal;
+  }).map(p => p.name);
+  
+  if(perfectPlayers.length > 0 && perfectPlayers.length <= 3){
+    highlights.push(`Perfect today: ${perfectPlayers.join(', ')}`);
+  }
+  
+  // Populate summary screen
+  document.getElementById('daily-record').textContent = `${correct}-${wrong}`;
+  document.getElementById('daily-record').style.color = correct > wrong ? 'var(--green)' : wrong > correct ? 'var(--red)' : 'var(--accent)';
+  
+  document.getElementById('daily-lives-change').innerHTML = `${player.lives} <span style="font-size:14px;color:${livesChange >= 0 ? 'var(--green)' : 'var(--red)'}">(${livesChange >= 0 ? '+' : ''}${livesChange})</span>`;
+  
+  document.getElementById('daily-rank').textContent = `#${myRank}`;
+  document.getElementById('daily-rank').style.color = myRank <= 3 ? 'var(--green)' : myRank > standings.length - 3 ? 'var(--red)' : 'var(--accent)';
+  
+  // Standings
+  const standingsHTML = standings.slice(0, 5).map((p, i) => {
+    const isMe = p.name === me.name;
+    return `
+      <div style="display:flex;justify-content:space-between;padding:10px;background:${isMe ? 'var(--accent2)' : 'var(--surface2)'};border-radius:6px;margin-bottom:6px;${isMe ? 'font-weight:600;color:var(--bg)' : ''}">
+        <span>${i + 1}. ${p.name}</span>
+        <span style="color:${isMe ? 'var(--bg)' : 'var(--accent)'}">${p.lives} lives</span>
+      </div>
+    `;
+  }).join('');
+  
+  if (myRank > 5) {
+    const meHTML = `
+      <div style="display:flex;justify-content:space-between;padding:10px;background:var(--accent2);border-radius:6px;margin-top:10px;font-weight:600;color:var(--bg)">
+        <span>${myRank}. ${me.name} (You)</span>
+        <span>${player.lives} lives</span>
+      </div>
+    `;
+    document.getElementById('daily-standings').innerHTML = standingsHTML + meHTML;
+  } else {
+    document.getElementById('daily-standings').innerHTML = standingsHTML;
+  }
+  
+  // Highlights
+  if (highlights.length > 0) {
+    document.getElementById('daily-highlights').innerHTML = highlights.map(h => 
+      `<div style="padding:8px 0;color:var(--muted);font-size:13px;">• ${h}</div>`
+    ).join('');
+  } else {
+    document.getElementById('daily-highlights').innerHTML = '<div style="color:var(--muted);font-size:13px;font-style:italic;">No major upsets today</div>';
+  }
+  
+  // What's next
+  const remainingMatches = g.matches.filter((m, idx) => !g.results?.[idx]).length;
+  if (remainingMatches > 0) {
+    document.getElementById('daily-next').textContent = `${remainingMatches} matches remaining in the tournament`;
+  } else {
+    document.getElementById('daily-next').textContent = 'Tournament complete!';
+  }
+  
+  document.getElementById('daily-summary-date').textContent = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+  
+  show('screen-daily-summary');
+}
+
+function closeDailySummary() {
+  // Return to appropriate screen based on role
+  if(me.role === 'host'){
+    show('screen-game');
+  } else {
+    // Players return to watch screen and resume polling
+    const g = loadGame(me.code).then(g => {
+      if(g) watchGame(g);
+    });
+  }
+  todaysMatches = [];
+}
+
+// Add "Complete Day" button functionality
+// This will be called when host marks a day as complete
+async function completeDayAsHost(g) {
+  if (todaysMatches.length === 0) {
+    alert('No matches entered today. Enter at least one result first.');
+    return;
+  }
+  
+  // Show summary for host
+  showDailySummary(g, todaysMatches);
+  
+  // Mark in game state that this day is complete
+  if (!g.completedDays) g.completedDays = [];
+  g.completedDays.push({
+    date: new Date().toISOString(),
+    matches: [...todaysMatches]
+  });
+  
+  await saveGame(g);
+  
+  // Broadcast to all players to show summary
+  g.showDailySummary = { matches: todaysMatches, timestamp: Date.now() };
+  await saveGame(g);
+}
+
+// Wire up Complete Day button
+document.addEventListener('DOMContentLoaded', () => {
+  const completeDayBtn = document.getElementById('complete-day-btn');
+  if (completeDayBtn) {
+    completeDayBtn.addEventListener('click', async () => {
+      const g = await loadGame(me.code);
+      if (g) {
+        await completeDayAsHost(g);
+      }
+    });
+  }
+});
+
+// Track when results are entered (add to existing result submission logic)
+// We'll need to modify the place where match results are saved to track todaysMatches
+// For now, this is a placeholder - the actual integration depends on existing code structure
+
 </script>
 </body>
 </html>
