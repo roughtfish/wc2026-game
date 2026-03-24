@@ -123,6 +123,21 @@
     .lb-pct{display:none}
   }
 
+  /* Most Picked Teams */
+  .team-picks-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin-bottom:22px}
+  .team-pick-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px;cursor:pointer;transition:all 0.15s;position:relative}
+  .team-pick-card:hover{border-color:var(--accent2);background:rgba(45,212,191,0.04);transform:translateY(-2px)}
+  .team-pick-header{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+  .team-pick-flag{width:24px;height:24px;object-fit:cover;border-radius:4px}
+  .team-pick-name{font-weight:600;font-size:14px;flex:1}
+  .team-pick-count{font-family:'Bebas Neue',sans-serif;font-size:20px;color:var(--accent2);letter-spacing:1px}
+  .team-pick-bar-wrap{height:6px;background:var(--surface2);border-radius:3px;overflow:hidden;margin-top:8px}
+  .team-pick-bar{height:100%;background:linear-gradient(90deg,var(--accent2),var(--accent));border-radius:3px;transition:width 0.3s}
+  .team-pickers-popup{position:absolute;top:calc(100% + 8px);left:0;right:0;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;z-index:10;box-shadow:0 4px 12px rgba(0,0,0,0.3);display:none}
+  .team-pick-card:hover .team-pickers-popup{display:block}
+  .team-pickers-list{display:flex;flex-wrap:wrap;gap:6px}
+  .team-picker-badge{font-size:11px;background:var(--surface);padding:4px 8px;border-radius:6px;border:1px solid var(--border);white-space:nowrap}
+
   /* Player modal */
   .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:100;display:flex;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(4px)}
   .modal{background:var(--surface);border:1px solid var(--border);border-radius:16px;width:100%;max-width:520px;max-height:85vh;overflow-y:auto}
@@ -210,6 +225,8 @@
       <span style="font-size:11px;color:var(--muted);transition:transform 0.2s" id="exact-scores-arrow">▼</span>
     </div>
     <div id="exact-scores"></div>
+    <div class="section-title">MOST PICKED TEAMS 🌟</div>
+    <div id="most-picked-teams"></div>
     <div class="section-title">SURVIVAL PROBABILITY</div>
     <div id="survival-prob"></div>
     <div class="section-title">LIVES OVER TIME</div>
@@ -349,6 +366,7 @@ function render(g){
   renderStreakStats(g);
   renderBiggestUpset(g);
   renderExactScores(g);
+  renderMostPickedTeams(g);
   renderSurvivalProb(g);
   renderLivesChart(g);
   renderHistory(g);
@@ -590,6 +608,88 @@ function renderExactScores(g){
       </div>
     </div>`;
   }).join('');
+}
+
+function renderMostPickedTeams(g){
+  const el=document.getElementById('most-picked-teams');
+  if(!el)return;
+  
+  const players=Array.isArray(g.players)?g.players:Object.values(g.players||{});
+  const results=g.results||{};
+  const playedIdxs=Object.keys(results).map(Number).filter(n=>!isNaN(n)&&results[n]!=null).sort((a,b)=>a-b);
+  
+  if(playedIdxs.length===0){
+    el.innerHTML='<div style="color:var(--muted);font-size:13px;padding:12px 0">No matches played yet</div>';
+    return;
+  }
+  
+  // Count team picks across all played matches
+  const teamPickCounts={}; // {team: {count, pickers: {playerName: count}}}
+  
+  playedIdxs.forEach(idx=>{
+    const match=g.matches[idx];
+    const preds=g.predictions[idx]||{};
+    
+    players.forEach(p=>{
+      const pred=preds[p.name];
+      if(pred===null||pred===undefined)return;
+      
+      let pickedTeam=null;
+      if(pred==='home') pickedTeam=match.home;
+      else if(pred==='away') pickedTeam=match.away;
+      // pred==='draw' doesn't count as picking a team
+      
+      if(pickedTeam){
+        if(!teamPickCounts[pickedTeam]){
+          teamPickCounts[pickedTeam]={count:0,pickers:{}};
+        }
+        teamPickCounts[pickedTeam].count++;
+        if(!teamPickCounts[pickedTeam].pickers[p.name]){
+          teamPickCounts[pickedTeam].pickers[p.name]=0;
+        }
+        teamPickCounts[pickedTeam].pickers[p.name]++;
+      }
+    });
+  });
+  
+  // Convert to array and sort by count
+  const teamArray=Object.entries(teamPickCounts).map(([team,data])=>({
+    team,
+    count:data.count,
+    pickers:data.pickers
+  })).sort((a,b)=>b.count-a.count);
+  
+  if(teamArray.length===0){
+    el.innerHTML='<div style="color:var(--muted);font-size:13px;padding:12px 0;font-style:italic">No team picks yet</div>';
+    return;
+  }
+  
+  // Get top 10
+  const top10=teamArray.slice(0,10);
+  const maxCount=top10[0].count;
+  
+  el.innerHTML=`<div class="team-picks-grid">${top10.map(t=>{
+    const barWidth=(t.count/maxCount)*100;
+    const pickersList=Object.entries(t.pickers).sort((a,b)=>b[1]-a[1]).map(([name,count])=>
+      `<span class="team-picker-badge">${name} <span style="color:var(--accent2);font-weight:600">×${count}</span></span>`
+    ).join('');
+    const numPickers=Object.keys(t.pickers).length;
+    
+    return`<div class="team-pick-card">
+      <div class="team-pick-header">
+        ${flag(t.team,24)}
+        <div class="team-pick-name">${t.team}</div>
+        <div class="team-pick-count">${t.count}</div>
+      </div>
+      <div class="team-pick-bar-wrap">
+        <div class="team-pick-bar" style="width:${barWidth}%"></div>
+      </div>
+      <div class="team-pickers-popup">
+        <div style="font-size:10px;color:var(--muted);margin-bottom:6px;letter-spacing:1px;text-transform:uppercase">Picked by ${numPickers} player${numPickers>1?'s':''}</div>
+        <div class="team-pickers-list">${pickersList}</div>
+      </div>
+    </div>`;
+  }).join('')}</div>`;
 }
 
 const hiddenChartPlayers=new Set();
