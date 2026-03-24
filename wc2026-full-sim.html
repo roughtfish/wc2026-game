@@ -46,79 +46,6 @@
   <h1>WC'26 FULL SIMULATOR</h1>
   <p class="sub">Complete Tournament with Actual Groups & Bracket Structure</p>
   
-  <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;margin-bottom:24px">
-    <div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer" onclick="toggleExplanation()">
-      <h3 style="margin:0;font-size:14px;letter-spacing:1px;text-transform:uppercase">📖 How The Simulation Works</h3>
-      <span id="explanation-toggle" style="font-size:20px;color:var(--accent)">▼</span>
-    </div>
-    <div id="explanation-content" style="display:none;margin-top:16px;font-size:13px;line-height:1.7">
-      
-      <div style="margin-bottom:16px">
-        <div style="font-weight:700;color:var(--accent);margin-bottom:8px">Full Tournament Simulation:</div>
-        <ul style="margin:0;padding-left:20px;color:var(--muted)">
-          <li>Ran 1,000 complete tournaments with 17 players each</li>
-          <li>Real WC 2026 groups from December 2025 draw</li>
-          <li>72 group matches + 32 knockout matches (R32→R16→QF→SF→Final) = 104 total</li>
-          <li>Teams weighted by FIFA rankings + recent form</li>
-          <li>Home advantage for USA, Mexico, Canada (+0.05 rating boost)</li>
-          <li>Momentum/form: winning streaks give temporary boosts</li>
-          <li>Draw predictions enabled in group stage (24 possible draws)</li>
-          <li>Match outcomes favor higher-ranked teams significantly</li>
-          <li>Players with higher skill pick favorites more often</li>
-          <li>5-team pick limit fully enforced in knockout rounds</li>
-          <li>Violation penalty: -2 lives if both teams at limit</li>
-          <li>Penalty shootout wins don't count toward limit</li>
-          <li>Score bonuses (+1 life) only in group stage</li>
-          <li>All players always make predictions (no missing penalties)</li>
-          <li>Only penalty: wrong prediction = -1 life</li>
-        </ul>
-      </div>
-      
-      <div style="margin-bottom:16px">
-        <div style="font-weight:700;color:var(--accent);margin-bottom:8px">How Skill Level Works:</div>
-        
-        <div style="background:var(--surface2);border-radius:6px;padding:12px;margin-bottom:12px">
-          <div style="font-weight:600;margin-bottom:6px">Group Stage Predictions:</div>
-          <ul style="margin:0;padding-left:20px;color:var(--muted)">
-            <li>High-skill players (0.8+) pick favorites ~80-90% of the time</li>
-            <li>Medium-skill players (0.5-0.7) pick favorites ~60-75% of the time</li>
-            <li>Low-skill players (0.2-0.4) pick almost randomly</li>
-            <li>All skill levels can predict draws for evenly-matched teams</li>
-          </ul>
-        </div>
-        
-        <div style="background:var(--surface2);border-radius:6px;padding:12px">
-          <div style="font-weight:600;margin-bottom:6px">Knockout Stage - Strategic Pick Management:</div>
-          <ul style="margin:0;padding-left:20px;color:var(--muted)">
-            <li><strong>High-skill players</strong> strategically manage their 5-pick limit:
-              <ul style="margin-top:4px">
-                <li>When a team reaches 4 picks, they consider saving the 5th pick</li>
-                <li>Factor in penalty shootout probability (penalties don't count toward limit)</li>
-                <li>For close matches with ~15% penalty chance, more willing to use limited team</li>
-                <li>For mismatches with ~5% penalty chance, avoid using limited team</li>
-                <li>Spread picks across multiple strong teams to avoid getting forced into bad picks</li>
-              </ul>
-            </li>
-            <li><strong>Low-skill players</strong> ignore the limit:
-              <ul style="margin-top:4px">
-                <li>Keep picking the same favorites (Argentina, France, Brazil) repeatedly</li>
-                <li>Hit the 5-pick limit early in knockout rounds</li>
-                <li>Get forced to pick underdogs or skip matches (-2 lives)</li>
-                <li>Much higher elimination rate due to poor pick management</li>
-              </ul>
-            </li>
-          </ul>
-        </div>
-      </div>
-      
-      <div style="background:var(--bg);border-left:3px solid var(--accent);padding:12px;border-radius:4px">
-        <div style="font-weight:700;color:var(--accent);margin-bottom:6px">Why This Matters:</div>
-        <div style="color:var(--muted)">Skill level affects TWO things: (1) Picking the right team to win, and (2) Managing team picks strategically to avoid the 5-pick limit. High-skill players survive at much higher rates because they avoid forced bad picks.</div>
-      </div>
-      
-    </div>
-  </div>
-  
   <div class="controls">
     <div class="warning">⚠️ This runs a full 48-team tournament with real WC 2026 groups, knockout bracket, and home advantage. Each run takes 2-5 seconds per simulation.</div>
     <div class="control-row">
@@ -259,20 +186,6 @@ const TEAM_RATINGS = {
 
 // Host nations for home advantage
 const HOST_NATIONS = ['USA', 'Mexico', 'Canada'];
-
-// Toggle explanation section
-function toggleExplanation() {
-  const content = document.getElementById('explanation-content');
-  const toggle = document.getElementById('explanation-toggle');
-  
-  if (content.style.display === 'none') {
-    content.style.display = 'block';
-    toggle.textContent = '▲';
-  } else {
-    content.style.display = 'none';
-    toggle.textContent = '▼';
-  }
-}
 
 // Toggle skill distribution controls
 function toggleSkillDist() {
@@ -1128,58 +1041,79 @@ function displayResults(data) {
     </div>
   `;
   
+  // Calculate recommendations with smarter scaling
+  const currentLives = parseInt(document.getElementById('starting-lives').value);
+  const idealSurvivors = 3; // Ideal outcome
+  
+  // Use ratio-based adjustment but cap the changes to reasonable amounts
+  let recommendedLives;
+  if (data.avgSurvivors > 0.5) {
+    // If we have some survivors, use proportional scaling
+    const ratio = idealSurvivors / data.avgSurvivors;
+    // Dampen the adjustment - sqrt makes changes less extreme
+    const adjustmentFactor = ratio > 1 ? Math.sqrt(ratio) : (2 - Math.sqrt(1/ratio));
+    recommendedLives = Math.round(currentLives * adjustmentFactor);
+  } else {
+    // If near-total wipeout, add a moderate amount
+    recommendedLives = Math.round(currentLives * 1.5);
+  }
+  
+  const livesAdjustment = recommendedLives - currentLives;
+  
+  const skillLevel = parseFloat(document.getElementById('skill-level').value);
+  const currentPlayers = parseInt(document.getElementById('num-players').value);
+  
+  let recommendations = [];
+  
+  // Too many survivors
+  if (data.avgSurvivors > 5) {
+    recommendations.push(`⬇️ <strong>Reduce starting lives by ${Math.abs(livesAdjustment)}</strong> (try ${recommendedLives}) to get ~3 survivors`);
+    if (skillLevel > 0.6) {
+      recommendations.push(`⬇️ Consider lowering skill level to ${(skillLevel - 0.1).toFixed(2)} for more unpredictability`);
+    }
+  }
+  // Too few survivors
+  else if (data.avgSurvivors < 2) {
+    recommendations.push(`⬆️ <strong>Increase starting lives by ${Math.abs(livesAdjustment)}</strong> (try ${recommendedLives}) to get ~3 survivors`);
+    if (data.dataInsights.scoreBonusAvg < 3) {
+      const currentRate = parseFloat(document.getElementById('score-rate').value);
+      recommendations.push(`⬆️ Increase score bonus rate to ${Math.min(currentRate + 5, 15)}% for more life cushion`);
+    }
+  }
+  // Perfect range
+  else {
+    recommendations.push(`✅ <strong>Settings are well-tuned</strong> - expect ${data.avgSurvivors.toFixed(1)} survivors on average`);
+  }
+  
+  // Wipeout risk
+  const wipeoutRate = (data.survivalCounts[0] / data.numSims) * 100;
+  if (wipeoutRate > 20) {
+    recommendations.push(`⚠️ <strong>${wipeoutRate.toFixed(0)}% chance of total wipeout</strong> - increase starting lives significantly`);
+  }
+  
+  // Skill distribution advice
+  const useSkillDist = document.getElementById('use-skill-dist').checked;
+  if (!useSkillDist && currentPlayers > 10) {
+    recommendations.push(`💡 Enable <strong>Custom Skill Distribution</strong> for more realistic modeling of mixed-skill players`);
+  }
+  
+  // 5-pick limit impact
+  if (parseInt(data.dataInsights.pickLimitImpact) > 20) {
+    recommendations.push(`🚫 5-pick limit is harsh (${data.dataInsights.pickLimitImpact}% impact) - consider allowing more team picks or increasing penalty rate`);
+  }
+  
   document.getElementById('detail').innerHTML = `
-    <strong>Full Tournament Simulation:</strong><br>
-    • Ran ${data.numSims.toLocaleString()} complete tournaments with ${data.numPlayers} players each<br>
-    • <strong>Real WC 2026 groups</strong> from December 2025 draw<br>
-    • 72 group matches + 32 knockout matches (R32→R16→QF→SF→Final) = 104 total<br>
-    • <strong>Teams weighted by FIFA rankings</strong> + recent form<br>
-    • <strong>Home advantage</strong> for USA, Mexico, Canada (+0.05 rating boost)<br>
-    • <strong>Momentum/form</strong>: winning streaks give temporary boosts<br>
-    • <strong>Draw predictions enabled</strong> in group stage (24 possible draws)<br>
-    • Match outcomes favor higher-ranked teams significantly<br>
-    • Players with higher skill pick favorites more often<br>
-    • <strong>5-team pick limit fully enforced</strong> in knockout rounds<br>
-    • Violation penalty: -2 lives if both teams at limit<br>
-    • Penalty shootout wins don't count toward limit<br>
-    • Score bonuses (+1 life) only in group stage<br>
-    • All players always make predictions (no missing penalties)<br>
-    • <strong>Only penalty: wrong prediction = -1 life</strong><br>
-    <br>
-    <strong>How Skill Level Works:</strong><br>
-    <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px;margin:8px 0">
-      <strong>Group Stage Predictions:</strong><br>
-      • High-skill players (0.8+) pick favorites ~80-90% of the time<br>
-      • Medium-skill players (0.5-0.7) pick favorites ~60-75% of the time<br>
-      • Low-skill players (0.2-0.4) pick almost randomly<br>
-      • All skill levels can predict draws for evenly-matched teams<br>
-      <br>
-      <strong>Knockout Stage - Strategic Pick Management:</strong><br>
-      • <strong>High-skill players strategically manage their 5-pick limit:</strong><br>
-      &nbsp;&nbsp;- When a team reaches 4 picks, they consider saving the 5th pick<br>
-      &nbsp;&nbsp;- Factor in penalty shootout probability (penalties don't count toward limit)<br>
-      &nbsp;&nbsp;- For close matches with ~15% penalty chance, more willing to use limited team<br>
-      &nbsp;&nbsp;- For mismatches with ~5% penalty chance, avoid using limited team<br>
-      &nbsp;&nbsp;- Spread picks across multiple strong teams to avoid getting forced into bad picks<br>
-      • <strong>Low-skill players ignore the limit:</strong><br>
-      &nbsp;&nbsp;- Keep picking the same favorites (Argentina, France, Brazil) repeatedly<br>
-      &nbsp;&nbsp;- Hit the 5-pick limit early in knockout rounds<br>
-      &nbsp;&nbsp;- Get forced to pick underdogs or skip matches (-2 lives)<br>
-      &nbsp;&nbsp;- Much higher elimination rate due to poor pick management<br>
-      <br>
-      <strong>Why This Matters:</strong><br>
-      Skill level affects TWO things: (1) Picking the right team to win, and (2) Managing team picks strategically to avoid the 5-pick limit. High-skill players survive at much higher rates because they avoid forced bad picks.
-    </div>
-    <br>
     <strong>Key Findings:</strong><br>
-    • Most likely outcome: <strong>${data.mostLikely} survivor${data.mostLikely === 1 ? '' : 's'}</strong><br>
+    • Most likely outcome: <strong>${data.mostLikely} survivor${data.mostLikely === 1 ? '' : 's'}</strong> (${((data.survivalCounts[data.mostLikely] / data.numSims) * 100).toFixed(1)}% probability)<br>
+    • Average survivors: <strong>${data.avgSurvivors.toFixed(1)}</strong> players<br>
     • ${data.survivalRate < 50 ? 'Majority eliminated' : 'Majority survive'}<br>
   ` + (data.avgSurvivors > 0.1 ? 
-      `• Tournament is ${data.avgFinalLives < 10 ? 'brutal - close calls' : 'survivable with good predictions'}<br>
-    • Survivors typically finish with ${data.avgFinalLives.toFixed(0)} lives remaining` :
-      `• Tournament is <strong style="color:var(--red)">extremely brutal - total wipeout is likely</strong><br>
-    • <strong style="color:var(--red)">WARNING: Increase starting lives significantly!</strong>`
-    );
+      `• Survivors typically finish with <strong>${data.avgFinalLives.toFixed(0)} lives</strong> remaining<br>` :
+      `• <strong style="color:var(--red)">Total wipeout is highly likely</strong><br>`
+    ) + `
+    <br><strong>Recommendations to get ~3 survivors in final:</strong><br>
+    ${recommendations.map(r => `• ${r}`).join('<br>')}
+  `;
   
   document.getElementById('results').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
