@@ -1734,11 +1734,23 @@ async function enterGame(g){
 async function renderGameHost(g){
   renderScoreboard(g,'players-grid');
   
-  // Check if this is the last match of the current day
+  // Calculate today's matches from game state
   const currentMatch = g.matches[g.currentMatchIdx];
   const currentMatchDate = getMatchDateTime(g.currentMatchIdx, currentMatch);
-  let isLastMatchOfDay = false;
   
+  // Find all matches that have results and are from the current day
+  const calculatedTodaysMatches = [];
+  if(g.results){
+    Object.keys(g.results).forEach(idx => {
+      const matchIdx = parseInt(idx);
+      const match = g.matches[matchIdx];
+      if(match && getMatchDateTime(matchIdx, match) === currentMatchDate){
+        calculatedTodaysMatches.push(matchIdx);
+      }
+    });
+  }
+  
+  let isLastMatchOfDay = false;
   if(g.currentMatchIdx < g.matches.length - 1){
     const nextMatch = g.matches[g.currentMatchIdx + 1];
     const nextMatchDate = getMatchDateTime(g.currentMatchIdx + 1, nextMatch);
@@ -1749,7 +1761,7 @@ async function renderGameHost(g){
   
   const completeDayBtn=document.getElementById('complete-day-btn');
   if(completeDayBtn){
-    const hasMatchesToday = todaysMatches.length > 0;
+    const hasMatchesToday = calculatedTodaysMatches.length > 0;
     completeDayBtn.style.display = hasMatchesToday ? 'inline-block' : 'none';
     
     if(hasMatchesToday && isLastMatchOfDay){
