@@ -3730,7 +3730,13 @@ function showDailySummary(g, matchIndices) {
   
   document.getElementById('daily-lives-change').innerHTML = `${player.lives} <span style="font-size:14px;color:${livesChange >= 0 ? 'var(--green)' : 'var(--red)'}">(${livesChange >= 0 ? '+' : ''}${livesChange})</span>`;
   
-  document.getElementById('daily-rank').textContent = `#${myRank}`;
+  // Find my rank change
+  const myRankChange = rankChanges.find(rc => rc.name === me.name);
+  const rankChangeArrow = myRankChange && myRankChange.change !== 0 ? 
+    (myRankChange.change > 0 ? ` <span style="color:var(--green);font-size:16px;">↑${myRankChange.change}</span>` : 
+     ` <span style="color:var(--red);font-size:16px;">↓${Math.abs(myRankChange.change)}</span>`) : '';
+  
+  document.getElementById('daily-rank').innerHTML = `#${myRank}${rankChangeArrow}`;
   document.getElementById('daily-rank').style.color = myRank <= 3 ? 'var(--green)' : myRank > standings.length - 3 ? 'var(--red)' : 'var(--accent)';
   
   // Standings - show all players
