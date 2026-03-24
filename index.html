@@ -3324,6 +3324,319 @@ function showDailySummary(g, matchIndices) {
   // Other highlights
   const highlights = [];
   
+  // 1. BIGGEST CLIMB & BIGGEST FALL - Calculate standings change
+  // First, we need to reconstruct what standings were before today
+  const standingsBeforeToday = [...g.players].map(p => {
+    // Reverse today's changes to get starting position
+    let livesStart = p.lives;
+    let correctStart = (p.correct || 0);
+    
+    matchIndices.forEach(idx => {
+      const pred = g.predictions[idx]?.[p.name];
+      const result = g.results?.[idx];
+      if(pred !== undefined && pred !== null && result){
+        if(pred === actualOutcome(result)){
+          correctStart--; // They gained this today, so remove it
+        } else {
+          livesStart++; // They lost this today, so add it back
+        }
+        // Check for exact score bonus
+        const scoreGuess = g.predictions[idx]?.[p.name + '_score'];
+        if(scoreGuess && scoreGuess.home === result.home && scoreGuess.away === result.away){
+          livesStart--; // They gained bonus today, remove it
+        }
+      }
+    });
+    
+    return { ...p, lives: livesStart, correct: correctStart };
+  }).sort((a,b) => {
+    if (b.lives !== a.lives) return b.lives - a.lives;
+    return b.correct - a.correct;
+  });
+  
+  const standingsNow = [...g.players].sort((a,b) => {
+    if (b.lives !== a.lives) return b.lives - a.lives;
+    return (b.correct || 0) - (a.correct || 0);
+  });
+  
+  const rankChanges = g.players.map(p => {
+    const oldRank = standingsBeforeToday.findIndex(sp => sp.name === p.name) + 1;
+    const newRank = standingsNow.findIndex(sp => sp.name === p.name) + 1;
+    return { name: p.name, change: oldRank - newRank, oldRank, newRank };
+  }).filter(rc => rc.change !== 0).sort((a,b) => b.change - a.change);
+  
+  if(rankChanges.length > 0){
+    const biggestClimb = rankChanges[0];
+    if(biggestClimb.change > 0 && biggestClimb.change >= 2){
+      highlights.push(`📈 Biggest climb: ${biggestClimb.name} (up ${biggestClimb.change} position${biggestClimb.change > 1 ? 's' : ''} to #${biggestClimb.newRank})`);
+    }
+    
+    const biggestFall = rankChanges[rankChanges.length - 1];
+    if(biggestFall.change < 0 && biggestFall.change <= -2){
+      highlights.push(`📉 Biggest fall: ${biggestFall.name} (down ${Math.abs(biggestFall.change)} position${Math.abs(biggestFall.change) > 1 ? 's' : ''} to #${biggestFall.newRank})`);
+    }
+  }
+  
+  // 2. CLUTCH SAVES - Players who were at risk but got key predictions right
+  const clutchSaves = g.players.filter(p => {
+    // Calculate what their lives were before today
+    let livesStart = p.lives;
+    let correctToday = 0;
+    matchIndices.forEach(idx => {
+      const pred = g.predictions[idx]?.[p.name];
+      const result = g.results?.[idx];
+      if(pred !== undefined && pred !== null && result){
+        if(pred === actualOutcome(result)){
+          correctToday++;
+        } else {
+          livesStart++;
+        }
+        const scoreGuess = g.predictions[idx]?.[p.name + '_score'];
+        if(scoreGuess && scoreGuess.home === result.home && scoreGuess.away === result.away){
+          livesStart--;
+        }
+      }
+    });
+    // Clutch if started with ≤5 lives and got ≥2 correct today
+    return livesStart <= 5 && correctToday >= 2;
+  });
+  
+  if(clutchSaves.length > 0 && clutchSaves.length <= 3){
+    highlights.push(`💪 Clutch save${clutchSaves.length > 1 ? 's' : ''}: ${clutchSaves.map(p => p.name).join(', ')} (key wins under pressure)`);
+  }
+  
+  // 3. ON THIN ICE - Players down to their last few lives
+  const onThinIce = g.players.filter(p => !p.eliminated && p.lives > 0 && p.lives <= 5).sort((a,b) => a.lives - b.lives);
+  if(onThinIce.length > 0 && onThinIce.length <= 4){
+    highlights.push(`⚠️ On thin ice: ${onThinIce.map(p => `${p.name} (${p.lives} ❤️)`).join(', ')}`);
+  }
+  
+  // 4. STREAK TRACKER - Players on winning streaks
+  const streaks = g.players.map(p => {
+    let currentStreak = 0;
+    // Go backwards through ALL matches to find current streak
+    for(let i = g.currentMatchIdx; i >= 0; i--){
+      if(!g.results?.[i]) continue;
+      const pred = g.predictions[i]?.[p.name];
+      if(pred === undefined || pred === null) continue;
+      
+      if(pred === actualOutcome(g.results[i])){
+        currentStreak++;
+      } else {
+        break; // Streak ended
+      }
+    }
+    return { name: p.name, streak: currentStreak };
+  }).filter(s => s.streak >= 5).sort((a,b) => b.streak - a.streak);
+  
+  if(streaks.length > 0){
+    highlights.push(`🔥 Hot streak${streaks.length > 1 ? 's' : ''}: ${streaks.map(s => `${s.name} (${s.streak} in a row)`).join(', ')}`);
+  }
+  
+  // 5. NAIL-BITERS - 1-goal matches that most people got wrong
+  const nailBiters = [];
+  matchIndices.forEach(idx => {
+    const match = g.matches[idx];
+    const result = g.results?.[idx];
+    if(!result) return;
+    
+    const goalDiff = Math.abs(result.home - result.away);
+    if(goalDiff === 1){
+      let correctCount = 0;
+      let totalPreds = 0;
+      
+      if(g.predictions[idx]){
+        const actualWinner = actualOutcome(result);
+        Object.entries(g.predictions[idx]).forEach(([name, pred]) => {
+          if(!name.endsWith('_score') && pred !== null && pred !== undefined){
+            totalPreds++;
+            if(pred === actualWinner) correctCount++;
+          }
+        });
+      }
+      
+      // Nail-biter if less than 40% got it right
+      if(totalPreds > 0 && correctCount / totalPreds < 0.4){
+        nailBiters.push(`${match.home} ${result.home}–${result.away} ${match.away} (only ${correctCount}/${totalPreds} got it)`);
+      }
+    }
+  });
+  
+  if(nailBiters.length > 0 && nailBiters.length <= 2){
+    highlights.push(`😰 Nail-biter${nailBiters.length > 1 ? 's' : ''}: ${nailBiters.join(' • ')}`);
+  }
+  
+  // 6. CONSENSUS PICKS - 90%+ agreement
+  const consensusPicks = [];
+  matchIndices.forEach(idx => {
+    const match = g.matches[idx];
+    const result = g.results?.[idx];
+    if(!result) return;
+    
+    const predCounts = { home: 0, away: 0, draw: 0 };
+    let totalPreds = 0;
+    
+    if(g.predictions[idx]){
+      Object.entries(g.predictions[idx]).forEach(([name, pred]) => {
+        if(!name.endsWith('_score') && pred !== null && pred !== undefined){
+          totalPreds++;
+          predCounts[pred]++;
+        }
+      });
+    }
+    
+    if(totalPreds > 0){
+      const maxPred = Object.entries(predCounts).reduce((max, [k, v]) => v > max.v ? {k, v} : max, {k: null, v: 0});
+      const consensusPercent = (maxPred.v / totalPreds);
+      
+      if(consensusPercent >= 0.9){
+        const actualWinner = actualOutcome(result);
+        const wasRight = maxPred.k === actualWinner;
+        const team = maxPred.k === 'home' ? match.home : maxPred.k === 'away' ? match.away : 'Draw';
+        consensusPicks.push(`${Math.round(consensusPercent * 100)}% picked ${team} ${wasRight ? '✓' : '✗'}`);
+      }
+    }
+  });
+  
+  if(consensusPicks.length > 0 && consensusPicks.length <= 2){
+    highlights.push(`🤝 Consensus: ${consensusPicks.join(' • ')}`);
+  }
+  
+  // 7. SPLIT DECISION - Predictions divided 50/50
+  const splitDecisions = [];
+  matchIndices.forEach(idx => {
+    const match = g.matches[idx];
+    const result = g.results?.[idx];
+    if(!result) return;
+    
+    const predCounts = { home: 0, away: 0, draw: 0 };
+    let totalPreds = 0;
+    
+    if(g.predictions[idx]){
+      Object.entries(g.predictions[idx]).forEach(([name, pred]) => {
+        if(!name.endsWith('_score') && pred !== null && pred !== undefined){
+          totalPreds++;
+          predCounts[pred]++;
+        }
+      });
+    }
+    
+    if(totalPreds >= 4){ // Need at least 4 predictions for meaningful split
+      // Check if any two outcomes are within 10% of each other and together make up most predictions
+      const sorted = Object.entries(predCounts).sort((a, b) => b[1] - a[1]);
+      const top1Pct = sorted[0][1] / totalPreds;
+      const top2Pct = sorted[1][1] / totalPreds;
+      
+      // Split if top 2 are between 40-60% each (combined 80-120% margin)
+      if(top1Pct >= 0.4 && top1Pct <= 0.6 && top2Pct >= 0.3 && Math.abs(top1Pct - top2Pct) <= 0.2){
+        const team1 = sorted[0][0] === 'home' ? match.home : sorted[0][0] === 'away' ? match.away : 'Draw';
+        const team2 = sorted[1][0] === 'home' ? match.home : sorted[1][0] === 'away' ? match.away : 'Draw';
+        splitDecisions.push(`${match.home} vs ${match.away} (${team1} ${sorted[0][1]}–${sorted[1][1]} ${team2})`);
+      }
+    }
+  });
+  
+  if(splitDecisions.length > 0 && splitDecisions.length <= 2){
+    highlights.push(`⚖️ Split decision${splitDecisions.length > 1 ? 's' : ''}: ${splitDecisions.join(' • ')}`);
+  }
+  
+  // 8. LONE WOLF - Someone predicted something nobody else did (and got it right)
+  const loneWolves = [];
+  matchIndices.forEach(idx => {
+    const match = g.matches[idx];
+    const result = g.results?.[idx];
+    if(!result) return;
+    
+    const actualWinner = actualOutcome(result);
+    const predsByOutcome = { home: [], away: [], draw: [] };
+    
+    if(g.predictions[idx]){
+      Object.entries(g.predictions[idx]).forEach(([name, pred]) => {
+        if(!name.endsWith('_score') && pred !== null && pred !== undefined){
+          predsByOutcome[pred].push(name);
+        }
+      });
+    }
+    
+    // Lone wolf if exactly 1 person predicted the correct outcome
+    if(predsByOutcome[actualWinner].length === 1){
+      const winner = actualWinner === 'home' ? match.home : actualWinner === 'away' ? match.away : 'Draw';
+      loneWolves.push(`${predsByOutcome[actualWinner][0]} (only one to pick ${winner})`);
+    }
+  });
+  
+  if(loneWolves.length > 0 && loneWolves.length <= 3){
+    highlights.push(`🐺 Lone wolf${loneWolves.length > 1 ? ' wins' : ''}: ${loneWolves.join(' • ')}`);
+  }
+  
+  // 9. POPULAR TEAMS - Which teams are being picked the most (only show if in KO stage)
+  const currentMatch = g.matches[g.currentMatchIdx];
+  const isKOStage = currentMatch && !currentMatch.group;
+  
+  if(isKOStage){
+    // Count team picks across all players (excluding pen wins)
+    const teamPickCounts = {};
+    g.players.forEach(p => {
+      const playerPicks = {};
+      g.matches.forEach((m, i) => {
+        const pred = (g.predictions[i] || {})[p.name];
+        const winner = pred === 'home' ? m.home : pred === 'away' ? m.away : null;
+        if (!winner) return;
+        // Skip if this KO match was decided on pens
+        const r = (g.results || {})[i];
+        if (r && r.penWinner && !m.group) return;
+        
+        if(!teamPickCounts[winner]) teamPickCounts[winner] = 0;
+        playerPicks[winner] = (playerPicks[winner] || 0) + 1;
+      });
+      // Count each player's pick of a team once (to get "how many players picked this team X times")
+      Object.entries(playerPicks).forEach(([team, count]) => {
+        teamPickCounts[team] += 1;
+      });
+    });
+    
+    // Find most popular teams (picked by most players)
+    const popularTeams = Object.entries(teamPickCounts)
+      .filter(([team]) => team !== 'TBD')
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3);
+    
+    if(popularTeams.length > 0 && popularTeams[0][1] >= g.players.length * 0.5){
+      highlights.push(`⭐ Fan favorites: ${popularTeams.map(([team, count]) => `${team} (${count}/${g.players.length} players)`).join(', ')}`);
+    }
+  }
+  
+  // 10. APPROACHING LIMIT - Players close to 5-pick limit for any team
+  if(isKOStage){
+    const playersNearLimit = [];
+    
+    g.players.forEach(p => {
+      const teamPicks = {};
+      g.matches.forEach((m, i) => {
+        const pred = (g.predictions[i] || {})[p.name];
+        const winner = pred === 'home' ? m.home : pred === 'away' ? m.away : null;
+        if (!winner) return;
+        // Skip if this KO match was decided on pens
+        const r = (g.results || {})[i];
+        if (r && r.penWinner && !m.group) return;
+        teamPicks[winner] = (teamPicks[winner] || 0) + 1;
+      });
+      
+      // Find teams at 4 or 5 picks
+      Object.entries(teamPicks).forEach(([team, count]) => {
+        if(count === 4){
+          playersNearLimit.push(`${p.name} (${team} 4/5)`);
+        } else if(count === 5){
+          playersNearLimit.push(`${p.name} (${team} MAXED)`);
+        }
+      });
+    });
+    
+    if(playersNearLimit.length > 0 && playersNearLimit.length <= 5){
+      highlights.push(`🚨 Pick limit watch: ${playersNearLimit.join(' • ')}`);
+    }
+  }
+  
   // Check for exact score bonuses today
   const exactScorePlayers = [];
   matchIndices.forEach(idx => {
@@ -3359,7 +3672,7 @@ function showDailySummary(g, matchIndices) {
       }
     }).join(' • ');
     
-    highlights.push(`Bonus lives: ${bonusText}`);
+    highlights.push(`🎯 Bonus lives: ${bonusText}`);
   }
   
   // Check for perfect players today
@@ -3378,7 +3691,7 @@ function showDailySummary(g, matchIndices) {
   }).map(p => p.name);
   
   if(perfectPlayers.length > 0 && perfectPlayers.length <= 3){
-    highlights.push(`Perfect today: ${perfectPlayers.join(', ')}`);
+    highlights.push(`✨ Perfect today: ${perfectPlayers.join(', ')}`);
   }
   
   // Populate summary screen
