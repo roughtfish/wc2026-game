@@ -600,12 +600,50 @@ function getMatchDateTime(matchIdx, match) {
     }
   }
   
-  // Knockout matches - simplified with typical KO times
-  if(match.round === 'Round of 32') return 'Sat 4 Jul - Sun 5 Jul 2026 • 17:00 & 20:00 UK';
-  if(match.round === 'Round of 16') return 'Tue 7 Jul - Wed 8 Jul 2026 • 17:00 & 20:00 UK';
-  if(match.round === 'Quarter-finals') return 'Fri 10 Jul - Sat 11 Jul 2026 • 17:00 & 20:00 UK';
-  if(match.round === 'Semi-finals') return 'Tue 14 Jul - Wed 15 Jul 2026 • 20:00 UK';
-  if(match.round === 'Final') return 'Sun 19 Jul 2026 • 19:00 UK';
+  // Knockout matches - REAL 2026 World Cup dates
+  // Round of 32: 16 matches over 6 days (June 28 - July 3)
+  if(match.round === 'Round of 32'){
+    const koStartIdx = 72; // After 72 group matches
+    const matchInRound = matchIdx - koStartIdx;
+    // June 28: 1 match, June 29: 3 matches, June 30: 3 matches, July 1: 3 matches, July 2: 3 matches, July 3: 3 matches
+    if(matchInRound === 0) return 'Sun 28 Jun 2026 • 20:00 UK';
+    else if(matchInRound >= 1 && matchInRound <= 3) return 'Mon 29 Jun 2026 • 18:00 UK';
+    else if(matchInRound >= 4 && matchInRound <= 6) return 'Tue 30 Jun 2026 • 18:00 UK';
+    else if(matchInRound >= 7 && matchInRound <= 9) return 'Wed 1 Jul 2026 • 17:00 UK';
+    else if(matchInRound >= 10 && matchInRound <= 12) return 'Thu 2 Jul 2026 • 20:00 UK';
+    else return 'Fri 3 Jul 2026 • 20:00 UK';
+  }
+  
+  // Round of 16: 8 matches over 4 days (July 4-7) - 2 per day
+  if(match.round === 'Round of 16'){
+    const r16StartIdx = 72 + 16;
+    const matchInRound = matchIdx - r16StartIdx;
+    if(matchInRound < 2) return 'Sat 4 Jul 2026 • 18:00 UK';
+    else if(matchInRound < 4) return 'Sun 5 Jul 2026 • 21:00 UK';
+    else if(matchInRound < 6) return 'Mon 6 Jul 2026 • 20:00 UK';
+    else return 'Tue 7 Jul 2026 • 17:00 UK';
+  }
+  
+  // Quarter-finals: 4 matches over 3 days (July 9-11)
+  if(match.round === 'Quarter-finals'){
+    const qfStartIdx = 72 + 16 + 8;
+    const matchInRound = matchIdx - qfStartIdx;
+    if(matchInRound === 0) return 'Thu 9 Jul 2026 • 21:30 UK';
+    else if(matchInRound === 1) return 'Fri 10 Jul 2026 • 20:00 UK';
+    else if(matchInRound === 2) return 'Sat 11 Jul 2026 • 01:00 UK';
+    else return 'Sat 11 Jul 2026 • 02:00 UK';
+  }
+  
+  // Semi-finals: 2 matches over 2 days (July 14-15) - 1 per day
+  if(match.round === 'Semi-finals'){
+    const sfStartIdx = 72 + 16 + 8 + 4;
+    const matchInRound = matchIdx - sfStartIdx;
+    if(matchInRound === 0) return 'Mon 14 Jul 2026 • 20:00 UK';
+    else return 'Tue 15 Jul 2026 • 20:00 UK';
+  }
+  
+  // Final: 1 match (July 19)
+  if(match.round === 'Final') return 'Sat 19 Jul 2026 • 20:00 UK';
   
   return '';
 }
@@ -1731,10 +1769,40 @@ async function enterGame(g){
 async function renderGameHost(g){
   renderScoreboard(g,'players-grid');
   
+  // Check if this is the last match of the current day
+  const currentMatch = g.matches[g.currentMatchIdx];
+  const currentMatchDate = getMatchDateTime(g.currentMatchIdx, currentMatch);
+  let isLastMatchOfDay = false;
+  
+  // Look ahead to see if next match is a different day
+  if(g.currentMatchIdx < g.matches.length - 1){
+    const nextMatch = g.matches[g.currentMatchIdx + 1];
+    const nextMatchDate = getMatchDateTime(g.currentMatchIdx + 1, nextMatch);
+    // Check if date changes (works for both group and knockout)
+    isLastMatchOfDay = currentMatchDate !== nextMatchDate;
+  } else {
+    // Last match overall
+    isLastMatchOfDay = true;
+  }
+  
   // Show Complete Day button if there are matches entered today
   const completeDayBtn=document.getElementById('complete-day-btn');
   if(completeDayBtn){
-    completeDayBtn.style.display=todaysMatches.length>0?'inline-block':'none';
+    const hasMatchesToday = todaysMatches.length > 0;
+    completeDayBtn.style.display = hasMatchesToday ? 'inline-block' : 'none';
+    
+    // Make button more prominent if this is the last match of the day
+    if(hasMatchesToday && isLastMatchOfDay){
+      completeDayBtn.style.background = 'var(--accent)';
+      completeDayBtn.style.color = 'var(--bg)';
+      completeDayBtn.style.fontWeight = '700';
+      completeDayBtn.style.animation = 'pulse 2s ease-in-out infinite';
+    } else {
+      completeDayBtn.style.background = '';
+      completeDayBtn.style.color = '';
+      completeDayBtn.style.fontWeight = '';
+      completeDayBtn.style.animation = '';
+    }
   }
   
   // Show undo button if there are any entered results
@@ -1914,12 +1982,34 @@ function renderKOPredCollect(g,match,area,preds,alive){
 function renderResultEntry(g,match,area){
   const preds=g.predictions[g.currentMatchIdx]||{};
   const isKO=!match.group;
+  
+  // Check if this is the last match of the current day
+  const currentMatchDate = getMatchDateTime(g.currentMatchIdx, match);
+  let isLastMatchOfDay = false;
+  
+  // Look ahead to see if next match is a different day
+  if(g.currentMatchIdx < g.matches.length - 1){
+    const nextMatch = g.matches[g.currentMatchIdx + 1];
+    const nextMatchDate = getMatchDateTime(g.currentMatchIdx + 1, nextMatch);
+    // Check if date changes (works for both group and knockout)
+    isLastMatchOfDay = currentMatchDate !== nextMatchDate;
+  } else {
+    // Last match overall
+    isLastMatchOfDay = true;
+  }
+  
   area.innerHTML=`<div class="round-label">${match.group?'Group '+match.group:match.round}</div>
   <div class="match-card">
     <div class="match-header"><span class="group-badge">${match.group?'Group '+match.group:match.round}</span><span class="match-num">Match ${g.currentMatchIdx+1}/${g.matches.length}</span></div>
     <div style="font-size:11px;color:var(--muted);text-align:center;margin-bottom:12px;font-style:italic;">
       ${getMatchDateTime(g.currentMatchIdx, match)}
     </div>
+    ${isLastMatchOfDay ? `
+      <div style="background:linear-gradient(135deg,#f59e0b,#d97706);color:#000;padding:12px 16px;border-radius:8px;margin-bottom:16px;text-align:center;font-weight:600;font-size:13px;border:2px solid #fbbf24;">
+        ⚠️ LAST MATCH OF THE DAY ⚠️<br>
+        <span style="font-size:11px;font-weight:500;margin-top:4px;display:block;">Remember to click "COMPLETE DAY" after entering this result!</span>
+      </div>
+    ` : ''}
     <div class="teams-row">
       <div class="team-block"><div class="team-flag-emoji">${flag(match.home,48)}</div><div class="team-name">${match.home}</div></div>
       <div class="vs-badge">VS</div>
