@@ -549,213 +549,184 @@ function flag(t,size=32){
 
 // Get match date and time in UK timezone
 function getMatchDateTime(matchIdx, match) {
-  // Group stage matches - REAL UK BST TIMES from BBC Sport
+  // Group stage matches - GAME DAY SYSTEM (no timezone confusion!)
   if(match.group){
-    const ukSchedule = {
-      // Thu 11 Jun
-      0:'Thu 11 Jun 2026 • 20:00 BST',
-      // Fri 12 Jun
-      1:'Fri 12 Jun 2026 • 03:00 BST', 2:'Fri 12 Jun 2026 • 20:00 BST',
-      // Sat 13 Jun
-      3:'Sat 13 Jun 2026 • 20:00 BST', 4:'Sat 13 Jun 2026 • 02:00 BST',
-      5:'Sat 13 Jun 2026 • 23:00 BST',
-      // Sun 14 Jun
-      6:'Sun 14 Jun 2026 • 02:00 BST', 7:'Sun 14 Jun 2026 • 05:00 BST',
-      8:'Sun 14 Jun 2026 • 18:00 BST', 9:'Sun 14 Jun 2026 • 21:00 BST',
-      // Mon 15 Jun
-      10:'Mon 15 Jun 2026 • 00:00 BST', 11:'Mon 15 Jun 2026 • 03:00 BST',
-      12:'Mon 15 Jun 2026 • 20:00 BST', 13:'Mon 15 Jun 2026 • 17:00 BST',
-      14:'Mon 15 Jun 2026 • 23:00 BST',
-      // Tue 16 Jun
-      15:'Tue 16 Jun 2026 • 02:00 BST', 16:'Tue 16 Jun 2026 • 20:00 BST',
-      17:'Tue 16 Jun 2026 • 23:00 BST',
-      // Wed 17 Jun
-      18:'Wed 17 Jun 2026 • 02:00 BST', 19:'Wed 17 Jun 2026 • 05:00 BST',
-      20:'Wed 17 Jun 2026 • 18:00 BST', 21:'Wed 17 Jun 2026 • 21:00 BST',
-      // Thu 18 Jun
-      22:'Thu 18 Jun 2026 • 00:00 BST', 23:'Thu 18 Jun 2026 • 03:00 BST',
-      24:'Thu 18 Jun 2026 • 17:00 BST', 25:'Thu 18 Jun 2026 • 20:00 BST',
-      26:'Thu 18 Jun 2026 • 23:00 BST',
-      // Fri 19 Jun
-      27:'Fri 19 Jun 2026 • 02:00 BST', 28:'Fri 19 Jun 2026 • 20:00 BST',
-      29:'Fri 19 Jun 2026 • 23:00 BST',
-      // Sat 20 Jun
-      30:'Sat 20 Jun 2026 • 02:00 BST', 31:'Sat 20 Jun 2026 • 05:00 BST',
-      32:'Sat 20 Jun 2026 • 21:00 BST', 33:'Sat 20 Jun 2026 • 18:00 BST',
-      // Sun 21 Jun
-      34:'Sun 21 Jun 2026 • 01:00 BST', 35:'Sun 21 Jun 2026 • 05:00 BST',
-      36:'Sun 21 Jun 2026 • 20:00 BST', 37:'Sun 21 Jun 2026 • 17:00 BST',
-      38:'Sun 21 Jun 2026 • 23:00 BST',
-      // Mon 22 Jun
-      39:'Mon 22 Jun 2026 • 02:00 BST', 40:'Mon 22 Jun 2026 • 18:00 BST',
-      41:'Mon 22 Jun 2026 • 22:00 BST',
-      // Tue 23 Jun
-      42:'Tue 23 Jun 2026 • 01:00 BST', 43:'Tue 23 Jun 2026 • 04:00 BST',
-      44:'Tue 23 Jun 2026 • 18:00 BST', 45:'Tue 23 Jun 2026 • 21:00 BST',
-      // Wed 24 Jun
-      46:'Wed 24 Jun 2026 • 00:00 BST', 47:'Wed 24 Jun 2026 • 03:00 BST',
-      48:'Wed 24 Jun 2026 • 20:00 BST', 49:'Wed 24 Jun 2026 • 20:00 BST',
-      50:'Wed 24 Jun 2026 • 23:00 BST', 51:'Wed 24 Jun 2026 • 23:00 BST',
-      // Thu 25 Jun
-      52:'Thu 25 Jun 2026 • 02:00 BST', 53:'Thu 25 Jun 2026 • 02:00 BST',
-      54:'Thu 25 Jun 2026 • 21:00 BST', 55:'Thu 25 Jun 2026 • 21:00 BST',
-      // Fri 26 Jun
-      56:'Fri 26 Jun 2026 • 00:00 BST', 57:'Fri 26 Jun 2026 • 00:00 BST',
-      58:'Fri 26 Jun 2026 • 03:00 BST', 59:'Fri 26 Jun 2026 • 03:00 BST',
-      60:'Fri 26 Jun 2026 • 20:00 BST',
-      // Sat 27 Jun
-      61:'Sat 27 Jun 2026 • 01:00 BST', 62:'Sat 27 Jun 2026 • 04:00 BST',
-      63:'Sat 27 Jun 2026 • 04:00 BST', 64:'Sat 27 Jun 2026 • 01:00 BST',
-      65:'Sat 27 Jun 2026 • 22:00 BST',
-      // Sun 28 Jun
-      66:'Sun 28 Jun 2026 • 03:00 BST', 67:'Sun 28 Jun 2026 • 00:30 BST',
-      68:'Sun 28 Jun 2026 • 00:30 BST', 69:'Sun 28 Jun 2026 • 03:00 BST',
-      70:'Sun 28 Jun 2026 • 22:00 BST', 71:'Sun 28 Jun 2026 • 22:00 BST',
+    const gameDaySchedule = {
+      // Day 1
+      0:'Day 1',
+      // Day 2
+      1:'Day 2', 2:'Day 2',
+      // Day 3
+      3:'Day 3', 4:'Day 3', 5:'Day 3',
+      // Day 4
+      6:'Day 4', 7:'Day 4', 8:'Day 4', 9:'Day 4',
+      // Day 5
+      10:'Day 5', 11:'Day 5', 12:'Day 5', 13:'Day 5', 14:'Day 5',
+      // Day 6
+      15:'Day 6', 16:'Day 6', 17:'Day 6',
+      // Day 7
+      18:'Day 7', 19:'Day 7', 20:'Day 7', 21:'Day 7',
+      // Day 8
+      22:'Day 8', 23:'Day 8', 24:'Day 8', 25:'Day 8', 26:'Day 8',
+      // Day 9
+      27:'Day 9', 28:'Day 9', 29:'Day 9',
+      // Day 10
+      30:'Day 10', 31:'Day 10', 32:'Day 10', 33:'Day 10',
+      // Day 11
+      34:'Day 11', 35:'Day 11', 36:'Day 11', 37:'Day 11', 38:'Day 11',
+      // Day 12
+      39:'Day 12', 40:'Day 12', 41:'Day 12',
+      // Day 13
+      42:'Day 13', 43:'Day 13', 44:'Day 13', 45:'Day 13',
+      // Day 14
+      46:'Day 14', 47:'Day 14', 48:'Day 14', 49:'Day 14', 50:'Day 14', 51:'Day 14',
+      // Day 15
+      52:'Day 15', 53:'Day 15', 54:'Day 15', 55:'Day 15',
+      // Day 16
+      56:'Day 16', 57:'Day 16', 58:'Day 16', 59:'Day 16', 60:'Day 16', 61:'Day 16',
+      // Day 17
+      62:'Day 17', 63:'Day 17', 64:'Day 17', 65:'Day 17', 66:'Day 17', 67:'Day 17',
+      // Day 18
+      68:'Day 18', 69:'Day 18', 70:'Day 18', 71:'Day 18',
     };
-    return ukSchedule[matchIdx] || '';
+    return gameDaySchedule[matchIdx] || '';
   }
   
-  // Knockout matches - REAL UK BST TIMES from Sky Sports
+  // Knockout matches - GAME DAY SYSTEM
   if(match.round === 'Round of 32'){
     const koStartIdx = 72;
     const matchInRound = matchIdx - koStartIdx;
-    const ukR32 = {
-      0:'Sun 28 Jun 2026 • 20:00 BST', 1:'Mon 29 Jun 2026 • 18:00 BST',
-      2:'Mon 29 Jun 2026 • 21:30 BST', 3:'Tue 30 Jun 2026 • 02:00 BST',
-      4:'Tue 30 Jun 2026 • 18:00 BST', 5:'Tue 30 Jun 2026 • 22:00 BST',
-      6:'Wed 1 Jul 2026 • 02:00 BST', 7:'Wed 1 Jul 2026 • 17:00 BST',
-      8:'Wed 1 Jul 2026 • 21:00 BST', 9:'Thu 2 Jul 2026 • 01:00 BST',
-      10:'Thu 2 Jul 2026 • 20:00 BST', 11:'Fri 3 Jul 2026 • 00:00 BST',
-      12:'Fri 3 Jul 2026 • 04:00 BST', 13:'Fri 3 Jul 2026 • 19:00 BST',
-      14:'Fri 3 Jul 2026 • 23:00 BST', 15:'Sat 4 Jul 2026 • 02:30 BST',
+    const gameDayR32 = {
+      0:'Day 19', 1:'Day 19', 2:'Day 19', 3:'Day 19',
+      4:'Day 20', 5:'Day 20', 6:'Day 20', 7:'Day 20',
+      8:'Day 21', 9:'Day 21', 10:'Day 21', 11:'Day 21',
+      12:'Day 22', 13:'Day 22', 14:'Day 22', 15:'Day 22',
     };
-    return ukR32[matchInRound] || '';
+    return gameDayR32[matchInRound] || '';
   }
   
   if(match.round === 'Round of 16'){
     const r16StartIdx = 72 + 16;
     const matchInRound = matchIdx - r16StartIdx;
-    const ukR16 = {
-      0:'Sat 4 Jul 2026 • 18:00 BST', 1:'Sat 4 Jul 2026 • 22:00 BST',
-      2:'Sun 5 Jul 2026 • 21:00 BST', 3:'Mon 6 Jul 2026 • 01:00 BST',
-      4:'Mon 6 Jul 2026 • 20:00 BST', 5:'Tue 7 Jul 2026 • 01:00 BST',
-      6:'Tue 7 Jul 2026 • 17:00 BST', 7:'Tue 7 Jul 2026 • 21:00 BST',
+    const gameDayR16 = {
+      0:'Day 23', 1:'Day 23', 2:'Day 24', 3:'Day 24',
+      4:'Day 25', 5:'Day 25', 6:'Day 26', 7:'Day 26',
     };
-    return ukR16[matchInRound] || '';
+    return gameDayR16[matchInRound] || '';
   }
   
   if(match.round === 'Quarter-finals'){
     const qfStartIdx = 72 + 16 + 8;
     const matchInRound = matchIdx - qfStartIdx;
-    const ukQF = {
-      0:'Thu 9 Jul 2026 • 21:00 BST', 1:'Fri 10 Jul 2026 • 20:00 BST',
-      2:'Sat 11 Jul 2026 • 22:00 BST', 3:'Sun 12 Jul 2026 • 02:00 BST',
+    const gameDayQF = {
+      0:'Day 27', 1:'Day 28', 2:'Day 29', 3:'Day 30',
     };
-    return ukQF[matchInRound] || '';
+    return gameDayQF[matchInRound] || '';
   }
   
   if(match.round === 'Semi-finals'){
     const sfStartIdx = 72 + 16 + 8 + 4;
     const matchInRound = matchIdx - sfStartIdx;
-    if(matchInRound === 0) return 'Tue 14 Jul 2026 • 20:00 BST';
-    else return 'Wed 15 Jul 2026 • 20:00 BST';
+    if(matchInRound === 0) return 'Day 31';
+    else return 'Day 32';
   }
   
-  if(match.round === 'Final') return 'Sun 19 Jul 2026 • 20:00 BST';
+  if(match.round === 'Final') return 'Day 36';
   
   return '';
 }
 
 const GROUP_MATCHES=[
-  // June 11 — Match 1 & 2
+  // Day 1 - Match 1
   {group:'A',home:'Mexico',away:'South Africa'},
+  // Day 2 - Match 2-3
   {group:'A',home:'South Korea',away:'UEFA Path D'},
-  // June 12 — Match 3 & 4
   {group:'B',home:'Canada',away:'UEFA Path A'},
+  // Day 3 - Match 4-6
   {group:'B',home:'Qatar',away:'Switzerland'},
-  // June 13 — Match 5, 6, 7, 8
-  {group:'D',home:'USA',away:'Paraguay'},
-  {group:'D',home:'Australia',away:'UEFA Path C'},
   {group:'C',home:'Brazil',away:'Morocco'},
+  {group:'D',home:'USA',away:'Paraguay'},
+  // Day 4 - Match 7-10
   {group:'C',home:'Haiti',away:'Scotland'},
-  // June 14 — Match 9, 10, 11, 12
+  {group:'D',home:'Australia',away:'UEFA Path C'},
   {group:'E',home:'Germany',away:'Curacao'},
-  {group:'F',home:'Albania/Poland/Sweden/Ukraine',away:'Japan'},
+  {group:'F',home:'Netherlands',away:'Japan'},
+  // Day 5 - Match 11-15
   {group:'E',home:'Ivory Coast',away:'Ecuador'},
   {group:'F',home:'UEFA Path B',away:'Tunisia'},
-  // June 15 — Match 13, 14, 15, 16
-  {group:'H',home:'Spain',away:'Cape Verde'},
   {group:'G',home:'Belgium',away:'Egypt'},
+  {group:'H',home:'Spain',away:'Cape Verde'},
   {group:'H',home:'Saudi Arabia',away:'Uruguay'},
+  // Day 6 - Match 16-18
   {group:'G',home:'Iran',away:'New Zealand'},
-  // June 16 — Match 17, 18, 19, 20
   {group:'I',home:'France',away:'Senegal'},
   {group:'I',home:'Bolivia/Iraq/Suriname',away:'Norway'},
+  // Day 7 - Match 19-22
   {group:'J',home:'Argentina',away:'Algeria'},
   {group:'J',home:'Austria',away:'Jordan'},
-  // June 17 — Match 21, 22, 23, 24
   {group:'K',home:'Portugal',away:'Congo/Jamaica/New Caledonia'},
   {group:'L',home:'England',away:'Croatia'},
-  {group:'L',home:'Ghana',away:'Panama'},
-  {group:'K',home:'Uzbekistan',away:'Colombia'},
-  // June 18 — Match 25, 26, 27, 28
+  // Day 8 - Match 23-27
   {group:'A',home:'UEFA Path D',away:'South Africa'},
   {group:'B',home:'Switzerland',away:'UEFA Path A'},
   {group:'B',home:'Canada',away:'Qatar'},
+  {group:'K',home:'Uzbekistan',away:'Colombia'},
+  {group:'L',home:'Ghana',away:'Panama'},
+  // Day 9 - Match 28-30
   {group:'A',home:'Mexico',away:'South Korea'},
-  // June 19 — Match 29, 30, 31, 32
-  {group:'D',home:'UEFA Path C',away:'Paraguay'},
-  {group:'D',home:'USA',away:'Australia'},
   {group:'C',home:'Scotland',away:'Morocco'},
+  {group:'D',home:'USA',away:'Australia'},
+  // Day 10 - Match 31-34
   {group:'C',home:'Brazil',away:'Haiti'},
-  // June 20 — Match 33, 34, 35, 36
-  {group:'F',home:'Tunisia',away:'Japan'},
-  {group:'F',home:'Albania/Poland/Sweden/Ukraine',away:'UEFA Path B'},
+  {group:'D',home:'UEFA Path C',away:'Paraguay'},
   {group:'E',home:'Germany',away:'Ivory Coast'},
+  {group:'F',home:'Netherlands',away:'UEFA Path B'},
+  // Day 11 - Match 35-39
   {group:'E',home:'Ecuador',away:'Curacao'},
-  // June 21 — Match 37, 38, 39, 40
-  {group:'H',home:'Spain',away:'Saudi Arabia'},
+  {group:'F',home:'Tunisia',away:'Japan'},
   {group:'G',home:'Belgium',away:'Iran'},
+  {group:'H',home:'Spain',away:'Saudi Arabia'},
   {group:'H',home:'Uruguay',away:'Cape Verde'},
+  // Day 12 - Match 40-42
   {group:'G',home:'New Zealand',away:'Egypt'},
-  // June 22 — Match 41, 42, 43, 44
-  {group:'J',home:'Argentina',away:'Austria'},
   {group:'I',home:'France',away:'Bolivia/Iraq/Suriname'},
+  {group:'J',home:'Argentina',away:'Austria'},
+  // Day 13 - Match 43-46
   {group:'I',home:'Norway',away:'Senegal'},
   {group:'J',home:'Jordan',away:'Algeria'},
-  // June 23 — Match 45, 46, 47, 48
   {group:'K',home:'Portugal',away:'Uzbekistan'},
   {group:'L',home:'England',away:'Ghana'},
-  {group:'L',home:'Panama',away:'Croatia'},
-  {group:'K',home:'Colombia',away:'Congo/Jamaica/New Caledonia'},
-  // June 24 — Match 49-54 (final matchday groups A, B, C)
+  // Day 14 - Match 47-52
   {group:'B',home:'Switzerland',away:'Canada'},
   {group:'B',home:'UEFA Path A',away:'Qatar'},
-  {group:'C',home:'Scotland',away:'Brazil'},
   {group:'C',home:'Morocco',away:'Haiti'},
-  {group:'A',home:'UEFA Path D',away:'Mexico'},
+  {group:'C',home:'Scotland',away:'Brazil'},
+  {group:'K',home:'Colombia',away:'Congo/Jamaica/New Caledonia'},
+  {group:'L',home:'Panama',away:'Croatia'},
+  // Day 15 - Match 53-56
   {group:'A',home:'South Africa',away:'South Korea'},
-  // June 25 — Match 55-60 (final matchday groups D, E, F)
+  {group:'A',home:'UEFA Path D',away:'Mexico'},
   {group:'E',home:'Curacao',away:'Ivory Coast'},
   {group:'E',home:'Ecuador',away:'Germany'},
-  {group:'F',home:'Japan',away:'UEFA Path B'},
-  {group:'F',home:'Tunisia',away:'Albania/Poland/Sweden/Ukraine'},
-  {group:'D',home:'UEFA Path C',away:'USA'},
+  // Day 16 - Match 57-62
   {group:'D',home:'Paraguay',away:'Australia'},
-  // June 26 — Match 61-66 (final matchday groups G, H, I)
+  {group:'D',home:'UEFA Path C',away:'USA'},
+  {group:'F',home:'Japan',away:'UEFA Path B'},
+  {group:'F',home:'Tunisia',away:'Netherlands'},
   {group:'I',home:'Norway',away:'France'},
   {group:'I',home:'Senegal',away:'Bolivia/Iraq/Suriname'},
-  {group:'H',home:'Cape Verde',away:'Saudi Arabia'},
-  {group:'H',home:'Uruguay',away:'Spain'},
+  // Day 17 - Match 63-68
   {group:'G',home:'Egypt',away:'Iran'},
   {group:'G',home:'New Zealand',away:'Belgium'},
-  // June 27 — Match 67-72 (final matchday groups J, K, L)
-  {group:'L',home:'Panama',away:'England'},
+  {group:'H',home:'Cape Verde',away:'Saudi Arabia'},
+  {group:'H',home:'Uruguay',away:'Spain'},
   {group:'L',home:'Croatia',away:'Ghana'},
-  {group:'K',home:'Colombia',away:'Portugal'},
-  {group:'K',home:'Congo/Jamaica/New Caledonia',away:'Uzbekistan'},
+  {group:'L',home:'Panama',away:'England'},
+  // Day 18 - Match 69-72 (final group stage day)
   {group:'J',home:'Algeria',away:'Austria'},
   {group:'J',home:'Jordan',away:'Argentina'},
+  {group:'K',home:'Colombia',away:'Portugal'},
+  {group:'K',home:'Congo/Jamaica/New Caledonia',away:'Uzbekistan'},
 ];
 
 const KO_ROUNDS=[
