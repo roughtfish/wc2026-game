@@ -1917,6 +1917,9 @@ function renderResultEntry(g,match,area){
   area.innerHTML=`<div class="round-label">${match.group?'Group '+match.group:match.round}</div>
   <div class="match-card">
     <div class="match-header"><span class="group-badge">${match.group?'Group '+match.group:match.round}</span><span class="match-num">Match ${g.currentMatchIdx+1}/${g.matches.length}</span></div>
+    <div style="font-size:11px;color:var(--muted);text-align:center;margin-bottom:12px;font-style:italic;">
+      ${getMatchDateTime(g.currentMatchIdx, match)}
+    </div>
     <div class="teams-row">
       <div class="team-block"><div class="team-flag-emoji">${flag(match.home,48)}</div><div class="team-name">${match.home}</div></div>
       <div class="vs-badge">VS</div>
