@@ -237,6 +237,8 @@
     <div class="leaderboard" id="leaderboard"></div>
     <div class="section-title">STREAKS 🔥</div>
     <div id="streak-stats"></div>
+    <div class="section-title">RIVAL VICTORIES ⚔️</div>
+    <div id="rival-stats"></div>
     <div class="section-title">BEST SCORE PREDICTORS 🎯</div>
     <div id="score-predictors"></div>
     <div class="section-title">BIGGEST UPSET</div>
@@ -264,6 +266,9 @@
       <button class="export-btn" id="export-csv-btn">⬇ Export CSV</button>
     </div>
     <div id="history-rounds"></div>
+    
+    <div class="section-title" style="margin-top:32px">RIVAL MATCHUP HISTORY ⚔️</div>
+    <div id="rival-history"></div>
   </div>
 </div>
 
@@ -385,6 +390,7 @@ function render(g){
   if(subEl)subEl.innerHTML=`Live Stats &nbsp;·&nbsp; <span class="status-chip ${statusClass}">${statusLabel}</span>`;
   renderLeaderboard(g);
   renderStreakStats(g);
+  renderRivalStats(g);
   renderScorePredictors(g);
   renderBiggestUpset(g);
   renderExactScores(g);
@@ -392,6 +398,7 @@ function render(g){
   renderSurvivalProb(g);
   renderLivesChart(g);
   renderHistory(g);
+  renderRivalHistory(g);
   }catch(e){
     console.error('render failed',e);
     document.getElementById('leaderboard').innerHTML=`<div style="color:red;padding:12px;font-size:12px">Render error: ${e.message}</div>`;
@@ -524,6 +531,81 @@ function renderStreakStats(g){
       `}
     </div>
   </div>`;
+}
+
+function renderRivalStats(g){
+  const el=document.getElementById('rival-stats');
+  if(!el)return;
+  
+  const players=Array.isArray(g.players)?g.players:Object.values(g.players||{});
+  const rivalVictories=g.rivalVictories||{};
+  
+  // Check if any victories exist
+  const hasVictories=Object.values(rivalVictories).some(v=>v>0);
+  
+  if(!hasVictories){
+    el.innerHTML='<div style="color:var(--muted);font-size:13px;padding:12px 0">No rival matchups completed yet</div>';
+    return;
+  }
+  
+  // Create leaderboard sorted by victories
+  const leaderboard=players.map(p=>({
+    name:p.name,
+    victories:rivalVictories[p.name]||0,
+    currentRival:p.currentRival
+  })).filter(p=>p.victories>0).sort((a,b)=>b.victories-a.victories);
+  
+  // Calculate stats for each player
+  const rivalStats=players.map(p=>{
+    const victories=rivalVictories[p.name]||0;
+    
+    // Find who this player has faced as rivals
+    const matches=[];
+    const completedDays=g.completedDays||[];
+    
+    completedDays.forEach(day=>{
+      // Load player's rival at time of this day (stored in player object)
+      // This is a simplification - in reality we'd need to track historical rivals
+      if(p.currentRival){
+        matches.push({rival:p.currentRival,date:day.date});
+      }
+    });
+    
+    return {
+      name:p.name,
+      victories,
+      currentRival:p.currentRival,
+      matchCount:matches.length
+    };
+  });
+  
+  el.innerHTML=`
+  <div class="score-predictors-grid">
+    ${leaderboard.slice(0,10).map((p,i)=>{
+      const rank=i+1;
+      const medal=rank===1?'🥇':rank===2?'🥈':rank===3?'🥉':'';
+      const rankDisplay=medal||`#${rank}`;
+      
+      return `
+      <div class="score-predictor-card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+          <div>
+            <span style="font-size:18px;margin-right:8px">${rankDisplay}</span>
+            <span style="font-weight:600;font-size:14px">${p.name}</span>
+          </div>
+          <div style="font-family:'Bebas Neue',sans-serif;font-size:24px;color:var(--accent2)">${p.victories}</div>
+        </div>
+        <div style="font-size:11px;color:var(--muted)">
+          ${p.victories===1?'victory':'victories'} earned
+          ${p.currentRival?`<br>Current rival: <span style="color:var(--accent2)">${p.currentRival}</span>`:''}
+        </div>
+      </div>
+      `;
+    }).join('')}
+  </div>
+  
+  ${leaderboard.length===0?'<div style="color:var(--muted);font-size:13px;padding:12px 0">No rival victories yet</div>':''}
+  `;
 }
 
 function renderScorePredictors(g){
@@ -1372,6 +1454,128 @@ function renderHistory(g){
       renderHistory._collapsed[label] = isCollapsed ? true : false;
     });
   });
+}
+
+// ─── RIVAL MATCHUP HISTORY ───────────────────────────────────────────────────
+function renderRivalHistory(g){
+  const el=document.getElementById('rival-history');
+  if(!el)return;
+  
+  const players=Array.isArray(g.players)?g.players:Object.values(g.players||{});
+  const rivalVictories=g.rivalVictories||{};
+  const completedDays=g.completedDays||[];
+  
+  if(completedDays.length===0){
+    el.innerHTML='<div style="color:var(--muted);font-size:13px;padding:12px 0">No rival matchups completed yet</div>';
+    return;
+  }
+  
+  // Build matchup records for all player pairs who have been rivals
+  const matchups=new Map(); // key: "player1-vs-player2", value: {player1, player2, p1wins, p2wins, draws}
+  
+  completedDays.forEach(day=>{
+    const matchIndices=day.matches||[];
+    
+    // For each player, check if they had a rival set for this day
+    players.forEach(p=>{
+      if(!p.currentRival)return; // This is a simplification - ideally we'd track historical rivals per day
+      
+      const rival=players.find(r=>r.name===p.currentRival);
+      if(!rival)return;
+      
+      // Count correct predictions for both players this day
+      let pCorrect=0;
+      let rivalCorrect=0;
+      
+      matchIndices.forEach(idx=>{
+        const result=g.results?.[idx];
+        const pPred=g.predictions[idx]?.[p.name];
+        const rivalPred=g.predictions[idx]?.[rival.name];
+        
+        if(!result||pPred===undefined||pPred===null||rivalPred===undefined||rivalPred===null)return;
+        
+        const actualWinner=result.pens?result.pens:(result.home>result.away?'home':result.away>result.home?'away':'draw');
+        
+        if(pPred===actualWinner)pCorrect++;
+        if(rivalPred===actualWinner)rivalCorrect++;
+      });
+      
+      // Create unique key for this matchup (alphabetically sorted)
+      const names=[p.name,rival.name].sort();
+      const key=`${names[0]}-vs-${names[1]}`;
+      
+      if(!matchups.has(key)){
+        matchups.set(key,{
+          player1:names[0],
+          player2:names[1],
+          p1wins:0,
+          p2wins:0,
+          draws:0,
+          history:[]
+        });
+      }
+      
+      const matchup=matchups.get(key);
+      
+      // Determine winner
+      if(pCorrect>rivalCorrect){
+        if(p.name===matchup.player1)matchup.p1wins++;
+        else matchup.p2wins++;
+        matchup.history.push({date:day.date,winner:p.name,loser:rival.name,score:`${pCorrect}-${rivalCorrect}`});
+      }else if(rivalCorrect>pCorrect){
+        if(rival.name===matchup.player1)matchup.p1wins++;
+        else matchup.p2wins++;
+        matchup.history.push({date:day.date,winner:rival.name,loser:p.name,score:`${rivalCorrect}-${pCorrect}`});
+      }else{
+        matchup.draws++;
+        matchup.history.push({date:day.date,winner:null,loser:null,score:`${pCorrect}-${rivalCorrect}`});
+      }
+    });
+  });
+  
+  // Filter out matchups with no games
+  const activeMatchups=Array.from(matchups.values()).filter(m=>m.p1wins+m.p2wins+m.draws>0);
+  
+  if(activeMatchups.length===0){
+    el.innerHTML='<div style="color:var(--muted);font-size:13px;padding:12px 0">No rival matchups yet</div>';
+    return;
+  }
+  
+  // Sort by total games played
+  activeMatchups.sort((a,b)=>(b.p1wins+b.p2wins+b.draws)-(a.p1wins+a.p2wins+a.draws));
+  
+  el.innerHTML=activeMatchups.map(m=>{
+    const total=m.p1wins+m.p2wins+m.draws;
+    const p1WinPct=total>0?Math.round((m.p1wins/total)*100):0;
+    const p2WinPct=total>0?Math.round((m.p2wins/total)*100):0;
+    
+    return `
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:12px">
+      <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:16px;align-items:center;margin-bottom:12px">
+        <div style="text-align:right">
+          <div style="font-weight:600;font-size:14px;margin-bottom:4px">${m.player1}</div>
+          <div style="font-size:11px;color:var(--muted)">${p1WinPct}% win rate</div>
+        </div>
+        
+        <div style="text-align:center;padding:8px 16px;background:var(--surface2);border-radius:8px">
+          <div style="font-family:'Bebas Neue',sans-serif;font-size:24px;color:var(--accent2)">
+            ${m.p1wins} - ${m.p2wins}
+          </div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px">${m.draws} draw${m.draws===1?'':'s'}</div>
+        </div>
+        
+        <div style="text-align:left">
+          <div style="font-weight:600;font-size:14px;margin-bottom:4px">${m.player2}</div>
+          <div style="font-size:11px;color:var(--muted)">${p2WinPct}% win rate</div>
+        </div>
+      </div>
+      
+      <div style="font-size:11px;color:var(--muted);text-align:center">
+        ${total} matchup${total===1?'':'s'} played
+      </div>
+    </div>
+    `;
+  }).join('');
 }
 </script>
 
