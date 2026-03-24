@@ -1696,12 +1696,26 @@ async function pollBulkDone(){
 
 // ─── HOST GAME ────────────────────────────────────────────────────────────────
 async function enterGame(g){
+  // If daily summary is active, show that instead of game screen
+  if(g.showDailySummary && g.showDailySummary.matches){
+    showDailySummary(g, g.showDailySummary.matches);
+    return;
+  }
+  
   show('screen-game');
   startPresence();
   renderGameHost(g);
   startPolling(async()=>{
     const f=await loadGame(me.code);
     if(!f)return;
+    
+    // Check if daily summary was just triggered
+    if(f.showDailySummary && f.showDailySummary.matches){
+      stopPolling();
+      showDailySummary(f, f.showDailySummary.matches);
+      return;
+    }
+    
     // During reveal, just refresh scoreboard — host controls advancing
     if(f.status&&f.status.startsWith('reveal:')){
       renderScoreboard(f,'players-grid');
@@ -3779,6 +3793,18 @@ function showDailySummary(g, matchIndices) {
   if(me.role === 'host'){
     if(continueBtn) continueBtn.style.display = 'block';
     if(waitingMsg) waitingMsg.style.display = 'none';
+    
+    // Start polling for host to keep them on summary screen
+    startPolling(async() => {
+      const f = await loadGame(me.code);
+      if(!f) return;
+      
+      // If daily summary was cleared (host clicked continue), stop polling and return to game
+      if(!f.showDailySummary){
+        stopPolling();
+        enterGame(f);
+      }
+    }, 2000);
   } else {
     if(continueBtn) continueBtn.style.display = 'none';
     if(waitingMsg) waitingMsg.style.display = 'block';
