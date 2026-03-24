@@ -3317,6 +3317,44 @@ function showDailySummary(g, matchIndices) {
   // Other highlights
   const highlights = [];
   
+  // Check for exact score bonuses today
+  const exactScorePlayers = [];
+  matchIndices.forEach(idx => {
+    const result = g.results?.[idx];
+    if(!result) return;
+    
+    g.players.forEach(p => {
+      const scoreGuess = g.predictions[idx]?.[p.name + '_score'];
+      if(scoreGuess && scoreGuess.home === result.home && scoreGuess.away === result.away){
+        exactScorePlayers.push({
+          player: p.name,
+          match: g.matches[idx],
+          score: `${result.home}–${result.away}`
+        });
+      }
+    });
+  });
+  
+  if(exactScorePlayers.length > 0){
+    // Group by player
+    const playerBonuses = {};
+    exactScorePlayers.forEach(({player, match, score}) => {
+      if(!playerBonuses[player]) playerBonuses[player] = [];
+      playerBonuses[player].push({match, score});
+    });
+    
+    // Create highlight text
+    const bonusText = Object.entries(playerBonuses).map(([name, bonuses]) => {
+      if(bonuses.length === 1){
+        return `${name} (+1 ❤️ for ${bonuses[0].match.home} vs ${bonuses[0].match.away} ${bonuses[0].score})`;
+      } else {
+        return `${name} (+${bonuses.length} ❤️ for ${bonuses.length} exact scores!)`;
+      }
+    }).join(' • ');
+    
+    highlights.push(`Bonus lives: ${bonusText}`);
+  }
+  
   // Check for perfect players today
   const perfectPlayers = g.players.filter(p => {
     let dayCorrect = 0;
