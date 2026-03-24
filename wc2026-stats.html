@@ -205,6 +205,8 @@
     <div id="streak-stats"></div>
     <div class="section-title">BIGGEST UPSET</div>
     <div id="biggest-upset"></div>
+    <div class="section-title">EXACT SCORE PREDICTIONS 🎯</div>
+    <div id="exact-scores"></div>
     <div class="section-title">SURVIVAL PROBABILITY</div>
     <div id="survival-prob"></div>
     <div class="section-title">LIVES OVER TIME</div>
@@ -343,6 +345,7 @@ function render(g){
   renderLeaderboard(g);
   renderStreakStats(g);
   renderBiggestUpset(g);
+  renderExactScores(g);
   renderSurvivalProb(g);
   renderLivesChart(g);
   renderHistory(g);
@@ -532,6 +535,58 @@ function renderBiggestUpset(g){
       </div>
     </div>
   </div>`;
+}
+
+function renderExactScores(g){
+  const el=document.getElementById('exact-scores');
+  if(!el)return;
+  const results=g.results||{};
+  const players=Array.isArray(g.players)?g.players:Object.values(g.players||{});
+  const playedIdxs=Object.keys(results).map(Number).filter(n=>!isNaN(n)&&results[n]!=null).sort((a,b)=>a-b);
+  if(playedIdxs.length===0){el.innerHTML='<div style="color:var(--muted);font-size:13px;padding:12px 0">No matches played yet</div>';return;}
+
+  // Find all matches where at least one player got the exact score
+  const exactScoreMatches=[];
+  playedIdxs.forEach(idx=>{
+    const r=results[idx];
+    const preds=g.predictions[idx]||{};
+    const playersCorrect=players.filter(p=>{
+      const sc=preds[p.name+'_score'];
+      return sc&&sc.home===r.home&&sc.away===r.away;
+    });
+    if(playersCorrect.length>0){
+      exactScoreMatches.push({
+        idx,
+        match:g.matches[idx],
+        result:r,
+        players:playersCorrect,
+        count:playersCorrect.length
+      });
+    }
+  });
+
+  if(exactScoreMatches.length===0){
+    el.innerHTML='<div style="color:var(--muted);font-size:13px;padding:12px 0;font-style:italic">No exact score predictions yet</div>';
+    return;
+  }
+
+  // Sort by count descending, then by match index
+  exactScoreMatches.sort((a,b)=>b.count-a.count||b.idx-a.idx);
+
+  el.innerHTML=exactScoreMatches.map(m=>{
+    const round=m.match.group?'Group '+m.match.group:(m.match.round||'KO');
+    return`<div class="upset-card" style="margin-bottom:12px">
+      <div class="upset-match">
+        <div class="upset-teams">${flag(m.match.home,16)} ${m.match.home} ${m.result.home}–${m.result.away} ${flag(m.match.away,16)} ${m.match.away}</div>
+        <div class="upset-meta">${round} · ${m.count} player${m.count>1?'s':''} got exact score</div>
+      </div>
+      <div style="flex:2;min-width:160px">
+        <div style="font-size:13px;color:rgba(255,255,255,0.8);display:flex;flex-wrap:wrap;gap:6px">
+          ${m.players.map(p=>`<span style="background:var(--surface2);padding:4px 10px;border-radius:6px;border:1px solid rgba(45,212,191,0.3)">${p.name}</span>`).join('')}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
 }
 
 const hiddenChartPlayers=new Set();
