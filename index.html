@@ -1907,6 +1907,13 @@ async function renderGameHost(g){
     }
     return;
   }
+  
+  // If result already entered for this match, show reveal screen instead of result entry
+  if(g.currentResult || (g.results && g.results[g.currentMatchIdx])){
+    renderReveal(g);
+    return;
+  }
+  
   renderResultEntry(g,match,area);
 }
 
