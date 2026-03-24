@@ -3937,8 +3937,7 @@ async function showDailySummary(g, matchIndices) {
   }
   
   // Populate summary screen
-  document.getElementById('daily-record').textContent = `${correct}-${wrong}`;
-  document.getElementById('daily-record').style.color = correct > wrong ? 'var(--green)' : wrong > correct ? 'var(--red)' : 'var(--accent)';
+  document.getElementById('daily-record').innerHTML = `<span style="color:var(--green)">${correct}</span>-<span style="color:var(--red)">${wrong}</span>`;
   
   document.getElementById('daily-lives-change').innerHTML = `${player.lives} <span style="font-size:14px;color:${livesChange >= 0 ? 'var(--green)' : 'var(--red)'}">(${livesChange >= 0 ? '+' : ''}${livesChange})</span>`;
   
@@ -4008,7 +4007,7 @@ async function showDailySummary(g, matchIndices) {
           <div style="text-align:center;padding:12px;background:${winner==='me'?'rgba(45,212,191,0.1)':'var(--surface)'};border-radius:8px;border:2px solid ${winner==='me'?'var(--accent2)':'var(--border)'}">
             <div style="font-size:13px;font-weight:600;margin-bottom:8px">YOU</div>
             <div style="font-size:11px;color:var(--muted);margin-bottom:4px">Record</div>
-            <div style="font-size:18px;font-family:'Bebas Neue',sans-serif;color:${correct>rivalCorrect?'var(--green)':correct<rivalCorrect?'var(--red)':'var(--accent)'}">${correct}-${wrong}</div>
+            <div style="font-size:18px;font-family:'Bebas Neue',sans-serif;"><span style="color:var(--green)">${correct}</span>-<span style="color:var(--red)">${wrong}</span></div>
             ${myExactScores>0?`<div style="font-size:11px;margin-top:4px;color:var(--accent2)">🎯 ${myExactScores}</div>`:''}
           </div>
           
@@ -4020,7 +4019,7 @@ async function showDailySummary(g, matchIndices) {
           <div style="text-align:center;padding:12px;background:${winner==='rival'?'rgba(45,212,191,0.1)':'var(--surface)'};border-radius:8px;border:2px solid ${winner==='rival'?'var(--accent2)':'var(--border)'}">
             <div style="font-size:13px;font-weight:600;margin-bottom:8px">${rival.name.toUpperCase()}</div>
             <div style="font-size:11px;color:var(--muted);margin-bottom:4px">Record</div>
-            <div style="font-size:18px;font-family:'Bebas Neue',sans-serif;color:${rivalCorrect>correct?'var(--green)':rivalCorrect<correct?'var(--red)':'var(--accent)'}">${rivalCorrect}-${rivalWrong}</div>
+            <div style="font-size:18px;font-family:'Bebas Neue',sans-serif;"><span style="color:var(--green)">${rivalCorrect}</span>-<span style="color:var(--red)">${rivalWrong}</span></div>
             ${rivalExactScores>0?`<div style="font-size:11px;margin-top:4px;color:var(--accent2)">🎯 ${rivalExactScores}</div>`:''}
           </div>
         </div>
