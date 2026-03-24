@@ -2696,10 +2696,6 @@ document.getElementById('history-back-btn').addEventListener('click', () => {
   else show('screen-game');
 });
 
-function renderHistoryList(g) {
-  const results = g.results || {};
-  const playedIdxs = Object.keys(results).map(Number).filter(n=>!isNaN(n)&&results[n]!=null).sort((a, b) => a - b);
-
 // Show schedule modal with all matches organized by date
 function showScheduleModal(g) {
   // Create modal overlay
