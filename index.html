@@ -1739,11 +1739,13 @@ async function renderGameHost(g){
       completeDayBtn.style.background = 'var(--accent)';
       completeDayBtn.style.color = 'var(--bg)';
       completeDayBtn.style.fontWeight = '700';
+      completeDayBtn.style.opacity = '1';
       completeDayBtn.style.animation = 'pulse 2s ease-in-out infinite';
     } else {
       completeDayBtn.style.background = '';
       completeDayBtn.style.color = '';
       completeDayBtn.style.fontWeight = '';
+      completeDayBtn.style.opacity = '';
       completeDayBtn.style.animation = '';
     }
   }
@@ -2126,6 +2128,17 @@ async function renderReveal(g){
   const preds=g.predictions[g.currentMatchIdx]||{};
   const area=document.getElementById('match-area');
   const alive=g.players.filter(p=>!p.eliminated);
+  
+  const currentMatchDate = getMatchDateTime(g.currentMatchIdx, match);
+  let isLastMatchOfDay = false;
+  if(g.currentMatchIdx < g.matches.length - 1){
+    const nextMatch = g.matches[g.currentMatchIdx + 1];
+    const nextMatchDate = getMatchDateTime(g.currentMatchIdx + 1, nextMatch);
+    isLastMatchOfDay = currentMatchDate !== nextMatchDate;
+  } else {
+    isLastMatchOfDay = true;
+  }
+  
   area.innerHTML=`<div class="round-label">${match.group?'Group '+match.group:match.round}</div>
   <div class="match-card">
     <div class="match-header"><span class="group-badge">${match.group?'Group '+match.group:match.round}</span><span class="match-num">Match ${g.currentMatchIdx+1}/${g.matches.length}</span></div>
@@ -2138,59 +2151,59 @@ async function renderReveal(g){
     <div>${(Array.isArray(g.players)?g.players:Object.values(g.players||{})).map(p=>{const v=preds[p.name];const ok=v===actual;const sc=preds[p.name+'_score'];const scoreOk=sc&&sc.home===r.home&&sc.away===r.away;return`<div class="pred-recap-item"><span class="pred-name">${p.name}</span><span class="pred-choice">${v==='home'?flag(match.home,16)+' '+match.home:v==='away'?flag(match.away,16)+' '+match.away:'<span style="font-weight:900">=</span> Draw'}${sc?` <span style="font-size:10px;color:var(--muted)">(${sc.home}–${sc.away}${scoreOk?' ❤️+1':''})</span>`:''}</span><span>${ok?'✅':'❌'}</span></div>`;}).join('')}</div>
     <div style="display:flex;gap:9px;margin-top:12px;">
       <button class="btn-next" id="correct-result-btn" style="flex:0 0 auto;width:auto;padding:12px 16px;font-size:13px;color:var(--muted);border-color:rgba(255,255,255,0.1)">✎ Edit Result</button>
-      <button class="btn btn-secondary btn-sm" id="reveal-complete-day-btn" style="display:none;flex:0 0 auto;padding:12px 16px;font-size:11px;letter-spacing:1px;opacity:0.7">📊 Complete Day</button>
-      <button class="btn-next" id="next-match-btn" style="flex:1">${alive.length<=1?'SEE RESULTS 🏆':(()=>{
+      ${!isLastMatchOfDay ? `<button class="btn-next" id="next-match-btn" style="flex:1">${alive.length<=1?'SEE RESULTS 🏆':(()=>{
         const nx=g.matches[g.currentMatchIdx+1];
         const cur=g.matches[g.currentMatchIdx];
         const isNewRound=nx&&!nx.group&&cur&&!cur.group&&nx.round!==cur.round&&nx.home!=='TBD';
         return isNewRound?'START '+nx.round.toUpperCase()+' PREDICTIONS →':'NEXT MATCH →';
-      })()}</button>
+      })()}</button>` : ''}
     </div>
   </div>`;
-  area.querySelector('#next-match-btn').addEventListener("click",async()=>{
-    const f=await loadGame(me.code);
-    const al=f.players.filter(p=>!p.eliminated);
-    if(al.length<=1){showWinner(f);return;}
-    f.currentMatchIdx++;
-    if(f.currentMatchIdx>=f.matches.length){await saveGame(f);showFinalLeaderboard(f);return;}
-    // Check if we're starting a new KO round — if so, trigger KO bulk predictions
-    const nextMatch=f.matches[f.currentMatchIdx];
-    const prevMatch=f.matches[f.currentMatchIdx-1];
-    const isNewKORound=nextMatch&&!nextMatch.group&&prevMatch&&
-      (!prevMatch.group)&&nextMatch.round!==prevMatch.round&&
-      nextMatch.home!=='TBD'&&nextMatch.away!=='TBD';
-    if(isNewKORound){
-      if(f.mode==='test'){
-        // Test mode: auto-fill this round's predictions, mark all submitted, go straight to playing
-        autoFillKORound(f, nextMatch.round);
+  
+  const nextMatchBtn = area.querySelector('#next-match-btn');
+  if(nextMatchBtn){
+    nextMatchBtn.addEventListener("click",async()=>{
+      const f=await loadGame(me.code);
+      const al=f.players.filter(p=>!p.eliminated);
+      if(al.length<=1){showWinner(f);return;}
+      f.currentMatchIdx++;
+      if(f.currentMatchIdx>=f.matches.length){await saveGame(f);showFinalLeaderboard(f);return;}
+      const nextMatch=f.matches[f.currentMatchIdx];
+      const prevMatch=f.matches[f.currentMatchIdx-1];
+      const isNewKORound=nextMatch&&!nextMatch.group&&prevMatch&&
+        (!prevMatch.group)&&nextMatch.round!==prevMatch.round&&
+        nextMatch.home!=='TBD'&&nextMatch.away!=='TBD';
+      if(isNewKORound){
+        if(f.mode==='test'){
+          autoFillKORound(f, nextMatch.round);
+          if(!f.koBulkSubmitted)f.koBulkSubmitted={};
+          f.players.forEach(p=>{f.koBulkSubmitted[p.name]=true;});
+          f.currentResult=null;
+          f.status='playing';
+          await saveGame(f);
+          renderGameHost(f);
+        } else {
+          f.status='ko-bulk:'+nextMatch.round;
+          f.koBulkSubmitted={};
+          f.currentResult=null;
+          await saveGame(f);
+          stopPolling();
+          startKOBulk(f,nextMatch.round);
+        }
+        return;
+      }
+      const prevMatchF=f.matches[f.currentMatchIdx-1];
+      const isGroupToR32=f.mode==='test'&&prevMatchF&&prevMatchF.group&&nextMatch&&!nextMatch.group&&nextMatch.home!=='TBD';
+      if(isGroupToR32){
+        autoFillKORound(f,'Round of 32');
         if(!f.koBulkSubmitted)f.koBulkSubmitted={};
         f.players.forEach(p=>{f.koBulkSubmitted[p.name]=true;});
-        f.currentResult=null;
-        f.status='playing';
-        await saveGame(f);
-        renderGameHost(f);
-      } else {
-        f.status='ko-bulk:'+nextMatch.round;
-        f.koBulkSubmitted={};
-        f.currentResult=null;
-        await saveGame(f);
-        stopPolling();
-        startKOBulk(f,nextMatch.round);
       }
-      return;
-    }
-    // Check if we just moved from group stage to R32 in test mode
-    const prevMatchF=f.matches[f.currentMatchIdx-1];
-    const isGroupToR32=f.mode==='test'&&prevMatchF&&prevMatchF.group&&nextMatch&&!nextMatch.group&&nextMatch.home!=='TBD';
-    if(isGroupToR32){
-      autoFillKORound(f,'Round of 32');
-      if(!f.koBulkSubmitted)f.koBulkSubmitted={};
-      f.players.forEach(p=>{f.koBulkSubmitted[p.name]=true;});
-    }
-    // Also check: if nextMatch is a TBD KO slot, just advance normally
-    f.currentResult=null;f.status='playing';
-    await saveGame(f);renderGameHost(f);
-  });
+      f.currentResult=null;f.status='playing';
+      await saveGame(f);renderGameHost(f);
+    });
+  }
+  
   area.querySelector('#correct-result-btn').addEventListener("click",async()=>{
     if(!confirm('Correct this result? Player lives and scores will be recalculated.'))return;
     const f=await loadGame(me.code);
@@ -2199,38 +2212,6 @@ async function renderReveal(g){
     await saveGame(f);
     renderGameHost(f);
   });
-  
-  // Show/style Complete Day button on reveal screen
-  const revealCompleteDayBtn = area.querySelector('#reveal-complete-day-btn');
-  if(revealCompleteDayBtn && todaysMatches.length > 0){
-    revealCompleteDayBtn.style.display = 'flex';
-    
-    // Check if this is the last match of the current day
-    const currentMatchDate = getMatchDateTime(g.currentMatchIdx, match);
-    let isLastMatchOfDay = false;
-    
-    if(g.currentMatchIdx < g.matches.length - 1){
-      const nextMatch = g.matches[g.currentMatchIdx + 1];
-      const nextMatchDate = getMatchDateTime(g.currentMatchIdx + 1, nextMatch);
-      isLastMatchOfDay = currentMatchDate !== nextMatchDate;
-    } else {
-      isLastMatchOfDay = true;
-    }
-    
-    // Make button prominent if this is the last match of the day
-    if(isLastMatchOfDay){
-      revealCompleteDayBtn.style.background = 'var(--accent)';
-      revealCompleteDayBtn.style.color = 'var(--bg)';
-      revealCompleteDayBtn.style.fontWeight = '700';
-      revealCompleteDayBtn.style.opacity = '1';
-      revealCompleteDayBtn.style.animation = 'pulse 2s ease-in-out infinite';
-    }
-    
-    revealCompleteDayBtn.addEventListener('click', async()=>{
-      const fresh = await loadGame(me.code);
-      await completeDayAsHost(fresh);
-    });
-  }
 }
 
 // ─── PLAYER WATCH ────────────────────────────────────────────────────────────
