@@ -3336,8 +3336,8 @@ function showDailySummary(g, matchIndices) {
   document.getElementById('daily-rank').textContent = `#${myRank}`;
   document.getElementById('daily-rank').style.color = myRank <= 3 ? 'var(--green)' : myRank > standings.length - 3 ? 'var(--red)' : 'var(--accent)';
   
-  // Standings
-  const standingsHTML = standings.slice(0, 5).map((p, i) => {
+  // Standings - show all players
+  const standingsHTML = standings.map((p, i) => {
     const isMe = p.name === me.name;
     return `
       <div style="display:flex;justify-content:space-between;padding:10px;background:${isMe ? 'var(--accent2)' : 'var(--surface2)'};border-radius:6px;margin-bottom:6px;${isMe ? 'font-weight:600;color:var(--bg)' : ''}">
@@ -3347,17 +3347,7 @@ function showDailySummary(g, matchIndices) {
     `;
   }).join('');
   
-  if (myRank > 5) {
-    const meHTML = `
-      <div style="display:flex;justify-content:space-between;padding:10px;background:var(--accent2);border-radius:6px;margin-top:10px;font-weight:600;color:var(--bg)">
-        <span>${myRank}. ${me.name} (You)</span>
-        <span>${player.lives} lives</span>
-      </div>
-    `;
-    document.getElementById('daily-standings').innerHTML = standingsHTML + meHTML;
-  } else {
-    document.getElementById('daily-standings').innerHTML = standingsHTML;
-  }
+  document.getElementById('daily-standings').innerHTML = standingsHTML;
   
   // Highlights
   if (highlights.length > 0) {
