@@ -2266,6 +2266,22 @@ async function renderReveal(g){
 
 // ─── PLAYER WATCH ────────────────────────────────────────────────────────────
 async function watchGame(g){
+  // If daily summary is active, show that instead of watch screen
+  if(g.showDailySummary && g.showDailySummary.timestamp){
+    showDailySummary(g, g.showDailySummary.matches);
+    // Start polling to detect when host continues
+    startPolling(async()=>{
+      const fresh = await loadGame(me.code);
+      if(!fresh) return;
+      // If host cleared the summary flag, return to watch
+      if(!fresh.showDailySummary){
+        stopPolling();
+        watchGame(fresh);
+      }
+    }, 2200);
+    return;
+  }
+  
   show('screen-watch');
   startPresence();
   renderWatchScreen(g);
