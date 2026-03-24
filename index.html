@@ -2099,6 +2099,11 @@ function renderResultEntry(g,match,area){
         todaysMatches.push(f.currentMatchIdx);
       }
       
+      // Clear any existing daily summary broadcast (host moved to next day)
+      if(f.showDailySummary){
+        delete f.showDailySummary;
+      }
+      
       // Auto-populate KO bracket
       const curMatch=f.matches[f.currentMatchIdx];
       if(curMatch.group){
@@ -3289,6 +3294,9 @@ async function hostContinueFromSummary() {
   delete g.showDailySummary;
   await saveGame(g);
   
+  // Clear today's matches array for the next day
+  todaysMatches = [];
+  
   // Hide Complete Day button (will show again when new results entered)
   const completeDayBtn = document.getElementById('complete-day-btn');
   if(completeDayBtn) completeDayBtn.style.display = 'none';
@@ -3320,8 +3328,7 @@ async function completeDayAsHost(g) {
   // HOST ALSO SEES THE SUMMARY - prevents entering future results
   showDailySummary(g, todaysMatches);
   
-  // Clear today's matches for next session
-  todaysMatches = [];
+  // Don't clear todaysMatches yet - it will be cleared when host continues or enters next result
 }
 
 // Wire up Complete Day button
