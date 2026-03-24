@@ -3744,18 +3744,18 @@ function showDailySummary(g, matchIndices) {
             <span style="font-size:18px;">⚡</span>
             <span style="font-weight:600;font-size:14px;">${u.match.home} ${u.result.home}–${u.result.away} ${u.match.away}</span>
           </div>
-          <div style="font-size:12px;color:var(--muted);margin-bottom:4px;">
+          <div style="font-size:12px;color:rgba(255,255,255,0.65);margin-bottom:4px;">
             ${u.match.group ? 'Group ' + u.match.group : u.match.round} · Result: ${resultText}
           </div>
           <div style="display:flex;gap:12px;font-size:12px;">
             <div style="display:flex;align-items:center;gap:4px;">
               <span style="color:var(--red);">✕</span>
-              <span style="color:var(--muted);">Wrong:</span>
+              <span style="color:rgba(255,255,255,0.65);">Wrong:</span>
               <div style="background:var(--red);color:white;padding:2px 8px;border-radius:4px;font-weight:600;min-width:40px;text-align:center;">${u.wrongCount}/${u.totalPredictions}</div>
             </div>
             <div style="display:flex;align-items:center;gap:4px;">
               <span style="color:var(--green);">✓</span>
-              <span style="color:var(--muted);">Correct:</span>
+              <span style="color:rgba(255,255,255,0.65);">Correct:</span>
               <div style="background:var(--green);color:white;padding:2px 8px;border-radius:4px;font-weight:600;min-width:40px;text-align:center;">${u.correctCount}/${u.totalPredictions}</div>
             </div>
           </div>
@@ -3767,14 +3767,14 @@ function showDailySummary(g, matchIndices) {
       `<div style="margin-bottom:12px;font-size:14px;font-weight:600;color:var(--accent);">BIGGEST UPSET${upsets.length > 1 ? 'S' : ''}</div>` +
       upsetsHTML +
       (highlights.length > 0 ? `<div style="margin-top:16px;">${highlights.map(h => 
-        `<div style="padding:8px 0;color:var(--muted);font-size:13px;">• ${h}</div>`
+        `<div style="padding:8px 0;color:rgba(255,255,255,0.7);font-size:13px;">• ${h}</div>`
       ).join('')}</div>` : '');
   } else if (highlights.length > 0) {
     document.getElementById('daily-highlights').innerHTML = highlights.map(h => 
-      `<div style="padding:8px 0;color:var(--muted);font-size:13px;">• ${h}</div>`
+      `<div style="padding:8px 0;color:rgba(255,255,255,0.7);font-size:13px;">• ${h}</div>`
     ).join('');
   } else {
-    document.getElementById('daily-highlights').innerHTML = '<div style="color:var(--muted);font-size:13px;font-style:italic;">No major upsets today</div>';
+    document.getElementById('daily-highlights').innerHTML = '<div style="color:rgba(255,255,255,0.6);font-size:13px;font-style:italic;">No major upsets today</div>';
   }
   
   // What's next
