@@ -373,6 +373,7 @@
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
         <div class="scoreboard-title" style="margin:0">STANDINGS</div>
         <div style="display:flex;gap:7px">
+        <button class="btn btn-secondary btn-sm" id="view-schedule-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7">📅 Schedule</button>
         <button class="btn btn-secondary btn-sm" id="complete-day-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7;display:none">📊 Complete Day</button>
         <button class="btn btn-secondary btn-sm" id="open-ko-preds-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7;display:none">🎯 My Picks</button>
         <button class="btn btn-secondary btn-sm" id="undo-result-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7;display:none">↩ Undo</button>
@@ -548,45 +549,68 @@ function flag(t,size=32){
 
 // Get match date and time in UK timezone
 function getMatchDateTime(matchIdx, match) {
-  // Group stage matches - REAL UK BST TIMES from Sky Sports
+  // Group stage matches - REAL UK BST TIMES from BBC Sport
   if(match.group){
     const ukSchedule = {
-      0:'Wed 11 Jun 2026 • 20:00 BST', 1:'Fri 12 Jun 2026 • 03:00 BST',
-      2:'Fri 12 Jun 2026 • 20:00 BST', 3:'Sat 13 Jun 2026 • 02:00 BST',
-      4:'Sat 13 Jun 2026 • 20:00 BST', 5:'Sat 13 Jun 2026 • 23:00 BST',
+      // Thu 11 Jun
+      0:'Thu 11 Jun 2026 • 20:00 BST',
+      // Fri 12 Jun
+      1:'Fri 12 Jun 2026 • 03:00 BST', 2:'Fri 12 Jun 2026 • 20:00 BST',
+      // Sat 13 Jun
+      3:'Sat 13 Jun 2026 • 20:00 BST', 4:'Sat 13 Jun 2026 • 02:00 BST',
+      5:'Sat 13 Jun 2026 • 23:00 BST',
+      // Sun 14 Jun
       6:'Sun 14 Jun 2026 • 02:00 BST', 7:'Sun 14 Jun 2026 • 05:00 BST',
       8:'Sun 14 Jun 2026 • 18:00 BST', 9:'Sun 14 Jun 2026 • 21:00 BST',
+      // Mon 15 Jun
       10:'Mon 15 Jun 2026 • 00:00 BST', 11:'Mon 15 Jun 2026 • 03:00 BST',
-      12:'Mon 15 Jun 2026 • 17:00 BST', 13:'Mon 15 Jun 2026 • 20:00 BST',
-      14:'Mon 15 Jun 2026 • 23:00 BST', 15:'Tue 16 Jun 2026 • 02:00 BST',
-      16:'Tue 16 Jun 2026 • 20:00 BST', 17:'Tue 16 Jun 2026 • 23:00 BST',
+      12:'Mon 15 Jun 2026 • 20:00 BST', 13:'Mon 15 Jun 2026 • 17:00 BST',
+      14:'Mon 15 Jun 2026 • 23:00 BST',
+      // Tue 16 Jun
+      15:'Tue 16 Jun 2026 • 02:00 BST', 16:'Tue 16 Jun 2026 • 20:00 BST',
+      17:'Tue 16 Jun 2026 • 23:00 BST',
+      // Wed 17 Jun
       18:'Wed 17 Jun 2026 • 02:00 BST', 19:'Wed 17 Jun 2026 • 05:00 BST',
       20:'Wed 17 Jun 2026 • 18:00 BST', 21:'Wed 17 Jun 2026 • 21:00 BST',
+      // Thu 18 Jun
       22:'Thu 18 Jun 2026 • 00:00 BST', 23:'Thu 18 Jun 2026 • 03:00 BST',
       24:'Thu 18 Jun 2026 • 17:00 BST', 25:'Thu 18 Jun 2026 • 20:00 BST',
-      26:'Thu 18 Jun 2026 • 23:00 BST', 27:'Fri 19 Jun 2026 • 02:00 BST',
-      28:'Fri 19 Jun 2026 • 20:00 BST', 29:'Fri 19 Jun 2026 • 23:00 BST',
+      26:'Thu 18 Jun 2026 • 23:00 BST',
+      // Fri 19 Jun
+      27:'Fri 19 Jun 2026 • 02:00 BST', 28:'Fri 19 Jun 2026 • 20:00 BST',
+      29:'Fri 19 Jun 2026 • 23:00 BST',
+      // Sat 20 Jun
       30:'Sat 20 Jun 2026 • 02:00 BST', 31:'Sat 20 Jun 2026 • 05:00 BST',
-      32:'Sat 20 Jun 2026 • 18:00 BST', 33:'Sat 20 Jun 2026 • 21:00 BST',
+      32:'Sat 20 Jun 2026 • 21:00 BST', 33:'Sat 20 Jun 2026 • 18:00 BST',
+      // Sun 21 Jun
       34:'Sun 21 Jun 2026 • 01:00 BST', 35:'Sun 21 Jun 2026 • 05:00 BST',
-      36:'Sun 21 Jun 2026 • 17:00 BST', 37:'Sun 21 Jun 2026 • 20:00 BST',
-      38:'Sun 21 Jun 2026 • 23:00 BST', 39:'Mon 22 Jun 2026 • 02:00 BST',
-      40:'Mon 22 Jun 2026 • 18:00 BST', 41:'Mon 22 Jun 2026 • 22:00 BST',
+      36:'Sun 21 Jun 2026 • 20:00 BST', 37:'Sun 21 Jun 2026 • 17:00 BST',
+      38:'Sun 21 Jun 2026 • 23:00 BST',
+      // Mon 22 Jun
+      39:'Mon 22 Jun 2026 • 02:00 BST', 40:'Mon 22 Jun 2026 • 18:00 BST',
+      41:'Mon 22 Jun 2026 • 22:00 BST',
+      // Tue 23 Jun
       42:'Tue 23 Jun 2026 • 01:00 BST', 43:'Tue 23 Jun 2026 • 04:00 BST',
       44:'Tue 23 Jun 2026 • 18:00 BST', 45:'Tue 23 Jun 2026 • 21:00 BST',
+      // Wed 24 Jun
       46:'Wed 24 Jun 2026 • 00:00 BST', 47:'Wed 24 Jun 2026 • 03:00 BST',
       48:'Wed 24 Jun 2026 • 20:00 BST', 49:'Wed 24 Jun 2026 • 20:00 BST',
       50:'Wed 24 Jun 2026 • 23:00 BST', 51:'Wed 24 Jun 2026 • 23:00 BST',
+      // Thu 25 Jun
       52:'Thu 25 Jun 2026 • 02:00 BST', 53:'Thu 25 Jun 2026 • 02:00 BST',
       54:'Thu 25 Jun 2026 • 21:00 BST', 55:'Thu 25 Jun 2026 • 21:00 BST',
+      // Fri 26 Jun
       56:'Fri 26 Jun 2026 • 00:00 BST', 57:'Fri 26 Jun 2026 • 00:00 BST',
       58:'Fri 26 Jun 2026 • 03:00 BST', 59:'Fri 26 Jun 2026 • 03:00 BST',
-      60:'Fri 26 Jun 2026 • 20:00 BST', 61:'Fri 26 Jun 2026 • 20:00 BST',
-      62:'Sat 27 Jun 2026 • 01:00 BST', 63:'Sat 27 Jun 2026 • 01:00 BST',
-      64:'Sat 27 Jun 2026 • 04:00 BST', 65:'Sat 27 Jun 2026 • 04:00 BST',
-      66:'Sat 27 Jun 2026 • 22:00 BST', 67:'Sat 27 Jun 2026 • 22:00 BST',
-      68:'Sun 28 Jun 2026 • 00:30 BST', 69:'Sun 28 Jun 2026 • 00:30 BST',
-      70:'Sun 28 Jun 2026 • 03:00 BST', 71:'Sun 28 Jun 2026 • 03:00 BST',
+      60:'Fri 26 Jun 2026 • 20:00 BST',
+      // Sat 27 Jun
+      61:'Sat 27 Jun 2026 • 01:00 BST', 62:'Sat 27 Jun 2026 • 04:00 BST',
+      63:'Sat 27 Jun 2026 • 04:00 BST', 64:'Sat 27 Jun 2026 • 01:00 BST',
+      65:'Sat 27 Jun 2026 • 22:00 BST',
+      // Sun 28 Jun
+      66:'Sun 28 Jun 2026 • 03:00 BST', 67:'Sun 28 Jun 2026 • 00:30 BST',
+      68:'Sun 28 Jun 2026 • 00:30 BST', 69:'Sun 28 Jun 2026 • 03:00 BST',
+      70:'Sun 28 Jun 2026 • 22:00 BST', 71:'Sun 28 Jun 2026 • 22:00 BST',
     };
     return ukSchedule[matchIdx] || '';
   }
@@ -648,10 +672,10 @@ const GROUP_MATCHES=[
   {group:'A',home:'South Korea',away:'UEFA Path D'},
   // June 12 — Match 3 & 4
   {group:'B',home:'Canada',away:'UEFA Path A'},
-  {group:'D',home:'USA',away:'Paraguay'},
-  // June 13 — Match 5, 6, 7, 8
-  {group:'D',home:'Australia',away:'UEFA Path C'},
   {group:'B',home:'Qatar',away:'Switzerland'},
+  // June 13 — Match 5, 6, 7, 8
+  {group:'D',home:'USA',away:'Paraguay'},
+  {group:'D',home:'Australia',away:'UEFA Path C'},
   {group:'C',home:'Brazil',away:'Morocco'},
   {group:'C',home:'Haiti',away:'Scotland'},
   // June 14 — Match 9, 10, 11, 12
@@ -2661,10 +2685,142 @@ document.getElementById('open-history-btn').addEventListener('click', async () =
   renderHistoryList(g);
 });
 
+document.getElementById('view-schedule-btn').addEventListener('click', async () => {
+  const g = await loadGame(me.code);
+  if (!g) return;
+  showScheduleModal(g);
+});
+
 document.getElementById('history-back-btn').addEventListener('click', () => {
   if (historyReturnFn) historyReturnFn();
   else show('screen-game');
 });
+
+function renderHistoryList(g) {
+  const results = g.results || {};
+  const playedIdxs = Object.keys(results).map(Number).filter(n=>!isNaN(n)&&results[n]!=null).sort((a, b) => a - b);
+
+// Show schedule modal with all matches organized by date
+function showScheduleModal(g) {
+  // Create modal overlay
+  const overlay = document.createElement('div');
+  overlay.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.85);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    padding: 20px;
+    overflow-y: auto;
+  `;
+  
+  // Create modal content
+  const modal = document.createElement('div');
+  modal.style.cssText = `
+    background: var(--bg);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 12px;
+    max-width: 800px;
+    width: 100%;
+    max-height: 90vh;
+    overflow-y: auto;
+    padding: 24px;
+  `;
+  
+  // Group matches by date
+  const matchesByDate = {};
+  g.matches.forEach((match, idx) => {
+    const dateTime = getMatchDateTime(idx, match);
+    if (!dateTime) return;
+    
+    // Extract just the date part (e.g., "Thu 11 Jun 2026")
+    const datePart = dateTime.split('•')[0].trim();
+    
+    if (!matchesByDate[datePart]) {
+      matchesByDate[datePart] = [];
+    }
+    
+    matchesByDate[datePart].push({
+      idx,
+      match,
+      dateTime,
+      time: dateTime.split('•')[1]?.trim() || ''
+    });
+  });
+  
+  // Sort dates chronologically
+  const sortedDates = Object.keys(matchesByDate).sort((a, b) => {
+    const dateA = new Date(a);
+    const dateB = new Date(b);
+    return dateA - dateB;
+  });
+  
+  // Build HTML
+  let html = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+      <h2 style="margin:0;font-size:20px;font-weight:700">📅 FULL TOURNAMENT SCHEDULE</h2>
+      <button id="close-schedule-btn" style="background:none;border:none;color:var(--muted);font-size:24px;cursor:pointer;padding:0;line-height:1">&times;</button>
+    </div>
+    <div style="color:var(--muted);font-size:12px;margin-bottom:20px">All times shown in UK BST • ${g.matches.length} total matches</div>
+  `;
+  
+  sortedDates.forEach(date => {
+    const matches = matchesByDate[date];
+    html += `
+      <div style="margin-bottom:24px">
+        <div style="font-weight:700;font-size:14px;margin-bottom:12px;color:var(--accent);letter-spacing:0.5px">${date.toUpperCase()}</div>
+    `;
+    
+    matches.forEach(({idx, match, dateTime, time}) => {
+      const result = g.results?.[idx];
+      const isComplete = result !== undefined && result !== null;
+      const statusIcon = isComplete ? '✅' : (idx < g.currentMatchIdx ? '⏭️' : (idx === g.currentMatchIdx ? '▶️' : '⏱️'));
+      
+      html += `
+        <div style="display:flex;align-items:center;gap:12px;padding:8px 12px;margin-bottom:6px;background:rgba(255,255,255,0.03);border-radius:6px;border-left:3px solid ${isComplete ? 'var(--accent)' : 'rgba(255,255,255,0.1)'}">
+          <div style="font-size:11px;color:var(--muted);min-width:60px">${time}</div>
+          <div style="flex:1;display:flex;align-items:center;gap:8px;font-size:13px">
+            <span>${flag(match.home, 16)}</span>
+            <span style="font-weight:${isComplete?'600':'400'}">${match.home}</span>
+            ${isComplete 
+              ? `<span style="color:var(--accent);font-weight:700;margin:0 4px">${result.home}–${result.away}</span>` 
+              : `<span style="color:var(--muted);margin:0 4px">vs</span>`
+            }
+            <span style="font-weight:${isComplete?'600':'400'}">${match.away}</span>
+            <span>${flag(match.away, 16)}</span>
+          </div>
+          <div style="font-size:10px;color:var(--muted);min-width:60px;text-align:right">
+            ${match.group ? 'Group ' + match.group : match.round}
+          </div>
+          <div style="font-size:14px">${statusIcon}</div>
+        </div>
+      `;
+    });
+    
+    html += `</div>`;
+  });
+  
+  modal.innerHTML = html;
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
+  
+  // Close button handler
+  document.getElementById('close-schedule-btn').addEventListener('click', () => {
+    document.body.removeChild(overlay);
+  });
+  
+  // Click outside to close
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) {
+      document.body.removeChild(overlay);
+    }
+  });
+}
 
 function renderHistoryList(g) {
   const results = g.results || {};
