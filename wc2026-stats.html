@@ -205,7 +205,10 @@
     <div id="streak-stats"></div>
     <div class="section-title">BIGGEST UPSET</div>
     <div id="biggest-upset"></div>
-    <div class="section-title">EXACT SCORE PREDICTIONS 🎯</div>
+    <div class="section-title" style="cursor:pointer;user-select:none;display:flex;align-items:center;justify-content:space-between" id="exact-scores-header">
+      <span>EXACT SCORE PREDICTIONS 🎯</span>
+      <span style="font-size:11px;color:var(--muted);transition:transform 0.2s" id="exact-scores-arrow">▼</span>
+    </div>
     <div id="exact-scores"></div>
     <div class="section-title">SURVIVAL PROBABILITY</div>
     <div id="survival-prob"></div>
@@ -816,6 +819,20 @@ document.addEventListener('DOMContentLoaded', () => {
       if(!toggle.checked){
         clearH2HSelection();
       }
+    });
+  }
+  
+  // Exact scores collapse/expand
+  const exactScoresHeader = document.getElementById('exact-scores-header');
+  const exactScoresContent = document.getElementById('exact-scores');
+  const exactScoresArrow = document.getElementById('exact-scores-arrow');
+  
+  if(exactScoresHeader && exactScoresContent && exactScoresArrow){
+    exactScoresHeader.addEventListener('click', () => {
+      const isCollapsed = exactScoresContent.style.display === 'none';
+      exactScoresContent.style.display = isCollapsed ? 'block' : 'none';
+      exactScoresArrow.style.transform = isCollapsed ? 'rotate(0deg)' : 'rotate(-90deg)';
+      exactScoresArrow.textContent = isCollapsed ? '▼' : '▶';
     });
   }
 });
