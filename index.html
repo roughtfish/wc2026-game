@@ -3727,6 +3727,35 @@ function showDailySummary(g, matchIndices) {
     highlights.push(`✨ Perfect today: ${perfectPlayers.join(', ')}`);
   }
   
+  // 🏴󠁧󠁢󠁥󠁮󠁧󠁿 National Traitors - Anyone who predicted England to lose
+  const traitors = [];
+  matchIndices.forEach(idx => {
+    const match = g.matches[idx];
+    const result = g.results?.[idx];
+    if(!match || !result) return;
+    
+    // Check if England was playing
+    const englandHome = match.home === 'England';
+    const englandAway = match.away === 'England';
+    if(!englandHome && !englandAway) return;
+    
+    g.players.forEach(p => {
+      const pred = g.predictions[idx]?.[p.name];
+      if(pred === null || pred === undefined) return;
+      
+      // Check if they predicted England to lose
+      const predictedEnglandLoss = (englandHome && pred === 'away') || (englandAway && pred === 'home');
+      
+      if(predictedEnglandLoss && !traitors.includes(p.name)){
+        traitors.push(p.name);
+      }
+    });
+  });
+  
+  if(traitors.length > 0){
+    highlights.push(`🏴󠁧󠁢󠁥󠁮󠁧󠁿⚠️ National traitor${traitors.length > 1 ? 's' : ''}: ${traitors.join(', ')} (predicted England to lose!)`);
+  }
+  
   // Populate summary screen
   document.getElementById('daily-record').textContent = `${correct}-${wrong}`;
   document.getElementById('daily-record').style.color = correct > wrong ? 'var(--green)' : wrong > correct ? 'var(--red)' : 'var(--accent)';
