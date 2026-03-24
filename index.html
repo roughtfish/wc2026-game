@@ -408,6 +408,7 @@
         <div style="display:flex;gap:6px">
           <button class="btn btn-secondary btn-sm" id="open-watch-group-preds-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7;display:none">📋 My Group Picks</button>
           <button class="btn btn-secondary btn-sm" id="open-watch-ko-preds-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7;display:none">🎯 My KO Picks</button>
+          <button class="btn btn-secondary btn-sm" id="player-settings-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7">⚙️ Settings</button>
           <button class="btn btn-secondary btn-sm" id="watch-quit-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7;color:var(--red);border-color:rgba(239,68,68,0.3)">✕ Quit</button>
         </div>
       </div>
@@ -415,6 +416,34 @@
     </div>
     <div class="progress-bar-wrap"><div class="progress-bar-fill" id="watch-progress-bar" style="width:0%"></div></div>
     <div id="watch-area"></div>
+  </div>
+
+  <!-- Player Settings Modal -->
+  <div id="player-settings-modal" class="modal" style="display:none">
+    <div class="modal-content" style="max-width:420px">
+      <h2 style="margin-bottom:20px;font-size:18px">⚙️ Player Settings</h2>
+      
+      <div style="background:var(--surface2);border-radius:10px;padding:16px;margin-bottom:16px">
+        <h3 style="font-size:14px;margin-bottom:12px;color:var(--accent)">📱 WhatsApp Notifications</h3>
+        <p style="font-size:12px;color:var(--muted);margin-bottom:14px">Get notified when the host completes each game day</p>
+        
+        <label style="display:flex;align-items:center;gap:10px;margin-bottom:12px;cursor:pointer">
+          <input type="checkbox" id="whatsapp-opt-in" style="width:18px;height:18px;cursor:pointer">
+          <span style="font-size:13px">Enable WhatsApp notifications</span>
+        </label>
+        
+        <div id="whatsapp-phone-input" style="display:none">
+          <label style="display:block;font-size:11px;color:var(--muted);margin-bottom:6px;letter-spacing:1px">PHONE NUMBER (with country code)</label>
+          <input type="tel" id="whatsapp-phone" placeholder="+1 234 567 8900" style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--text);font-size:14px;margin-bottom:8px">
+          <p style="font-size:11px;color:var(--muted);font-style:italic">Example: +1 for USA, +44 for UK, +91 for India</p>
+        </div>
+      </div>
+      
+      <div style="display:flex;gap:10px">
+        <button class="btn btn-secondary" onclick="closePlayerSettings()" style="flex:1">Cancel</button>
+        <button class="btn btn-primary" onclick="savePlayerSettings()" style="flex:1">Save Settings</button>
+      </div>
+    </div>
   </div>
 
   <!-- WINNER -->
@@ -470,7 +499,10 @@
       <div id="daily-next" style="color:var(--muted);font-size:13px;text-align:center;padding:16px;background:var(--bg);border-radius:8px;margin-bottom:20px;"></div>
       
       <div id="daily-waiting-msg" style="text-align:center;color:var(--muted);font-size:12px;font-style:italic;">Waiting for host to continue...</div>
-      <button class="btn btn-primary" id="daily-continue-btn" onclick="hostContinueFromSummary()" style="display:none;">CONTINUE TO NEXT DAY</button>
+      
+      <div id="daily-host-actions" style="display:none;">
+        <button class="btn btn-primary" id="daily-continue-btn" onclick="hostContinueFromSummary()">CONTINUE TO NEXT DAY</button>
+      </div>
     </div>
   </div>
 </div>
@@ -3934,6 +3966,143 @@ async function hostContinueFromSummary() {
   renderGameHost(g);
 }
 
+// ─── PLAYER SETTINGS ─────────────────────────────────────────────────────────
+
+// Open player settings modal
+document.getElementById('player-settings-btn')?.addEventListener('click', async () => {
+  const g = await loadGame(me.code);
+  if(!g) return;
+  
+  // Load saved settings
+  const playerData = g.players.find(p => p.name === me.name);
+  const whatsappEnabled = playerData?.whatsappNotify || false;
+  const whatsappPhone = playerData?.whatsappPhone || '';
+  
+  document.getElementById('whatsapp-opt-in').checked = whatsappEnabled;
+  document.getElementById('whatsapp-phone').value = whatsappPhone;
+  document.getElementById('whatsapp-phone-input').style.display = whatsappEnabled ? 'block' : 'none';
+  
+  document.getElementById('player-settings-modal').style.display = 'flex';
+});
+
+// Toggle phone input visibility
+document.getElementById('whatsapp-opt-in')?.addEventListener('change', (e) => {
+  document.getElementById('whatsapp-phone-input').style.display = e.target.checked ? 'block' : 'none';
+});
+
+function closePlayerSettings() {
+  document.getElementById('player-settings-modal').style.display = 'none';
+}
+
+async function savePlayerSettings() {
+  const g = await loadGame(me.code);
+  if(!g) return;
+  
+  const whatsappEnabled = document.getElementById('whatsapp-opt-in').checked;
+  const whatsappPhone = document.getElementById('whatsapp-phone').value.trim();
+  
+  // Validate phone number if enabled
+  if(whatsappEnabled && !whatsappPhone) {
+    alert('Please enter your phone number with country code (e.g., +1 234 567 8900)');
+    return;
+  }
+  
+  // Basic validation: must start with + and contain digits
+  if(whatsappEnabled && (!whatsappPhone.startsWith('+') || !/\+\d+/.test(whatsappPhone.replace(/\s/g, '')))) {
+    alert('Phone number must start with + and include country code (e.g., +1 for USA, +44 for UK)');
+    return;
+  }
+  
+  // Save to player data
+  const playerData = g.players.find(p => p.name === me.name);
+  if(playerData) {
+    playerData.whatsappNotify = whatsappEnabled;
+    playerData.whatsappPhone = whatsappEnabled ? whatsappPhone : '';
+    await saveGame(g);
+    closePlayerSettings();
+    alert('Settings saved! ' + (whatsappEnabled ? 'You will receive WhatsApp notifications when game days are completed.' : 'WhatsApp notifications disabled.'));
+  }
+}
+
+// ─── WHATSAPP NOTIFICATION SYSTEM ────────────────────────────────────────────
+
+// CONFIGURATION: Set this to your deployed serverless function URL
+// See send-whatsapp.js for deployment instructions
+const WHATSAPP_API_ENDPOINT = ''; // e.g., 'https://your-app.vercel.app/api/send-whatsapp'
+
+// If API endpoint is not configured, fall back to browser-based method
+const USE_API_NOTIFICATIONS = WHATSAPP_API_ENDPOINT !== '';
+
+async function sendWhatsAppNotifications(g) {
+  // Get all players who opted in to WhatsApp notifications
+  const notifyPlayers = g.players.filter(p => p.whatsappNotify && p.whatsappPhone && p.name !== me.name);
+  
+  if(notifyPlayers.length === 0) {
+    return; // No players opted in
+  }
+  
+  // Construct message
+  const gameCode = g.code;
+  const dayCompleted = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+  const message = `🏆 Kamikaze Football WC'26\n\n📊 Game Day Complete!\n${dayCompleted}\n\nGame Code: ${gameCode}\n\nCheck your results now!\n\nGood luck! ⚽`;
+  
+  if (USE_API_NOTIFICATIONS) {
+    // METHOD 1: Use Twilio API (requires server endpoint)
+    // Send notifications in parallel
+    const sendPromises = notifyPlayers.map(async (player) => {
+      try {
+        const phone = player.whatsappPhone.replace(/\s/g, '');
+        const response = await fetch(WHATSAPP_API_ENDPOINT, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ to: phone, message })
+        });
+        
+        const result = await response.json();
+        if (!result.success) {
+          console.error(`Failed to send to ${player.name}:`, result.error);
+        }
+        return result.success;
+      } catch (error) {
+        console.error(`Error sending to ${player.name}:`, error);
+        return false;
+      }
+    });
+    
+    const results = await Promise.all(sendPromises);
+    const successCount = results.filter(r => r).length;
+    
+    if (successCount > 0) {
+      showNotification(`✅ Sent ${successCount} WhatsApp notification${successCount > 1 ? 's' : ''}`, 'var(--green)');
+    } else {
+      showNotification('❌ Failed to send WhatsApp notifications', 'var(--red)');
+    }
+  } else {
+    // METHOD 2: Browser-based fallback (opens WhatsApp Web for each player)
+    // Note: This opens multiple tabs from the HOST's device, which is not ideal
+    // but works as a fallback without server infrastructure
+    
+    showNotification(`📱 Opening WhatsApp for ${notifyPlayers.length} player${notifyPlayers.length > 1 ? 's' : ''}...`, 'var(--accent)');
+    
+    notifyPlayers.forEach((player, index) => {
+      setTimeout(() => {
+        const phone = player.whatsappPhone.replace(/\s/g, '');
+        const encodedMessage = encodeURIComponent(message);
+        const whatsappUrl = `https://wa.me/${phone}?text=${encodedMessage}`;
+        window.open(whatsappUrl, '_blank');
+      }, index * 1500); // Stagger by 1.5 seconds to avoid overwhelming browser
+    });
+  }
+}
+
+function showNotification(text, color) {
+  const notification = document.createElement('div');
+  notification.style.cssText = `position:fixed;top:20px;right:20px;background:${color};color:#fff;padding:12px 20px;border-radius:8px;font-size:13px;z-index:10000;box-shadow:0 4px 12px rgba(0,0,0,0.3);animation:slideIn 0.3s ease`;
+  notification.textContent = text;
+  document.body.appendChild(notification);
+  setTimeout(() => notification.remove(), 4000);
+}
+
 // Add "Complete Day" button functionality
 // This will be called when host marks a day as complete
 async function completeDayAsHost(g) {
@@ -3967,6 +4136,9 @@ async function completeDayAsHost(g) {
   // Broadcast to all players to show summary
   g.showDailySummary = { matches: calculatedTodaysMatches, timestamp: Date.now() };
   await saveGame(g);
+  
+  // Send WhatsApp notifications to all opted-in players
+  await sendWhatsAppNotifications(g);
   
   // HOST ALSO SEES THE SUMMARY
   showDailySummary(g, calculatedTodaysMatches);
