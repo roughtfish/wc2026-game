@@ -138,6 +138,25 @@
   .team-pickers-list{display:flex;flex-wrap:wrap;gap:6px}
   .team-picker-badge{font-size:11px;background:var(--surface);padding:4px 8px;border-radius:6px;border:1px solid var(--border);white-space:nowrap}
 
+  /* Score Predictors */
+  .score-predictors-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:22px}
+  .score-predictor-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px;cursor:pointer;transition:all 0.15s;position:relative;text-align:center}
+  .score-predictor-card:hover{border-color:var(--accent);background:rgba(232,184,75,0.04);transform:translateY(-2px)}
+  .score-predictor-rank{font-family:'Bebas Neue',sans-serif;font-size:14px;color:var(--muted);margin-bottom:4px}
+  .score-predictor-rank.gold{color:var(--accent)}
+  .score-predictor-rank.silver{color:#94a3b8}
+  .score-predictor-rank.bronze{color:#b45309}
+  .score-predictor-name{font-weight:600;font-size:14px;margin-bottom:8px}
+  .score-predictor-count{font-family:'Bebas Neue',sans-serif;font-size:32px;color:var(--accent);letter-spacing:1px;line-height:1}
+  .score-predictor-label{font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-top:4px}
+  .score-predictions-popup{position:absolute;top:calc(100% + 8px);left:0;right:0;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px;z-index:10;box-shadow:0 4px 12px rgba(0,0,0,0.3);display:none;max-height:300px;overflow-y:auto;text-align:left}
+  .score-predictor-card:hover .score-predictions-popup{display:block}
+  .score-prediction-item{font-size:11px;padding:6px 8px;margin-bottom:4px;background:var(--surface);border-radius:6px;border:1px solid rgba(45,212,191,0.2)}
+  .score-prediction-item:last-child{margin-bottom:0}
+  .score-prediction-teams{font-weight:600;margin-bottom:2px}
+  .score-prediction-score{color:var(--accent2);font-family:'Bebas Neue',sans-serif;font-size:13px}
+  .score-prediction-meta{color:var(--muted);font-size:10px;margin-top:2px}
+
   /* Player modal */
   .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:100;display:flex;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(4px)}
   .modal{background:var(--surface);border:1px solid var(--border);border-radius:16px;width:100%;max-width:520px;max-height:85vh;overflow-y:auto}
@@ -218,6 +237,8 @@
     <div class="leaderboard" id="leaderboard"></div>
     <div class="section-title">STREAKS 🔥</div>
     <div id="streak-stats"></div>
+    <div class="section-title">BEST SCORE PREDICTORS 🎯</div>
+    <div id="score-predictors"></div>
     <div class="section-title">BIGGEST UPSET</div>
     <div id="biggest-upset"></div>
     <div class="section-title" style="cursor:pointer;user-select:none;display:flex;align-items:center;justify-content:space-between" id="exact-scores-header">
@@ -364,6 +385,7 @@ function render(g){
   if(subEl)subEl.innerHTML=`Live Stats &nbsp;·&nbsp; <span class="status-chip ${statusClass}">${statusLabel}</span>`;
   renderLeaderboard(g);
   renderStreakStats(g);
+  renderScorePredictors(g);
   renderBiggestUpset(g);
   renderExactScores(g);
   renderMostPickedTeams(g);
@@ -502,6 +524,78 @@ function renderStreakStats(g){
       `}
     </div>
   </div>`;
+}
+
+function renderScorePredictors(g){
+  const el=document.getElementById('score-predictors');
+  if(!el)return;
+  
+  const players=Array.isArray(g.players)?g.players:Object.values(g.players||{});
+  const results=g.results||{};
+  const playedIdxs=Object.keys(results).map(Number).filter(n=>!isNaN(n)&&results[n]!=null).sort((a,b)=>a-b);
+  
+  if(playedIdxs.length===0){
+    el.innerHTML='<div style="color:var(--muted);font-size:13px;padding:12px 0">No matches played yet</div>';
+    return;
+  }
+  
+  // Count exact score predictions per player
+  const playerScores=players.map(p=>{
+    const exactScores=[];
+    
+    playedIdxs.forEach(idx=>{
+      const result=g.results[idx];
+      const scoreGuess=g.predictions[idx]?.[p.name+'_score'];
+      
+      if(scoreGuess&&scoreGuess.home===result.home&&scoreGuess.away===result.away){
+        exactScores.push({
+          idx,
+          match:g.matches[idx],
+          result,
+          score:`${result.home}–${result.away}`
+        });
+      }
+    });
+    
+    return{
+      name:p.name,
+      count:exactScores.length,
+      predictions:exactScores
+    };
+  }).filter(p=>p.count>0).sort((a,b)=>b.count-a.count);
+  
+  if(playerScores.length===0){
+    el.innerHTML='<div style="color:var(--muted);font-size:13px;padding:12px 0;font-style:italic">No exact scores predicted yet</div>';
+    return;
+  }
+  
+  el.innerHTML=`<div class="score-predictors-grid">${playerScores.map((p,i)=>{
+    let rankClass='';
+    let rankLabel=`#${i+1}`;
+    if(i===0){rankClass='gold';rankLabel='🥇';}
+    else if(i===1){rankClass='silver';rankLabel='🥈';}
+    else if(i===2){rankClass='bronze';rankLabel='🥉';}
+    
+    const predictionsList=p.predictions.map(pred=>{
+      const round=pred.match.group?'Group '+pred.match.group:(pred.match.round||'KO');
+      return`<div class="score-prediction-item">
+        <div class="score-prediction-teams">${pred.match.home} vs ${pred.match.away}</div>
+        <div class="score-prediction-score">${pred.score}</div>
+        <div class="score-prediction-meta">${round}</div>
+      </div>`;
+    }).join('');
+    
+    return`<div class="score-predictor-card">
+      <div class="score-predictor-rank ${rankClass}">${rankLabel}</div>
+      <div class="score-predictor-name">${p.name}</div>
+      <div class="score-predictor-count">${p.count}</div>
+      <div class="score-predictor-label">Exact Score${p.count>1?'s':''}</div>
+      <div class="score-predictions-popup">
+        <div style="font-size:10px;color:var(--muted);margin-bottom:8px;letter-spacing:1px;text-transform:uppercase">Exact Score Predictions</div>
+        ${predictionsList}
+      </div>
+    </div>`;
+  }).join('')}</div>`;
 }
 
 function renderBiggestUpset(g){
