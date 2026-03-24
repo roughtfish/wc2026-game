@@ -3576,7 +3576,22 @@ async function hostContinueFromSummary() {
 // Add "Complete Day" button functionality
 // This will be called when host marks a day as complete
 async function completeDayAsHost(g) {
-  if (todaysMatches.length === 0) {
+  // Calculate today's matches from game state instead of relying on global variable
+  const currentMatch = g.matches[g.currentMatchIdx];
+  const currentMatchDate = getMatchDateTime(g.currentMatchIdx, currentMatch);
+  
+  const calculatedTodaysMatches = [];
+  if(g.results){
+    Object.keys(g.results).forEach(idx => {
+      const matchIdx = parseInt(idx);
+      const match = g.matches[matchIdx];
+      if(match && getMatchDateTime(matchIdx, match) === currentMatchDate){
+        calculatedTodaysMatches.push(matchIdx);
+      }
+    });
+  }
+  
+  if (calculatedTodaysMatches.length === 0) {
     alert('No matches entered today. Enter at least one result first.');
     return;
   }
@@ -3585,17 +3600,18 @@ async function completeDayAsHost(g) {
   if (!g.completedDays) g.completedDays = [];
   g.completedDays.push({
     date: new Date().toISOString(),
-    matches: [...todaysMatches]
+    matches: [...calculatedTodaysMatches]
   });
   
-  // Broadcast to all players to show summary (works for both real and AI players)
-  g.showDailySummary = { matches: todaysMatches, timestamp: Date.now() };
+  // Broadcast to all players to show summary
+  g.showDailySummary = { matches: calculatedTodaysMatches, timestamp: Date.now() };
   await saveGame(g);
   
-  // HOST ALSO SEES THE SUMMARY - prevents entering future results
-  showDailySummary(g, todaysMatches);
+  // HOST ALSO SEES THE SUMMARY
+  showDailySummary(g, calculatedTodaysMatches);
   
-  // Don't clear todaysMatches yet - it will be cleared when host continues or enters next result
+  // Clear the global todaysMatches variable for next day
+  todaysMatches = [];
 }
 
 // Wire up Complete Day button
