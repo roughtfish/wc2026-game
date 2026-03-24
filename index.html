@@ -2192,6 +2192,7 @@ async function renderReveal(g){
     <div>${(Array.isArray(g.players)?g.players:Object.values(g.players||{})).map(p=>{const v=preds[p.name];const ok=v===actual;const sc=preds[p.name+'_score'];const scoreOk=sc&&sc.home===r.home&&sc.away===r.away;return`<div class="pred-recap-item"><span class="pred-name">${p.name}</span><span class="pred-choice">${v==='home'?flag(match.home,16)+' '+match.home:v==='away'?flag(match.away,16)+' '+match.away:'<span style="font-weight:900">=</span> Draw'}${sc?` <span style="font-size:10px;color:var(--muted)">(${sc.home}–${sc.away}${scoreOk?' ❤️+1':''})</span>`:''}</span><span>${ok?'✅':'❌'}</span></div>`;}).join('')}</div>
     <div style="display:flex;gap:9px;margin-top:12px;">
       <button class="btn-next" id="correct-result-btn" style="flex:0 0 auto;width:auto;padding:12px 16px;font-size:13px;color:var(--muted);border-color:rgba(255,255,255,0.1)">✎ Edit Result</button>
+      <button class="btn btn-secondary btn-sm" id="reveal-complete-day-btn" style="display:none;flex:0 0 auto;padding:12px 16px;font-size:11px;letter-spacing:1px;opacity:0.7">📊 Complete Day</button>
       <button class="btn-next" id="next-match-btn" style="flex:1">${alive.length<=1?'SEE RESULTS 🏆':(()=>{
         const nx=g.matches[g.currentMatchIdx+1];
         const cur=g.matches[g.currentMatchIdx];
@@ -2252,6 +2253,38 @@ async function renderReveal(g){
     await saveGame(f);
     renderGameHost(f);
   });
+  
+  // Show/style Complete Day button on reveal screen
+  const revealCompleteDayBtn = area.querySelector('#reveal-complete-day-btn');
+  if(revealCompleteDayBtn && todaysMatches.length > 0){
+    revealCompleteDayBtn.style.display = 'flex';
+    
+    // Check if this is the last match of the current day
+    const currentMatchDate = getMatchDateTime(g.currentMatchIdx, match);
+    let isLastMatchOfDay = false;
+    
+    if(g.currentMatchIdx < g.matches.length - 1){
+      const nextMatch = g.matches[g.currentMatchIdx + 1];
+      const nextMatchDate = getMatchDateTime(g.currentMatchIdx + 1, nextMatch);
+      isLastMatchOfDay = currentMatchDate !== nextMatchDate;
+    } else {
+      isLastMatchOfDay = true;
+    }
+    
+    // Make button prominent if this is the last match of the day
+    if(isLastMatchOfDay){
+      revealCompleteDayBtn.style.background = 'var(--accent)';
+      revealCompleteDayBtn.style.color = 'var(--bg)';
+      revealCompleteDayBtn.style.fontWeight = '700';
+      revealCompleteDayBtn.style.opacity = '1';
+      revealCompleteDayBtn.style.animation = 'pulse 2s ease-in-out infinite';
+    }
+    
+    revealCompleteDayBtn.addEventListener('click', async()=>{
+      const fresh = await loadGame(me.code);
+      await completeDayAsHost(fresh);
+    });
+  }
 }
 
 // ─── PLAYER WATCH ────────────────────────────────────────────────────────────
