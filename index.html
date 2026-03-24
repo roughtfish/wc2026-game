@@ -374,6 +374,7 @@
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
         <div class="scoreboard-title" style="margin:0">STANDINGS</div>
         <div style="display:flex;gap:7px">
+        <button class="btn btn-secondary btn-sm" id="set-rival-btn-host" style="font-size:11px;letter-spacing:1px;opacity:0.7">⚔️ Set Rival</button>
         <button class="btn btn-secondary btn-sm" id="view-schedule-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7">📅 Schedule</button>
         <button class="btn btn-secondary btn-sm" id="complete-day-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7;display:none">📊 Complete Day</button>
         <button class="btn btn-secondary btn-sm" id="open-ko-preds-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7;display:none">🎯 My Picks</button>
@@ -832,6 +833,23 @@ function autoFillPredictions(g){
     g.bulkSubmitted[p.name]=true;
     g.koBulkSubmitted[p.name]=true;
   });
+  
+  // Auto-assign rivals for test/sim mode (each player picks random other player)
+  g.players.forEach(p => {
+    const otherPlayers = g.players.filter(op => op.name !== p.name);
+    if(otherPlayers.length > 0){
+      const randomRival = otherPlayers[Math.floor(Math.random() * otherPlayers.length)];
+      p.currentRival = randomRival.name;
+    }
+  });
+  
+  // Initialize rival victories tracking
+  if(!g.rivalVictories){
+    g.rivalVictories = {};
+    g.players.forEach(p => {
+      g.rivalVictories[p.name] = 0;
+    });
+  }
 }
 
 function autoFillKORound(g, round){
@@ -4230,8 +4248,49 @@ async function hostContinueFromSummary() {
 
 // ─── RIVAL SYSTEM ────────────────────────────────────────────────────────────
 
+// Reassign rivals randomly in test/sim mode (called periodically)
+function reassignRivalsInTestMode(g) {
+  if(g.mode !== 'test') return;
+  
+  // 30% chance each player changes rival each day in test mode
+  g.players.forEach(p => {
+    if(Math.random() < 0.3) {
+      const otherPlayers = g.players.filter(op => op.name !== p.name);
+      if(otherPlayers.length > 0){
+        const randomRival = otherPlayers[Math.floor(Math.random() * otherPlayers.length)];
+        p.currentRival = randomRival.name;
+      }
+    }
+  });
+}
+
 // Open rival selection modal
 document.getElementById('set-rival-btn')?.addEventListener('click', async () => {
+  const g = await loadGame(me.code);
+  if(!g) return;
+  
+  // Populate dropdown with other players
+  const select = document.getElementById('rival-select');
+  const otherPlayers = g.players.filter(p => p.name !== me.name);
+  
+  select.innerHTML = '<option value="">-- Choose a player --</option>' +
+    otherPlayers.map(p => `<option value="${p.name}">${p.name}</option>`).join('');
+  
+  // Show current rival if set
+  const myPlayer = g.players.find(p => p.name === me.name);
+  if(myPlayer && myPlayer.currentRival){
+    document.getElementById('current-rival-display').style.display = 'block';
+    document.getElementById('current-rival-name').textContent = myPlayer.currentRival;
+    select.value = myPlayer.currentRival;
+  } else {
+    document.getElementById('current-rival-display').style.display = 'none';
+  }
+  
+  document.getElementById('rival-modal').style.display = 'flex';
+});
+
+// Also add listener for host button
+document.getElementById('set-rival-btn-host')?.addEventListener('click', async () => {
   const g = await loadGame(me.code);
   if(!g) return;
   
@@ -4311,6 +4370,10 @@ async function completeDayAsHost(g) {
   
   // Broadcast to all players to show summary
   g.showDailySummary = { matches: calculatedTodaysMatches, timestamp: Date.now() };
+  
+  // In test mode, occasionally reassign rivals for next day
+  reassignRivalsInTestMode(g);
+  
   await saveGame(g);
   
   // HOST ALSO SEES THE SUMMARY
