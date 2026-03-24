@@ -126,14 +126,14 @@
   /* Most Picked Teams */
   .team-picks-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin-bottom:22px}
   .team-pick-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px;cursor:pointer;transition:all 0.15s;position:relative}
-  .team-pick-card:hover{border-color:var(--accent2);background:rgba(45,212,191,0.04);transform:translateY(-2px)}
+  .team-pick-card:hover{border-color:var(--accent2);background:rgba(45,212,191,0.04);transform:translateY(-2px);z-index:20}
   .team-pick-header{display:flex;align-items:center;gap:10px;margin-bottom:8px}
   .team-pick-flag{width:24px;height:24px;object-fit:cover;border-radius:4px}
   .team-pick-name{font-weight:600;font-size:14px;flex:1}
   .team-pick-count{font-family:'Bebas Neue',sans-serif;font-size:20px;color:var(--accent2);letter-spacing:1px}
   .team-pick-bar-wrap{height:6px;background:var(--surface2);border-radius:3px;overflow:hidden;margin-top:8px}
   .team-pick-bar{height:100%;background:linear-gradient(90deg,var(--accent2),var(--accent));border-radius:3px;transition:width 0.3s}
-  .team-pickers-popup{position:absolute;top:calc(100% + 8px);left:0;right:0;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;z-index:10;box-shadow:0 4px 12px rgba(0,0,0,0.3);display:none}
+  .team-pickers-popup{position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;z-index:30;box-shadow:0 8px 24px rgba(0,0,0,0.5);display:none;min-width:220px;max-width:300px}
   .team-pick-card:hover .team-pickers-popup{display:block}
   .team-pickers-list{display:flex;flex-wrap:wrap;gap:6px}
   .team-picker-badge{font-size:11px;background:var(--surface);padding:4px 8px;border-radius:6px;border:1px solid var(--border);white-space:nowrap}
