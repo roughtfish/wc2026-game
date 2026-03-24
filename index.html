@@ -467,7 +467,8 @@
       <!-- What's Next -->
       <div id="daily-next" style="color:var(--muted);font-size:13px;text-align:center;padding:16px;background:var(--bg);border-radius:8px;margin-bottom:20px;"></div>
       
-      <button class="btn btn-primary" onclick="closeDailySummary()">CONTINUE</button>
+      <div id="daily-waiting" style="text-align:center;color:var(--muted);font-size:12px;font-style:italic;">Waiting for host to continue...</div>
+      <button class="btn btn-primary" id="daily-continue-btn" onclick="returnFromDailySummary()" style="display:none;">CONTINUE</button>
     </div>
   </div>
 </div>
@@ -1909,6 +1910,12 @@ function renderResultEntry(g,match,area){
       const actual=h>a?'home':a>h?'away':(penWinner||'draw');
       const f=await loadGame(me.code);
       if(!f){submitBtn.textContent='CONFIRM RESULT & REVEAL';submitBtn.disabled=false;alert('Could not load game — check your connection.');return;}
+      
+      // Clear daily summary flag when host enters a new result (starting next day)
+      if(f.showDailySummary){
+        delete f.showDailySummary;
+      }
+      
       const mp=f.predictions[f.currentMatchIdx]||{};
       f.players.forEach(p=>{
         if(p.eliminated)return;
@@ -2100,6 +2107,16 @@ async function watchGame(g){
         sessionStorage.setItem('kf_last_summary_'+me.code, f.showDailySummary.timestamp.toString());
         stopPolling();
         showDailySummary(f, f.showDailySummary.matches);
+        // Start polling again while on summary screen to detect when host continues
+        startPolling(async()=>{
+          const fresh = await loadGame(me.code);
+          if(!fresh) return;
+          // If host cleared the summary flag (started entering new results), return to watch
+          if(!fresh.showDailySummary){
+            stopPolling();
+            watchGame(fresh);
+          }
+        }, 2200);
         return;
       }
     }
@@ -3074,20 +3091,33 @@ function showDailySummary(g, matchIndices) {
   
   document.getElementById('daily-summary-date').textContent = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
   
+  // In test mode (host only), show continue button instead of waiting message
+  const continueBtn = document.getElementById('daily-continue-btn');
+  const waitingMsg = document.getElementById('daily-waiting');
+  if(g.mode === 'test'){
+    if(continueBtn) continueBtn.style.display = 'block';
+    if(waitingMsg) waitingMsg.style.display = 'none';
+  } else {
+    if(continueBtn) continueBtn.style.display = 'none';
+    if(waitingMsg) waitingMsg.style.display = 'block';
+  }
+  
   show('screen-daily-summary');
 }
 
-function closeDailySummary() {
-  // Return to appropriate screen based on role
-  if(me.role === 'host'){
-    show('screen-game');
-  } else {
-    // Players return to watch screen and resume polling
-    const g = loadGame(me.code).then(g => {
-      if(g) watchGame(g);
-    });
-  }
+// This function is no longer used - players automatically return when host continues
+async function closeDailySummary() {
+  // Legacy function - kept for compatibility
   todaysMatches = [];
+}
+
+// Return from daily summary in test mode
+async function returnFromDailySummary() {
+  const g = await loadGame(me.code);
+  if(g && me.role === 'host'){
+    show('screen-game');
+    renderGameHost(g);
+  }
 }
 
 // Add "Complete Day" button functionality
@@ -3098,9 +3128,6 @@ async function completeDayAsHost(g) {
     return;
   }
   
-  // Show summary for host
-  showDailySummary(g, todaysMatches);
-  
   // Mark in game state that this day is complete
   if (!g.completedDays) g.completedDays = [];
   g.completedDays.push({
@@ -3108,11 +3135,26 @@ async function completeDayAsHost(g) {
     matches: [...todaysMatches]
   });
   
-  await saveGame(g);
+  // In test mode, show summary to host (no real players to broadcast to)
+  if(g.mode === 'test'){
+    showDailySummary(g, todaysMatches);
+    todaysMatches = [];
+    const completeDayBtn = document.getElementById('complete-day-btn');
+    if(completeDayBtn) completeDayBtn.style.display = 'none';
+    return;
+  }
   
-  // Broadcast to all players to show summary
+  // In multiplayer mode, broadcast to all players to show summary
   g.showDailySummary = { matches: todaysMatches, timestamp: Date.now() };
   await saveGame(g);
+  
+  // Clear today's matches and hide button
+  todaysMatches = [];
+  const completeDayBtn = document.getElementById('complete-day-btn');
+  if(completeDayBtn) completeDayBtn.style.display = 'none';
+  
+  // Host continues entering results, players will see summary
+  alert('Day marked complete. Players will see today\'s summary.');
 }
 
 // Wire up Complete Day button
