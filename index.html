@@ -406,6 +406,7 @@
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
         <div class="scoreboard-title" style="margin:0">STANDINGS</div>
         <div style="display:flex;gap:6px">
+          <button class="btn btn-secondary btn-sm" id="set-rival-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7">⚔️ Set Rival</button>
           <button class="btn btn-secondary btn-sm" id="open-watch-group-preds-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7;display:none">📋 My Group Picks</button>
           <button class="btn btn-secondary btn-sm" id="open-watch-ko-preds-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7;display:none">🎯 My KO Picks</button>
           <button class="btn btn-secondary btn-sm" id="watch-quit-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7;color:var(--red);border-color:rgba(239,68,68,0.3)">✕ Quit</button>
@@ -415,6 +416,31 @@
     </div>
     <div class="progress-bar-wrap"><div class="progress-bar-fill" id="watch-progress-bar" style="width:0%"></div></div>
     <div id="watch-area"></div>
+  </div>
+
+  <!-- Rival Selection Modal -->
+  <div id="rival-modal" class="modal" style="display:none">
+    <div class="modal-content" style="max-width:380px">
+      <h2 style="margin-bottom:16px;font-size:18px">⚔️ Choose Your Rival</h2>
+      <p style="font-size:13px;color:var(--muted);margin-bottom:16px">Pick a rival for the next game day. Whoever gets more correct predictions wins!</p>
+      
+      <div style="margin-bottom:16px">
+        <label style="display:block;font-size:11px;color:var(--muted);margin-bottom:6px;letter-spacing:1px">SELECT RIVAL</label>
+        <select id="rival-select" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--text);font-size:14px;outline:none">
+          <option value="">-- Choose a player --</option>
+        </select>
+      </div>
+      
+      <div id="current-rival-display" style="display:none;background:var(--surface2);border-radius:8px;padding:12px;margin-bottom:16px">
+        <div style="font-size:11px;color:var(--muted);margin-bottom:4px;letter-spacing:1px">CURRENT RIVAL</div>
+        <div id="current-rival-name" style="font-size:15px;font-weight:600;color:var(--accent2)"></div>
+      </div>
+      
+      <div style="display:flex;gap:10px">
+        <button class="btn btn-secondary" onclick="closeRivalModal()" style="flex:1">Cancel</button>
+        <button class="btn btn-primary" onclick="saveRival()" style="flex:1">Set Rival</button>
+      </div>
+    </div>
   </div>
 
   <!-- WINNER -->
@@ -452,6 +478,12 @@
             <div id="daily-rank" style="font-size:20px;font-family:'Bebas Neue',sans-serif;"></div>
           </div>
         </div>
+      </div>
+      
+      <!-- Rival Showdown -->
+      <div id="daily-rival-showdown" style="display:none;background:var(--surface2);border-radius:12px;padding:16px;margin-bottom:20px;border:2px solid var(--accent2)">
+        <h3 style="color:var(--accent2);margin-bottom:12px;">⚔️ RIVAL SHOWDOWN</h3>
+        <div id="rival-showdown-content"></div>
       </div>
       
       <!-- Standings Snapshot -->
@@ -3286,7 +3318,7 @@ document.getElementById('pill-code-display').addEventListener('click',()=>{
 let todaysMatches = []; // Track which matches happened today
 let dailySummaryData = null;
 
-function showDailySummary(g, matchIndices) {
+async function showDailySummary(g, matchIndices) {
   // Calculate stats for today's matches
   const player = g.players.find(p => p.name === me.name);
   if (!player) return;
@@ -3756,6 +3788,113 @@ function showDailySummary(g, matchIndices) {
     highlights.push(`🏴󠁧󠁢󠁥󠁮󠁧󠁿⚠️ National traitor${traitors.length > 1 ? 's' : ''}: ${traitors.join(', ')} (predicted England to lose!)`);
   }
   
+  // Rival Showdown - Compare performance vs rival
+  const rivalShowdownEl = document.getElementById('daily-rival-showdown');
+  if(player.currentRival){
+    const rivalPlayer = g.players.find(p => p.name === player.currentRival);
+    if(rivalPlayer){
+      // Calculate rival's stats for today
+      let rivalCorrect = 0;
+      let rivalWrong = 0;
+      let rivalExactScores = 0;
+      
+      matchIndices.forEach(idx => {
+        const result = g.results?.[idx];
+        const prediction = g.predictions[idx]?.[rivalPlayer.name];
+        
+        if (result && prediction !== undefined && prediction !== null) {
+          const actualWinner = actualOutcome(result);
+          if (prediction === actualWinner) {
+            rivalCorrect++;
+          } else {
+            rivalWrong++;
+          }
+        }
+        
+        // Check exact score
+        const scoreGuess = g.predictions[idx]?.[rivalPlayer.name + '_score'];
+        if(scoreGuess && scoreGuess.home === result.home && scoreGuess.away === result.away){
+          rivalExactScores++;
+        }
+      });
+      
+      const rivalLivesChange = -rivalWrong + rivalExactScores;
+      
+      // Determine winner
+      let winner = null;
+      if(correct > rivalCorrect) winner = 'you';
+      else if(rivalCorrect > correct) winner = 'rival';
+      else winner = 'draw';
+      
+      // Track rivalry record (personal)
+      if(!player.rivalryRecord) player.rivalryRecord = {};
+      if(!player.rivalryRecord[rivalPlayer.name]) {
+        player.rivalryRecord[rivalPlayer.name] = {wins: 0, draws: 0, losses: 0};
+      }
+      
+      if(winner === 'you') player.rivalryRecord[rivalPlayer.name].wins++;
+      else if(winner === 'draw') player.rivalryRecord[rivalPlayer.name].draws++;
+      else player.rivalryRecord[rivalPlayer.name].losses++;
+      
+      // Track global rivalry victories for group stage bonus
+      if(!g.rivalVictories) g.rivalVictories = {};
+      if(!g.rivalVictories[me.name]) g.rivalVictories[me.name] = 0;
+      if(!g.rivalVictories[rivalPlayer.name]) g.rivalVictories[rivalPlayer.name] = 0;
+      
+      if(winner === 'you') g.rivalVictories[me.name]++;
+      else if(winner === 'rival') g.rivalVictories[rivalPlayer.name]++;
+      
+      // Save updated record
+      await saveGame(g);
+      
+      const record = player.rivalryRecord[rivalPlayer.name];
+      const totalVictories = record.wins;
+      
+      rivalShowdownEl.style.display = 'block';
+      const rivalRank = standings.findIndex(p => p.name === rivalPlayer.name) + 1;
+      
+      let resultHTML = '';
+      if(winner === 'you'){
+        resultHTML = `<div style="background:var(--green);color:#fff;padding:8px;border-radius:6px;text-align:center;font-weight:600;margin-top:10px">🏆 YOU WON THE DAY! 🏆</div>`;
+      } else if(winner === 'draw'){
+        resultHTML = `<div style="background:var(--muted);color:#fff;padding:8px;border-radius:6px;text-align:center;font-weight:600;margin-top:10px">🤝 DRAW</div>`;
+      } else {
+        resultHTML = `<div style="background:var(--red);color:#fff;padding:8px;border-radius:6px;text-align:center;font-weight:600;margin-top:10px">😞 ${rivalPlayer.name.toUpperCase()} WON</div>`;
+      }
+      
+      document.getElementById('rival-showdown-content').innerHTML = `
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;text-align:center;margin-bottom:10px">
+          <div style="background:var(--surface);border-radius:8px;padding:12px">
+            <div style="font-size:12px;font-weight:600;color:var(--accent);margin-bottom:8px">YOU</div>
+            <div style="font-size:11px;color:var(--muted)">Record</div>
+            <div style="font-size:16px;font-family:'Bebas Neue',sans-serif;color:${correct > rivalCorrect ? 'var(--green)' : correct < rivalCorrect ? 'var(--red)' : 'var(--muted)'};">${correct}-${wrong}</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:6px">Lives</div>
+            <div style="font-size:16px;font-family:'Bebas Neue',sans-serif;">${player.lives} <span style="font-size:12px;color:${livesChange >= 0 ? 'var(--green)' : 'var(--red)'}">(${livesChange >= 0 ? '+' : ''}${livesChange})</span></div>
+            <div style="font-size:11px;color:var(--muted);margin-top:6px">Rank</div>
+            <div style="font-size:16px;font-family:'Bebas Neue',sans-serif;">#${myRank}</div>
+            ${exactScorePlayers.filter(e => e.player === me.name).length > 0 ? '<div style="font-size:11px;color:var(--accent2);margin-top:6px">🎯 Exact: ' + exactScorePlayers.filter(e => e.player === me.name).length + '</div>' : ''}
+          </div>
+          <div style="background:var(--surface);border-radius:8px;padding:12px">
+            <div style="font-size:12px;font-weight:600;color:var(--accent2);margin-bottom:8px">${rivalPlayer.name.toUpperCase()}</div>
+            <div style="font-size:11px;color:var(--muted)">Record</div>
+            <div style="font-size:16px;font-family:'Bebas Neue',sans-serif;color:${rivalCorrect > correct ? 'var(--green)' : rivalCorrect < correct ? 'var(--red)' : 'var(--muted)'};">${rivalCorrect}-${rivalWrong}</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:6px">Lives</div>
+            <div style="font-size:16px;font-family:'Bebas Neue',sans-serif;">${rivalPlayer.lives} <span style="font-size:12px;color:${rivalLivesChange >= 0 ? 'var(--green)' : 'var(--red)'}">(${rivalLivesChange >= 0 ? '+' : ''}${rivalLivesChange})</span></div>
+            <div style="font-size:11px;color:var(--muted);margin-top:6px">Rank</div>
+            <div style="font-size:16px;font-family:'Bebas Neue',sans-serif;">#${rivalRank}</div>
+            ${rivalExactScores > 0 ? '<div style="font-size:11px;color:var(--accent2);margin-top:6px">🎯 Exact: ' + rivalExactScores + '</div>' : ''}
+          </div>
+        </div>
+        ${resultHTML}
+        <div style="font-size:11px;color:var(--muted);text-align:center;margin-top:8px">All-time vs ${rivalPlayer.name}: ${record.wins}-${record.draws}-${record.losses} (W-D-L) • ${totalVictories} total victories</div>
+      `;
+    } else {
+      rivalShowdownEl.style.display = 'none';
+    }
+  } else {
+    rivalShowdownEl.style.display = 'none';
+  }
+  
   // Populate summary screen
   document.getElementById('daily-record').textContent = `${correct}-${wrong}`;
   document.getElementById('daily-record').style.color = correct > wrong ? 'var(--green)' : wrong > correct ? 'var(--red)' : 'var(--accent)';
@@ -3770,6 +3909,91 @@ function showDailySummary(g, matchIndices) {
   
   document.getElementById('daily-rank').innerHTML = `#${myRank}${rankChangeArrow}`;
   document.getElementById('daily-rank').style.color = myRank <= 3 ? 'var(--green)' : myRank > standings.length - 3 ? 'var(--red)' : 'var(--accent)';
+  
+  // ⚔️ Rival Showdown
+  if(player.currentRival){
+    const rival = g.players.find(p => p.name === player.currentRival);
+    if(rival){
+      // Calculate rival's stats for today
+      let rivalCorrect = 0;
+      let rivalWrong = 0;
+      let rivalExactScores = 0;
+      
+      matchIndices.forEach(idx => {
+        const pred = g.predictions[idx]?.[rival.name];
+        const result = g.results?.[idx];
+        if(pred !== undefined && pred !== null && result){
+          const actualWinner = actualOutcome(result);
+          if(pred === actualWinner) rivalCorrect++;
+          else rivalWrong++;
+          
+          // Check exact score
+          const scoreGuess = g.predictions[idx]?.[rival.name + '_score'];
+          if(scoreGuess && scoreGuess.home === result.home && scoreGuess.away === result.away){
+            rivalExactScores++;
+          }
+        }
+      });
+      
+      // Calculate my exact scores for today
+      let myExactScores = 0;
+      matchIndices.forEach(idx => {
+        const result = g.results?.[idx];
+        const scoreGuess = g.predictions[idx]?.[me.name + '_score'];
+        if(scoreGuess && scoreGuess.home === result.home && scoreGuess.away === result.away){
+          myExactScores++;
+        }
+      });
+      
+      // Determine winner
+      let winner = 'draw';
+      if(correct > rivalCorrect) winner = 'me';
+      else if(rivalCorrect > correct) winner = 'rival';
+      
+      // Track rival victories
+      if(!g.rivalVictories) g.rivalVictories = {};
+      if(!g.rivalVictories[me.name]) g.rivalVictories[me.name] = 0;
+      if(!g.rivalVictories[rival.name]) g.rivalVictories[rival.name] = 0;
+      
+      if(winner === 'me') g.rivalVictories[me.name]++;
+      else if(winner === 'rival') g.rivalVictories[rival.name]++;
+      
+      // Save updated victories
+      await saveGame(g);
+      
+      // Display showdown
+      const showdownHTML = `
+        <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:16px;align-items:center">
+          <div style="text-align:center;padding:12px;background:${winner==='me'?'rgba(45,212,191,0.1)':'var(--surface)'};border-radius:8px;border:2px solid ${winner==='me'?'var(--accent2)':'var(--border)'}">
+            <div style="font-size:13px;font-weight:600;margin-bottom:8px">YOU</div>
+            <div style="font-size:11px;color:var(--muted);margin-bottom:4px">Record</div>
+            <div style="font-size:18px;font-family:'Bebas Neue',sans-serif;color:${correct>rivalCorrect?'var(--green)':correct<rivalCorrect?'var(--red)':'var(--accent)'}">${correct}-${wrong}</div>
+            ${myExactScores>0?`<div style="font-size:11px;margin-top:4px;color:var(--accent2)">🎯 ${myExactScores}</div>`:''}
+          </div>
+          
+          <div style="text-align:center">
+            <div style="font-size:28px;margin-bottom:4px">${winner==='me'?'🏆':winner==='rival'?'💀':'🤝'}</div>
+            <div style="font-size:11px;color:var(--muted)">${winner==='me'?'YOU WON!':winner==='rival'?'THEY WON':'DRAW'}</div>
+          </div>
+          
+          <div style="text-align:center;padding:12px;background:${winner==='rival'?'rgba(45,212,191,0.1)':'var(--surface)'};border-radius:8px;border:2px solid ${winner==='rival'?'var(--accent2)':'var(--border)'}">
+            <div style="font-size:13px;font-weight:600;margin-bottom:8px">${rival.name.toUpperCase()}</div>
+            <div style="font-size:11px;color:var(--muted);margin-bottom:4px">Record</div>
+            <div style="font-size:18px;font-family:'Bebas Neue',sans-serif;color:${rivalCorrect>correct?'var(--green)':rivalCorrect<correct?'var(--red)':'var(--accent)'}">${rivalCorrect}-${rivalWrong}</div>
+            ${rivalExactScores>0?`<div style="font-size:11px;margin-top:4px;color:var(--accent2)">🎯 ${rivalExactScores}</div>`:''}
+          </div>
+        </div>
+        <div style="text-align:center;margin-top:12px;font-size:12px;color:var(--muted)">
+          Season record: You ${g.rivalVictories[me.name] || 0} - ${g.rivalVictories[rival.name] || 0} ${rival.name}
+        </div>
+      `;
+      
+      document.getElementById('rival-showdown-content').innerHTML = showdownHTML;
+      document.getElementById('daily-rival-showdown').style.display = 'block';
+    }
+  } else {
+    document.getElementById('daily-rival-showdown').style.display = 'none';
+  }
   
   // Standings - show all players
   const standingsHTML = standings.map((p, i) => {
@@ -3901,9 +4125,47 @@ async function hostContinueFromSummary() {
     return;
   }
   
-  // Check if we're starting a new knockout round
+  // Define next and previous matches
   const nextMatch = g.matches[g.currentMatchIdx];
   const prevMatch = g.matches[g.currentMatchIdx - 1];
+  
+  // Check if we just finished the group stage (next match is first KO match)
+  const isEndOfGroupStage = prevMatch && prevMatch.group && nextMatch && !nextMatch.group;
+  if(isEndOfGroupStage && !g.rivalBonusAwarded){
+    // Calculate rival victory leaderboard
+    const rivalLeaderboard = g.players.map(p => ({
+      name: p.name,
+      victories: g.rivalVictories?.[p.name] || 0
+    })).sort((a,b) => b.victories - a.victories);
+    
+    // Award bonus lives (3 for 1st, 2 for 2nd, 1 for 3rd)
+    const bonuses = [];
+    if(rivalLeaderboard[0] && rivalLeaderboard[0].victories > 0){
+      const winner = g.players.find(p => p.name === rivalLeaderboard[0].name);
+      winner.lives += 3;
+      bonuses.push(`🥇 ${winner.name} (+3 ❤️ - ${rivalLeaderboard[0].victories} rival wins)`);
+    }
+    if(rivalLeaderboard[1] && rivalLeaderboard[1].victories > 0 && rivalLeaderboard[1].victories !== rivalLeaderboard[0].victories){
+      const second = g.players.find(p => p.name === rivalLeaderboard[1].name);
+      second.lives += 2;
+      bonuses.push(`🥈 ${second.name} (+2 ❤️ - ${rivalLeaderboard[1].victories} rival wins)`);
+    }
+    if(rivalLeaderboard[2] && rivalLeaderboard[2].victories > 0 && rivalLeaderboard[2].victories !== rivalLeaderboard[1].victories){
+      const third = g.players.find(p => p.name === rivalLeaderboard[2].name);
+      third.lives += 1;
+      bonuses.push(`🥉 ${third.name} (+1 ❤️ - ${rivalLeaderboard[2].victories} rival wins)`);
+    }
+    
+    // Mark as awarded
+    g.rivalBonusAwarded = true;
+    
+    // Show bonus announcement if any bonuses were awarded
+    if(bonuses.length > 0){
+      alert(`⚔️ GROUP STAGE COMPLETE!\n\nRIVAL VICTORY BONUSES AWARDED:\n\n${bonuses.join('\n')}\n\nKnockout rounds begin now!`);
+    }
+  }
+  
+  // Check if we're starting a new knockout round
   const isNewKORound = nextMatch && !nextMatch.group && prevMatch &&
     (!prevMatch.group) && nextMatch.round !== prevMatch.round &&
     nextMatch.home !== 'TBD' && nextMatch.away !== 'TBD';
@@ -3964,6 +4226,57 @@ async function hostContinueFromSummary() {
   // Return host to game screen
   show('screen-game');
   renderGameHost(g);
+}
+
+// ─── RIVAL SYSTEM ────────────────────────────────────────────────────────────
+
+// Open rival selection modal
+document.getElementById('set-rival-btn')?.addEventListener('click', async () => {
+  const g = await loadGame(me.code);
+  if(!g) return;
+  
+  // Populate dropdown with other players
+  const select = document.getElementById('rival-select');
+  const otherPlayers = g.players.filter(p => p.name !== me.name);
+  
+  select.innerHTML = '<option value="">-- Choose a player --</option>' +
+    otherPlayers.map(p => `<option value="${p.name}">${p.name}</option>`).join('');
+  
+  // Show current rival if set
+  const myPlayer = g.players.find(p => p.name === me.name);
+  if(myPlayer && myPlayer.currentRival){
+    document.getElementById('current-rival-display').style.display = 'block';
+    document.getElementById('current-rival-name').textContent = myPlayer.currentRival;
+    select.value = myPlayer.currentRival;
+  } else {
+    document.getElementById('current-rival-display').style.display = 'none';
+  }
+  
+  document.getElementById('rival-modal').style.display = 'flex';
+});
+
+function closeRivalModal() {
+  document.getElementById('rival-modal').style.display = 'none';
+}
+
+async function saveRival() {
+  const g = await loadGame(me.code);
+  if(!g) return;
+  
+  const rivalName = document.getElementById('rival-select').value;
+  if(!rivalName) {
+    alert('Please select a rival');
+    return;
+  }
+  
+  // Save rival to player data
+  const myPlayer = g.players.find(p => p.name === me.name);
+  if(myPlayer) {
+    myPlayer.currentRival = rivalName;
+    await saveGame(g);
+    closeRivalModal();
+    alert(`⚔️ ${rivalName} is now your rival!`);
+  }
 }
 
 // Add "Complete Day" button functionality
