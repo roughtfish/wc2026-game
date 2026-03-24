@@ -3319,6 +3319,78 @@ async function hostContinueFromSummary() {
   
   // Clear the daily summary broadcast so players return to watch
   delete g.showDailySummary;
+  
+  // IMPORTANT: Advance to the next match after completing the day
+  // The currentMatchIdx is still pointing to the last revealed match
+  // We need to move to the next unrevealed match
+  g.currentMatchIdx++;
+  
+  // Check if game is over
+  if(g.currentMatchIdx >= g.matches.length){
+    await saveGame(g);
+    showFinalLeaderboard(g);
+    return;
+  }
+  
+  // Check if any players are still alive
+  const alive = g.players.filter(p => !p.eliminated);
+  if(alive.length <= 1){
+    await saveGame(g);
+    showWinner(g);
+    return;
+  }
+  
+  // Check if we're starting a new knockout round
+  const nextMatch = g.matches[g.currentMatchIdx];
+  const prevMatch = g.matches[g.currentMatchIdx - 1];
+  const isNewKORound = nextMatch && !nextMatch.group && prevMatch &&
+    (!prevMatch.group) && nextMatch.round !== prevMatch.round &&
+    nextMatch.home !== 'TBD' && nextMatch.away !== 'TBD';
+  
+  if(isNewKORound){
+    if(g.mode === 'test'){
+      // Test mode: auto-fill this round's predictions
+      autoFillKORound(g, nextMatch.round);
+      if(!g.koBulkSubmitted) g.koBulkSubmitted = {};
+      g.players.forEach(p => { g.koBulkSubmitted[p.name] = true; });
+      g.currentResult = null;
+      g.status = 'playing';
+      await saveGame(g);
+      
+      // Clear today's matches and return to game
+      todaysMatches = [];
+      show('screen-game');
+      renderGameHost(g);
+    } else {
+      g.status = 'ko-bulk:' + nextMatch.round;
+      g.koBulkSubmitted = {};
+      g.currentResult = null;
+      await saveGame(g);
+      
+      // Clear today's matches
+      todaysMatches = [];
+      
+      stopPolling();
+      startKOBulk(g, nextMatch.round);
+    }
+    return;
+  }
+  
+  // Check if we just moved from group stage to R32 in test mode
+  const isGroupToR32 = g.mode === 'test' && prevMatch && prevMatch.group && 
+    nextMatch && !nextMatch.group && nextMatch.home !== 'TBD';
+  
+  if(isGroupToR32){
+    autoFillKORound(g, 'Round of 32');
+    if(!g.koBulkSubmitted) g.koBulkSubmitted = {};
+    g.players.forEach(p => { g.koBulkSubmitted[p.name] = true; });
+    g.currentResult = null;
+    g.status = 'playing';
+  } else {
+    g.currentResult = null;
+    g.status = 'playing';
+  }
+  
   await saveGame(g);
   
   // Clear today's matches array for the next day
