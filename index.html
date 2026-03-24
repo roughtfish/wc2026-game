@@ -481,6 +481,21 @@
         </div>
       </div>
       
+      <!-- Set Rival CTA -->
+      <div id="daily-set-rival-cta" style="background:linear-gradient(135deg, rgba(45,212,191,0.15), rgba(45,212,191,0.05));border:2px solid var(--accent2);border-radius:12px;padding:16px;margin-bottom:20px;text-align:center;">
+        <div style="display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:10px;">
+          <span style="font-size:28px;">⚔️</span>
+          <h3 style="color:var(--accent2);margin:0;font-size:16px;">CHOOSE YOUR RIVAL FOR NEXT DAY</h3>
+        </div>
+        <p style="font-size:12px;color:var(--muted);margin-bottom:14px;">Win head-to-head matchups to earn bonus lives at the end of the group stage!</p>
+        <button class="btn btn-teal" id="set-rival-from-summary" style="max-width:280px;margin:0 auto;">
+          <span id="rival-btn-text">⚔️ Set My Rival</span>
+        </button>
+        <div id="current-rival-badge" style="display:none;margin-top:10px;font-size:12px;">
+          Current rival: <span style="color:var(--accent2);font-weight:600;" id="current-rival-name-badge"></span>
+        </div>
+      </div>
+      
       <!-- Rival Showdown -->
       <div id="daily-rival-showdown" style="display:none;background:var(--surface2);border-radius:12px;padding:16px;margin-bottom:20px;border:2px solid var(--accent2)">
         <h3 style="color:var(--accent2);margin-bottom:12px;">⚔️ RIVAL SHOWDOWN</h3>
@@ -4106,6 +4121,19 @@ async function showDailySummary(g, matchIndices) {
     if(waitingMsg) waitingMsg.style.display = 'block';
   }
   
+  // Update Set Rival CTA
+  const ctaBadge = document.getElementById('current-rival-badge');
+  const ctaBadgeName = document.getElementById('current-rival-name-badge');
+  const ctaBtnText = document.getElementById('rival-btn-text');
+  if(player.currentRival && ctaBadge && ctaBadgeName && ctaBtnText) {
+    ctaBadge.style.display = 'block';
+    ctaBadgeName.textContent = player.currentRival;
+    ctaBtnText.textContent = '⚔️ Change Rival';
+  } else if(ctaBadge && ctaBtnText) {
+    ctaBadge.style.display = 'none';
+    ctaBtnText.textContent = '⚔️ Set My Rival';
+  }
+  
   show('screen-daily-summary');
 }
 
@@ -4314,6 +4342,31 @@ document.getElementById('set-rival-btn-host')?.addEventListener('click', async (
   document.getElementById('rival-modal').style.display = 'flex';
 });
 
+// Add listener for daily summary button
+document.getElementById('set-rival-from-summary')?.addEventListener('click', async () => {
+  const g = await loadGame(me.code);
+  if(!g) return;
+  
+  // Populate dropdown with other players
+  const select = document.getElementById('rival-select');
+  const otherPlayers = g.players.filter(p => p.name !== me.name);
+  
+  select.innerHTML = '<option value="">-- Choose a player --</option>' +
+    otherPlayers.map(p => `<option value="${p.name}">${p.name}</option>`).join('');
+  
+  // Show current rival if set
+  const myPlayer = g.players.find(p => p.name === me.name);
+  if(myPlayer && myPlayer.currentRival){
+    document.getElementById('current-rival-display').style.display = 'block';
+    document.getElementById('current-rival-name').textContent = myPlayer.currentRival;
+    select.value = myPlayer.currentRival;
+  } else {
+    document.getElementById('current-rival-display').style.display = 'none';
+  }
+  
+  document.getElementById('rival-modal').style.display = 'flex';
+});
+
 function closeRivalModal() {
   document.getElementById('rival-modal').style.display = 'none';
 }
@@ -4334,6 +4387,17 @@ async function saveRival() {
     myPlayer.currentRival = rivalName;
     await saveGame(g);
     closeRivalModal();
+    
+    // Update the CTA button if on daily summary
+    const ctaBadge = document.getElementById('current-rival-badge');
+    const ctaBadgeName = document.getElementById('current-rival-name-badge');
+    const ctaBtnText = document.getElementById('rival-btn-text');
+    if(ctaBadge && ctaBadgeName && ctaBtnText) {
+      ctaBadge.style.display = 'block';
+      ctaBadgeName.textContent = rivalName;
+      ctaBtnText.textContent = '⚔️ Change Rival';
+    }
+    
     alert(`⚔️ ${rivalName} is now your rival!`);
   }
 }
