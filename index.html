@@ -467,8 +467,8 @@
       <!-- What's Next -->
       <div id="daily-next" style="color:var(--muted);font-size:13px;text-align:center;padding:16px;background:var(--bg);border-radius:8px;margin-bottom:20px;"></div>
       
-      <div id="daily-waiting" style="text-align:center;color:var(--muted);font-size:12px;font-style:italic;">Waiting for host to continue...</div>
-      <button class="btn btn-primary" id="daily-continue-btn" onclick="returnFromDailySummary()" style="display:none;">CONTINUE</button>
+      <div id="daily-waiting-msg" style="text-align:center;color:var(--muted);font-size:12px;font-style:italic;">Waiting for host to continue...</div>
+      <button class="btn btn-primary" id="daily-continue-btn" onclick="hostContinueFromSummary()" style="display:none;">CONTINUE TO NEXT DAY</button>
     </div>
   </div>
 </div>
@@ -3091,10 +3091,10 @@ function showDailySummary(g, matchIndices) {
   
   document.getElementById('daily-summary-date').textContent = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
   
-  // In test mode (host only), show continue button instead of waiting message
+  // Show Continue button for host, waiting message for players
   const continueBtn = document.getElementById('daily-continue-btn');
-  const waitingMsg = document.getElementById('daily-waiting');
-  if(g.mode === 'test'){
+  const waitingMsg = document.getElementById('daily-waiting-msg');
+  if(me.role === 'host'){
     if(continueBtn) continueBtn.style.display = 'block';
     if(waitingMsg) waitingMsg.style.display = 'none';
   } else {
@@ -3111,13 +3111,22 @@ async function closeDailySummary() {
   todaysMatches = [];
 }
 
-// Return from daily summary in test mode
-async function returnFromDailySummary() {
+// Host continues from daily summary to next day
+async function hostContinueFromSummary() {
   const g = await loadGame(me.code);
-  if(g && me.role === 'host'){
-    show('screen-game');
-    renderGameHost(g);
-  }
+  if(!g) return;
+  
+  // Clear the daily summary broadcast so players return to watch
+  delete g.showDailySummary;
+  await saveGame(g);
+  
+  // Hide Complete Day button (will show again when new results entered)
+  const completeDayBtn = document.getElementById('complete-day-btn');
+  if(completeDayBtn) completeDayBtn.style.display = 'none';
+  
+  // Return host to game screen
+  show('screen-game');
+  renderGameHost(g);
 }
 
 // Add "Complete Day" button functionality
@@ -3135,26 +3144,15 @@ async function completeDayAsHost(g) {
     matches: [...todaysMatches]
   });
   
-  // In test mode, show summary to host (no real players to broadcast to)
-  if(g.mode === 'test'){
-    showDailySummary(g, todaysMatches);
-    todaysMatches = [];
-    const completeDayBtn = document.getElementById('complete-day-btn');
-    if(completeDayBtn) completeDayBtn.style.display = 'none';
-    return;
-  }
-  
-  // In multiplayer mode, broadcast to all players to show summary
+  // Broadcast to all players to show summary (works for both real and AI players)
   g.showDailySummary = { matches: todaysMatches, timestamp: Date.now() };
   await saveGame(g);
   
-  // Clear today's matches and hide button
-  todaysMatches = [];
-  const completeDayBtn = document.getElementById('complete-day-btn');
-  if(completeDayBtn) completeDayBtn.style.display = 'none';
+  // HOST ALSO SEES THE SUMMARY - prevents entering future results
+  showDailySummary(g, todaysMatches);
   
-  // Host continues entering results, players will see summary
-  alert('Day marked complete. Players will see today\'s summary.');
+  // Clear today's matches for next session
+  todaysMatches = [];
 }
 
 // Wire up Complete Day button
