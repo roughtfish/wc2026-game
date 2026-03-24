@@ -360,6 +360,7 @@
       <p style="font-size:13px;color:var(--muted);margin-bottom:18px;">Waiting for everyone else to submit…</p>
       <div class="player-roster" id="bulk-done-roster"></div>
       <div style="margin-top:14px;font-size:12px;color:var(--muted);" id="bulk-done-status"><span class="spinner"></span>Waiting…</div>
+      <button class="btn btn-secondary" id="view-locked-picks-btn" style="margin-top:16px;font-size:13px;letter-spacing:1px;opacity:0.8;">🎯 View My Picks</button>
       <div id="force-start-wrap" style="display:none;margin-top:16px">
         <div class="warn-box" style="margin-bottom:10px;font-size:12px">Players who haven't submitted will lose 2 lives per unpredicted match.</div>
         <button class="btn btn-primary" id="force-start-btn">⚡ Force Start</button>
@@ -805,32 +806,27 @@ function autoFillKORound(g, round){
     return acc;
   },[]);
   g.players.forEach(p=>{
-    // Count existing picks for this player
     const teamPicks={};
     g.matches.forEach((m,i)=>{
       const pred=(g.predictions[i]||{})[p.name];
       const winner=pred==='home'?m.home:pred==='away'?m.away:null;
       if(!winner)return;
       const r=(g.results||{})[i];
-      if(r&&r.penWinner&&!m.group)return; // pen win free pick
+      if(r&&r.penWinner&&!m.group)return;
       teamPicks[winner]=(teamPicks[winner]||0)+1;
     });
     gms.forEach(({m,i})=>{
-      if((g.predictions[i]||{})[p.name]!=null)return; // already has pick
+      if((g.predictions[i]||{})[p.name]!=null)return;
       const hc=teamPicks[m.home]||0, ac=teamPicks[m.away]||0;
       const pick=weightedPick(m.home,m.away,hc<MAX_PICKS,ac<MAX_PICKS,false,true);
-      if(!pick)return;
       if(!g.predictions[i])g.predictions[i]={};
-      g.predictions[i][p.name]=pick;
-      if(pick==='home')teamPicks[m.home]=(teamPicks[m.home]||0)+1;
-      else teamPicks[m.away]=(teamPicks[m.away]||0)+1;
-    });
-  });
-  // Fill null sentinels for blocked matches so allDone check passes
-  gms.forEach(({i})=>{
-    if(!g.predictions[i])g.predictions[i]={};
-    g.players.forEach(p=>{
-      if(g.predictions[i][p.name]===undefined) g.predictions[i][p.name]=null;
+      if(pick){
+        g.predictions[i][p.name]=pick;
+        if(pick==='home')teamPicks[m.home]=(teamPicks[m.home]||0)+1;
+        else teamPicks[m.away]=(teamPicks[m.away]||0)+1;
+      } else {
+        g.predictions[i][p.name]=null;
+      }
     });
   });
 }
@@ -1668,7 +1664,28 @@ async function pollBulkDone(){
   const submitted=isKOBulk?(g.koBulkSubmitted||{}):(g.bulkSubmitted||{});
   const sub=Object.keys(submitted).length;
   document.getElementById('bulk-done-status').innerHTML=`<span class="spinner"></span>${sub}/${g.players.length} players ready…`;
-  // Show force start button for host if not everyone has submitted
+  
+  const viewPicksBtn = document.getElementById('view-locked-picks-btn');
+  if(viewPicksBtn && !viewPicksBtn._hasListener){
+    viewPicksBtn._hasListener = true;
+    viewPicksBtn.addEventListener('click', async()=>{
+      const fresh = await loadGame(me.code);
+      if(!fresh) return;
+      const round = fresh.status.startsWith('ko-bulk:') ? fresh.status.slice(8) : 
+                    fresh.status.startsWith('bulk:') ? 'Group Stage' : null;
+      if(round && round !== 'Group Stage'){
+        stopPolling();
+        show('screen-ko-bulk');
+        const area = document.getElementById('bulk-area');
+        area._watchCommit = async () => {
+          show('screen-bulk-done');
+          startPolling(pollBulkDone);
+        };
+        renderKOBulkForm(fresh, round);
+      }
+    });
+  }
+  
   const forceWrap=document.getElementById('force-start-wrap');
   if(forceWrap){
     const pending=g.players.filter(p=>!submitted[p.name]);
@@ -2939,32 +2956,29 @@ async function startKOBulk(g, round) {
 }
 
 function renderKOBulkForm(g, round) {
-  // Get all matches for this round that aren't TBD
+  const isLocked = g.koBulkSubmitted && g.koBulkSubmitted[me.name];
+  
   const gms = g.matches.reduce((acc, m, i) => {
     if (m.round === round && m.home !== 'TBD' && m.away !== 'TBD') acc.push({ m, i });
     return acc;
   }, []);
 
-  // Count picks for THIS player only across all matches (group + previous KO rounds)
-  // KO pen wins don't count toward the 5-pick limit
   const teamPicks = {};
   g.matches.forEach((m, i) => {
     const pred = (g.predictions[i] || {})[me.name];
     const winner = pred === 'home' ? m.home : pred === 'away' ? m.away : null;
     if (!winner) return;
-    // If this KO match has a result and was decided on pens, don't count it
     const r = (g.results || {})[i];
     if (r && r.penWinner && !m.group) return;
     teamPicks[winner] = (teamPicks[winner] || 0) + 1;
   });
-  // Add current draft picks (predictions not yet played — always count)
+  
   gms.forEach(({ m, i }) => {
     const sel = koBulkDraft[i];
     if (sel === 'home') teamPicks[m.home] = (teamPicks[m.home] || 0) + 1;
     else if (sel === 'away') teamPicks[m.away] = (teamPicks[m.away] || 0) + 1;
   });
 
-  // A match is "blocked" if both teams are at limit and player hasn't picked either
   const MAX_PICKS = 5;
   const blockedMatches = new Set(gms.filter(({m, i}) => {
     const sel = koBulkDraft[i];
@@ -2993,9 +3007,9 @@ function renderKOBulkForm(g, round) {
     html += `<div class="bulk-match-row${bothBlocked ? '' : sel === undefined ? ' unpredicted' : ''}">
       <div class="bulk-team"><span class="bulk-team-flag">${flag(m.home, 20)}</span><span>${m.home}</span><span style="font-size:10px;color:${homeAtLimit?'var(--red)':homeCount>=MAX_PICKS-1?'var(--accent)':'var(--muted)'};margin-left:4px;font-weight:600">${homeCount}/5</span></div>
       <div class="bulk-toggle">
-        <button data-idx="${idx}" data-val="home" class="${sel === 'home' ? 'active-home' : ''}" title="${m.home} win${homeAtLimit ? ' — limit reached' : ''}" style="font-size:16px;padding:5px 9px;${homeAtLimit ? 'opacity:0.3;cursor:not-allowed;' : ''}" ${homeAtLimit ? 'disabled' : ''}>${flag(m.home, 20)}</button>
+        <button data-idx="${idx}" data-val="home" class="${sel === 'home' ? 'active-home' : ''}" title="${m.home} win${homeAtLimit ? ' — limit reached' : ''}" style="font-size:16px;padding:5px 9px;${homeAtLimit || isLocked ? 'opacity:0.3;cursor:not-allowed;' : ''}" ${homeAtLimit || isLocked ? 'disabled' : ''}>${flag(m.home, 20)}</button>
         ${bothBlocked ? '<span style="font-size:10px;color:var(--muted);padding:0 6px">both at limit</span>' : ''}
-        <button data-idx="${idx}" data-val="away" class="${sel === 'away' ? 'active-away' : ''}" title="${m.away} win${awayAtLimit ? ' — limit reached' : ''}" style="font-size:16px;padding:5px 9px;${awayAtLimit ? 'opacity:0.3;cursor:not-allowed;' : ''}" ${awayAtLimit ? 'disabled' : ''}>${flag(m.away, 20)}</button>
+        <button data-idx="${idx}" data-val="away" class="${sel === 'away' ? 'active-away' : ''}" title="${m.away} win${awayAtLimit ? ' — limit reached' : ''}" style="font-size:16px;padding:5px 9px;${awayAtLimit || isLocked ? 'opacity:0.3;cursor:not-allowed;' : ''}" ${awayAtLimit || isLocked ? 'disabled' : ''}>${flag(m.away, 20)}</button>
       </div>
       <div class="bulk-team away"><span style="font-size:10px;color:${awayAtLimit?'var(--red)':awayCount>=MAX_PICKS-1?'var(--accent)':'var(--muted)'};margin-right:4px;font-weight:600">${awayCount}/${MAX_PICKS}</span><span>${m.away}</span><span class="bulk-team-flag">${flag(m.away, 20)}</span></div>
     </div>`;
@@ -3006,24 +3020,27 @@ function renderKOBulkForm(g, round) {
   html += `</div>
     <div style="padding:12px 0 6px;border-top:0.5px solid var(--border);margin-top:10px;">
       <div style="font-size:10px;color:var(--muted);text-align:center;margin-bottom:7px;letter-spacing:1px;">Each team can only win <b>5</b> times across all predictions · Pen wins don't count · No draws in knockout rounds</div>
-      <button class="btn btn-primary" id="ko-bulk-submit-btn">${rem > 0 ? 'Predict ' + rem + ' more to continue' : 'Lock in my predictions ✓'}</button>
-      ${done > 0 ? '<button class="btn btn-secondary" id="ko-bulk-clear-btn" style="margin-top:8px;font-size:13px;letter-spacing:1px;opacity:0.7;">↺ Reset Picks!</button>' : ''}
+      ${!isLocked && !isWatchModeKO ? `<button class="btn btn-primary" id="ko-bulk-submit-btn">${rem > 0 ? 'Predict ' + rem + ' more to continue' : 'Lock in my predictions ✓'}</button>` : ''}
+      ${!isLocked && done > 0 && !isWatchModeKO ? '<button class="btn btn-secondary" id="ko-bulk-clear-btn" style="margin-top:8px;font-size:13px;letter-spacing:1px;opacity:0.7;">↺ Reset Picks!</button>' : ''}
       ${isWatchModeKO ? '<button class="btn btn-secondary" id="ko-bulk-back-btn" style="margin-top:8px">← Back</button>' : ''}
     </div>`;
 
   area.innerHTML = html;
 
-  // Always wire submit button
-  const sb = area.querySelector('#ko-bulk-submit-btn');
-  if (rem > 0) { sb.disabled = true; sb.style.opacity = '0.42'; sb.style.cursor = 'not-allowed'; }
-  else { sb.disabled = false; sb.style.opacity = '1'; sb.style.cursor = 'pointer'; sb.addEventListener('click', () => {
-    const area2=document.getElementById('bulk-area');
-    if(area2&&area2._watchCommit) area2._watchCommit();
-    else commitKOBulk(g, round);
-  }); }
-  const cb = area.querySelector('#ko-bulk-clear-btn');
-  if (cb) cb.addEventListener('click', () => { koBulkDraft = {}; saveDraft(koBulkDraft); renderKOBulkForm(g, round); });
-  // Back button only in watch mode
+  if(!isLocked && !isWatchModeKO){
+    const sb = area.querySelector('#ko-bulk-submit-btn');
+    if(sb){
+      if (rem > 0) { sb.disabled = true; sb.style.opacity = '0.42'; sb.style.cursor = 'not-allowed'; }
+      else { sb.disabled = false; sb.style.opacity = '1'; sb.style.cursor = 'pointer'; sb.addEventListener('click', () => {
+        const area2=document.getElementById('bulk-area');
+        if(area2&&area2._watchCommit) area2._watchCommit();
+        else commitKOBulk(g, round);
+      }); }
+    }
+    const cb = area.querySelector('#ko-bulk-clear-btn');
+    if (cb) cb.addEventListener('click', () => { koBulkDraft = {}; saveDraft(koBulkDraft); renderKOBulkForm(g, round); });
+  }
+  
   if(isWatchModeKO){
     const backBtn = area.querySelector('#ko-bulk-back-btn');
     if(backBtn) backBtn.addEventListener('click',async()=>{
@@ -3034,13 +3051,15 @@ function renderKOBulkForm(g, round) {
     });
   }
 
-  area.querySelectorAll('.bulk-toggle button').forEach(btn => {
-    btn.addEventListener('click', () => {
-      koBulkDraft[parseInt(btn.dataset.idx)] = btn.dataset.val;
-      saveDraft(koBulkDraft);
-      renderKOBulkForm(g, round);
+  if(!isLocked){
+    area.querySelectorAll('.bulk-toggle button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        koBulkDraft[parseInt(btn.dataset.idx)] = btn.dataset.val;
+        saveDraft(koBulkDraft);
+        renderKOBulkForm(g, round);
+      });
     });
-  });
+  }
 }
 
 async function commitKOBulk(g, round) {
