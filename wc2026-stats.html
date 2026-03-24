@@ -141,7 +141,7 @@
   /* Score Predictors */
   .score-predictors-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:22px}
   .score-predictor-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px;cursor:pointer;transition:all 0.15s;position:relative;text-align:center}
-  .score-predictor-card:hover{border-color:var(--accent);background:rgba(232,184,75,0.04);transform:translateY(-2px)}
+  .score-predictor-card:hover{border-color:var(--accent);background:rgba(232,184,75,0.04);transform:translateY(-2px);z-index:20}
   .score-predictor-rank{font-family:'Bebas Neue',sans-serif;font-size:14px;color:var(--muted);margin-bottom:4px}
   .score-predictor-rank.gold{color:var(--accent)}
   .score-predictor-rank.silver{color:#94a3b8}
@@ -149,7 +149,7 @@
   .score-predictor-name{font-weight:600;font-size:14px;margin-bottom:8px}
   .score-predictor-count{font-family:'Bebas Neue',sans-serif;font-size:32px;color:var(--accent);letter-spacing:1px;line-height:1}
   .score-predictor-label{font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-top:4px}
-  .score-predictions-popup{position:absolute;top:calc(100% + 8px);left:0;right:0;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px;z-index:10;box-shadow:0 4px 12px rgba(0,0,0,0.3);display:none;max-height:300px;overflow-y:auto;text-align:left}
+  .score-predictions-popup{position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px;z-index:30;box-shadow:0 8px 24px rgba(0,0,0,0.5);display:none;max-height:300px;overflow-y:auto;text-align:left;min-width:240px;max-width:280px}
   .score-predictor-card:hover .score-predictions-popup{display:block}
   .score-prediction-item{font-size:11px;padding:6px 8px;margin-bottom:4px;background:var(--surface);border-radius:6px;border:1px solid rgba(45,212,191,0.2)}
   .score-prediction-item:last-child{margin-bottom:0}
