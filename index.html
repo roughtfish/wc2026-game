@@ -1868,8 +1868,16 @@ async function renderGameHost(g){
     undoBtn.style.display=hasResults?'inline-block':'none';
   }
   renderProgress(g,'progress-bar');
+  
+  // Check if game should end - only count non-host players
+  const aliveNonHost = g.players.filter(p => !p.eliminated && !p.isHost);
+  if(aliveNonHost.length <= 1 && g.players.some(p => !p.isHost)){
+    // Only end game if there are non-host players and only 1 or fewer are alive
+    showWinner(g);
+    return;
+  }
+  
   const alive=g.players.filter(p=>!p.eliminated);
-  if(alive.length<=1){showWinner(g);return;}
   if(g.currentMatchIdx>=g.matches.length){showFinalLeaderboard(g);return;}
   const match=g.matches[g.currentMatchIdx];
   // Show "My Picks" button during KO rounds so host can always access round predictions
@@ -4100,8 +4108,10 @@ async function showDailySummary(g, matchIndices) {
   
   // Show Continue button for host, waiting message for players
   const continueBtn = document.getElementById('daily-continue-btn');
+  const hostActions = document.getElementById('daily-host-actions');
   const waitingMsg = document.getElementById('daily-waiting-msg');
   if(me.role === 'host'){
+    if(hostActions) hostActions.style.display = 'block';
     if(continueBtn) continueBtn.style.display = 'block';
     if(waitingMsg) waitingMsg.style.display = 'none';
     
@@ -4117,6 +4127,7 @@ async function showDailySummary(g, matchIndices) {
       }
     }, 2000);
   } else {
+    if(hostActions) hostActions.style.display = 'none';
     if(continueBtn) continueBtn.style.display = 'none';
     if(waitingMsg) waitingMsg.style.display = 'block';
   }
@@ -4163,15 +4174,16 @@ async function hostContinueFromSummary() {
     return;
   }
   
-  // Check if any players are still alive
-  const alive = g.players.filter(p => !p.eliminated);
-  if(alive.length <= 1){
+  // Check if any non-host players are still alive (host can continue even if eliminated)
+  const aliveNonHost = g.players.filter(p => !p.eliminated && !p.isHost);
+  if(aliveNonHost.length <= 1 && g.players.some(p => !p.isHost)){
     await saveGame(g);
     showWinner(g);
     return;
   }
   
   // Define next and previous matches
+  const alive = g.players.filter(p => !p.eliminated);
   const nextMatch = g.matches[g.currentMatchIdx];
   const prevMatch = g.matches[g.currentMatchIdx - 1];
   
