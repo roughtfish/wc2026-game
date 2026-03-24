@@ -3282,31 +3282,40 @@ function showDailySummary(g, matchIndices) {
   
   const myRank = standings.findIndex(p => p.name === me.name) + 1;
   
-  // Find highlights
-  const highlights = [];
+  // Find upsets - matches where less than 30% of players got it right
+  const upsets = [];
   matchIndices.forEach(idx => {
     const match = g.matches[idx];
     const result = g.results?.[idx];
     if (result) {
-      // Check for upsets
       let correctCount = 0;
-      let totalPredictions = 0;
+      let wrongCount = 0;
       
       if(g.predictions[idx]){
         const actualWinner = actualOutcome(result);
         Object.entries(g.predictions[idx]).forEach(([name, pred]) => {
-          if(!name.endsWith('_score')){
-            totalPredictions++;
+          if(!name.endsWith('_score') && pred !== null && pred !== undefined){
             if(pred === actualWinner) correctCount++;
+            else wrongCount++;
           }
         });
       }
       
+      const totalPredictions = correctCount + wrongCount;
       if (totalPredictions > 0 && correctCount / totalPredictions < 0.3) {
-        highlights.push(`Upset: ${match.home} ${result.home}-${result.away} ${match.away}`);
+        upsets.push({
+          match,
+          result,
+          correctCount,
+          wrongCount,
+          totalPredictions
+        });
       }
     }
   });
+  
+  // Other highlights
+  const highlights = [];
   
   // Check for perfect players today
   const perfectPlayers = g.players.filter(p => {
@@ -3349,8 +3358,46 @@ function showDailySummary(g, matchIndices) {
   
   document.getElementById('daily-standings').innerHTML = standingsHTML;
   
-  // Highlights
-  if (highlights.length > 0) {
+  // Display upsets
+  if (upsets.length > 0) {
+    const upsetsHTML = upsets.map(u => {
+      const actualWinner = actualOutcome(u.result);
+      const winnerTeam = actualWinner === 'home' ? u.match.home : actualWinner === 'away' ? u.match.away : null;
+      const resultText = actualWinner === 'draw' ? 'Draw' : 
+        u.result.penWinner ? `${winnerTeam} (pens)` : winnerTeam;
+      
+      return `
+        <div style="background:var(--surface2);border-radius:8px;padding:12px;margin-bottom:10px;">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+            <span style="font-size:18px;">⚡</span>
+            <span style="font-weight:600;font-size:14px;">${u.match.home} ${u.result.home}–${u.result.away} ${u.match.away}</span>
+          </div>
+          <div style="font-size:12px;color:var(--muted);margin-bottom:4px;">
+            ${u.match.group ? 'Group ' + u.match.group : u.match.round} · Result: ${resultText}
+          </div>
+          <div style="display:flex;gap:12px;font-size:12px;">
+            <div style="display:flex;align-items:center;gap:4px;">
+              <span style="color:var(--red);">✕</span>
+              <span style="color:var(--muted);">Wrong:</span>
+              <div style="background:var(--red);color:white;padding:2px 8px;border-radius:4px;font-weight:600;min-width:40px;text-align:center;">${u.wrongCount}/${u.totalPredictions}</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:4px;">
+              <span style="color:var(--green);">✓</span>
+              <span style="color:var(--muted);">Correct:</span>
+              <div style="background:var(--green);color:white;padding:2px 8px;border-radius:4px;font-weight:600;min-width:40px;text-align:center;">${u.correctCount}/${u.totalPredictions}</div>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
+    
+    document.getElementById('daily-highlights').innerHTML = 
+      `<div style="margin-bottom:12px;font-size:14px;font-weight:600;color:var(--accent);">BIGGEST UPSET${upsets.length > 1 ? 'S' : ''}</div>` +
+      upsetsHTML +
+      (highlights.length > 0 ? `<div style="margin-top:16px;">${highlights.map(h => 
+        `<div style="padding:8px 0;color:var(--muted);font-size:13px;">• ${h}</div>`
+      ).join('')}</div>` : '');
+  } else if (highlights.length > 0) {
     document.getElementById('daily-highlights').innerHTML = highlights.map(h => 
       `<div style="padding:8px 0;color:var(--muted);font-size:13px;">• ${h}</div>`
     ).join('');
