@@ -484,9 +484,12 @@
       </div>
       <div id="daily-summary-date" style="color:var(--muted);font-size:13px;margin-bottom:20px;"></div>
       
+      <!-- Hero Card -->
+      <div id="daily-hero-card" style="background:linear-gradient(135deg, var(--accent2), var(--accent));border-radius:16px;padding:24px;margin-bottom:24px;text-align:center;box-shadow:0 8px 24px rgba(0,0,0,0.3)"></div>
+      
       <!-- Personal Stats -->
       <div id="daily-personal-stats" style="background:var(--surface2);border-radius:12px;padding:20px;margin-bottom:20px;">
-        <h3 style="color:var(--accent);margin-bottom:16px;">YOUR PERFORMANCE</h3>
+        <h3 style="color:var(--accent);margin-bottom:16px;">📊 YOUR PERFORMANCE</h3>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;text-align:center;">
           <div>
             <div style="font-size:11px;color:var(--muted);margin-bottom:6px;">RECORD</div>
@@ -501,6 +504,25 @@
             <div id="daily-rank" style="font-size:20px;font-family:'Bebas Neue',sans-serif;"></div>
           </div>
         </div>
+        <div id="daily-performance-details" style="margin-top:16px;padding:12px;background:var(--surface);border-radius:8px"></div>
+      </div>
+      
+      <!-- Match Results -->
+      <div style="margin-bottom:20px;">
+        <h3 style="color:var(--accent);margin-bottom:12px;">⚽ TODAY'S MATCH RESULTS</h3>
+        <div id="daily-match-results"></div>
+      </div>
+      
+      <!-- Milestones -->
+      <div id="daily-milestones-section" style="display:none;margin-bottom:20px;">
+        <h3 style="color:gold;margin-bottom:12px;">🏆 MILESTONES ACHIEVED</h3>
+        <div id="daily-milestones"></div>
+      </div>
+      
+      <!-- Biggest Movers -->
+      <div style="margin-bottom:20px;">
+        <h3 style="color:var(--accent);margin-bottom:12px;">📈 BIGGEST MOVERS</h3>
+        <div id="daily-movers"></div>
       </div>
       
       <!-- Set Rival CTA -->
@@ -524,15 +546,27 @@
         <div id="rival-showdown-content"></div>
       </div>
       
+      <!-- You vs The Field -->
+      <div style="margin-bottom:20px;">
+        <h3 style="color:var(--accent);margin-bottom:12px;">👥 YOU VS THE FIELD</h3>
+        <div id="daily-comparison"></div>
+      </div>
+      
       <!-- Standings Snapshot -->
       <div style="margin-bottom:20px;">
-        <h3 style="color:var(--accent);margin-bottom:12px;">CURRENT STANDINGS</h3>
+        <h3 style="color:var(--accent);margin-bottom:12px;">📊 CURRENT STANDINGS</h3>
         <div id="daily-standings"></div>
+      </div>
+      
+      <!-- Tomorrow's Stakes -->
+      <div style="margin-bottom:20px;">
+        <h3 style="color:var(--accent);margin-bottom:12px;">🔮 TOMORROW'S STAKES</h3>
+        <div id="daily-tomorrow-stakes"></div>
       </div>
       
       <!-- Today's Drama -->
       <div id="daily-drama" style="background:var(--surface2);border-radius:12px;padding:16px;margin-bottom:20px;">
-        <h3 style="color:var(--accent);margin-bottom:12px;">TODAY'S HIGHLIGHTS</h3>
+        <h3 style="color:var(--accent);margin-bottom:12px;">🎭 TODAY'S HIGHLIGHTS</h3>
         <div id="daily-highlights"></div>
       </div>
       
@@ -4355,6 +4389,200 @@ async function showDailySummary(g, matchIndices) {
   }
   
   document.getElementById('daily-summary-date').textContent = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+  
+  // === RENDER NEW SECTIONS ===
+  
+  // 1. Hero Card
+  const dayNumber = (g.completedDays || []).length;
+  const accuracy = correct + wrong > 0 ? Math.round((correct / (correct + wrong)) * 100) : 0;
+  const rankChange = myPrevRank ? (myPrevRank - myRank) : 0;
+  const rankEmoji = rankChange > 0 ? '↑' : rankChange < 0 ? '↓' : '→';
+  
+  document.getElementById('daily-hero-card').innerHTML = `
+    <div style="font-size:14px;color:rgba(255,255,255,0.8);margin-bottom:8px;letter-spacing:2px">DAY ${dayNumber} COMPLETE ✅</div>
+    <div style="font-size:32px;font-family:'Bebas Neue',sans-serif;color:white;margin-bottom:4px">${correct}-${wrong}</div>
+    <div style="font-size:14px;color:rgba(255,255,255,0.9);margin-bottom:12px">${accuracy}% accuracy</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:16px">
+      <div style="background:rgba(0,0,0,0.2);border-radius:8px;padding:8px">
+        <div style="font-size:10px;color:rgba(255,255,255,0.7)">RANK</div>
+        <div style="font-size:20px;font-family:'Bebas Neue',sans-serif;color:white">#${myRank} ${rankEmoji}${Math.abs(rankChange)}</div>
+      </div>
+      <div style="background:rgba(0,0,0,0.2);border-radius:8px;padding:8px">
+        <div style="font-size:10px;color:rgba(255,255,255,0.7)">LIVES</div>
+        <div style="font-size:20px;font-family:'Bebas Neue',sans-serif;color:white">${player.lives} ${livesChange >= 0 ? '+' : ''}${livesChange}</div>
+      </div>
+    </div>
+  `;
+  
+  // 2. Performance Details
+  const exactScoreCount = exactScorePlayers.filter(e => e.player === me.name).length;
+  const personalAvg = g.completedDays && g.completedDays.length > 0 ? 
+    Math.round((correct / (correct + wrong || 1)) * 100) : 0;
+  
+  document.getElementById('daily-performance-details').innerHTML = `
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;text-align:center;font-size:12px">
+      <div>
+        <div style="color:var(--muted)">Exact Scores</div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:18px;color:var(--accent2)">${exactScoreCount}</div>
+      </div>
+      <div>
+        <div style="color:var(--muted)">Day Accuracy</div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:18px;color:${accuracy >= 70 ? 'var(--green)' : accuracy >= 50 ? 'var(--accent)' : 'var(--red)'}">${accuracy}%</div>
+      </div>
+      <div>
+        <div style="color:var(--muted)">Lives Gained</div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:18px;color:${exactScoreCount > 0 ? 'var(--green)' : 'var(--muted)'}">+${exactScoreCount}</div>
+      </div>
+    </div>
+  `;
+  
+  // 3. Match Results
+  let matchResultsHTML = matchIndices.map(idx => {
+    const match = g.matches[idx];
+    const result = g.results?.[idx];
+    const myPred = g.predictions[idx]?.[me.name];
+    const wasCorrect = myPred === actualOutcome(result);
+    
+    return `
+      <div style="display:flex;align-items:center;gap:8px;padding:8px;background:${wasCorrect ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)'};border-radius:6px;margin-bottom:6px;border-left:3px solid ${wasCorrect ? 'var(--green)' : 'var(--red)'}">
+        <div style="font-size:20px">${wasCorrect ? '✓' : '✗'}</div>
+        <div style="flex:1;font-size:13px">
+          ${flag(match.home, 14)} <span style="font-weight:600">${match.home}</span>
+          <span style="color:var(--accent);margin:0 6px">${result.home}–${result.away}</span>
+          <span style="font-weight:600">${match.away}</span> ${flag(match.away, 14)}
+        </div>
+      </div>
+    `;
+  }).join('');
+  document.getElementById('daily-match-results').innerHTML = matchResultsHTML || '<div style="color:var(--muted);font-size:12px">No matches today</div>';
+  
+  // 4. Milestones
+  const milestones = [];
+  
+  // Perfect day
+  if (correct > 0 && wrong === 0 && matchIndices.length > 0) {
+    milestones.push('⭐ <strong>PERFECT DAY!</strong> — 100% accuracy');
+  }
+  
+  // Streak milestone
+  const streak = calcStreaks(me.name, Object.keys(g.results || {}).map(Number).filter(n => !isNaN(n) && g.results[n] != null).sort((a, b) => a - b), g.results || {}, g.predictions || {});
+  if (streak.current >= 10) {
+    milestones.push(`🔥 <strong>${streak.current}-GAME STREAK!</strong>`);
+  } else if (streak.current >= 5) {
+    milestones.push(`🔥 <strong>${streak.current}-game streak</strong>`);
+  }
+  
+  // Rank jump
+  if (rankChange >= 3) {
+    milestones.push(`📈 <strong>BIG CLIMB!</strong> — Up ${rankChange} spots to #${myRank}`);
+  }
+  
+  // Lives milestone
+  if (exactScoreCount >= 3) {
+    milestones.push(`🎯 <strong>${exactScoreCount} EXACT SCORES!</strong> — +${exactScoreCount} lives`);
+  }
+  
+  if (milestones.length > 0) {
+    document.getElementById('daily-milestones-section').style.display = 'block';
+    document.getElementById('daily-milestones').innerHTML = milestones.map(m => 
+      `<div style="padding:10px;background:linear-gradient(135deg, rgba(255,215,0,0.15), rgba(255,215,0,0.05));border-left:3px solid gold;border-radius:6px;margin-bottom:8px;font-size:13px">${m}</div>`
+    ).join('');
+  } else {
+    document.getElementById('daily-milestones-section').style.display = 'none';
+  }
+  
+  // 5. Biggest Movers
+  const previousStandings = myPrevRank ? standings.map((p, i) => ({ name: p.name, prevRank: i + 1 })) : [];
+  const movers = standings.map((p, i) => {
+    const currentRank = i + 1;
+    const prevRank = previousStandings.find(ps => ps.name === p.name)?.prevRank || currentRank;
+    const change = prevRank - currentRank;
+    return { name: p.name, change, currentRank, lives: p.lives };
+  }).filter(m => m.change !== 0).sort((a, b) => Math.abs(b.change) - Math.abs(a.change));
+  
+  const topMovers = movers.slice(0, 5);
+  if (topMovers.length > 0) {
+    document.getElementById('daily-movers').innerHTML = topMovers.map(m => {
+      const isUp = m.change > 0;
+      return `
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:10px;background:var(--surface);border-radius:6px;margin-bottom:6px">
+          <div style="display:flex;align-items:center;gap:8px">
+            <div style="font-size:20px">${isUp ? '📈' : '📉'}</div>
+            <div>
+              <div style="font-weight:600;font-size:13px">${m.name}</div>
+              <div style="font-size:11px;color:var(--muted)">Rank #${m.currentRank} · ${m.lives} ❤️</div>
+            </div>
+          </div>
+          <div style="font-family:'Bebas Neue',sans-serif;font-size:20px;color:${isUp ? 'var(--green)' : 'var(--red)'}">
+            ${isUp ? '↑' : '↓'}${Math.abs(m.change)}
+          </div>
+        </div>
+      `;
+    }).join('');
+  } else {
+    document.getElementById('daily-movers').innerHTML = '<div style="color:var(--muted);font-size:12px">No significant rank changes today</div>';
+  }
+  
+  // 6. You vs The Field
+  const avgCorrect = standings.reduce((sum, p) => {
+    const pCorrect = matchIndices.filter(idx => {
+      const r = g.results?.[idx];
+      const v = g.predictions[idx]?.[p.name];
+      return v && v === actualOutcome(r);
+    }).length;
+    return sum + pCorrect;
+  }, 0) / standings.length;
+  
+  const medianLives = standings[Math.floor(standings.length / 2)].lives;
+  const percentile = Math.round((1 - (myRank - 1) / standings.length) * 100);
+  
+  document.getElementById('daily-comparison').innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;text-align:center">
+      <div style="background:var(--surface);border-radius:8px;padding:12px">
+        <div style="font-size:11px;color:var(--muted);margin-bottom:4px">Your Accuracy</div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:20px;color:${correct > avgCorrect ? 'var(--green)' : 'var(--red)'}">${accuracy}%</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:4px">Avg: ${Math.round((avgCorrect / matchIndices.length) * 100)}%</div>
+      </div>
+      <div style="background:var(--surface);border-radius:8px;padding:12px">
+        <div style="font-size:11px;color:var(--muted);margin-bottom:4px">Your Lives</div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:20px;color:${player.lives > medianLives ? 'var(--green)' : 'var(--red)'}">${player.lives}</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:4px">Median: ${medianLives}</div>
+      </div>
+      <div style="background:var(--surface);border-radius:8px;padding:12px">
+        <div style="font-size:11px;color:var(--muted);margin-bottom:4px">Percentile</div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:20px;color:var(--accent2)">${percentile}th</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:4px">Top ${percentile}%</div>
+      </div>
+    </div>
+  `;
+  
+  // 7. Tomorrow's Stakes
+  const nextDayMatches = 3; // Estimate or calculate from schedule
+  const dangerZone = standings.filter(p => p.lives <= 2).length;
+  const eliminationThreshold = Math.min(...standings.filter(p => !p.eliminated).map(p => p.lives));
+  
+  document.getElementById('daily-tomorrow-stakes').innerHTML = `
+    <div style="background:var(--surface);border-radius:8px;padding:16px">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;text-align:center;margin-bottom:12px">
+        <div>
+          <div style="font-size:11px;color:var(--muted);margin-bottom:4px">Next Matches</div>
+          <div style="font-family:'Bebas Neue',sans-serif;font-size:24px;color:var(--accent2)">${remainingMatches > 0 ? Math.min(nextDayMatches, remainingMatches) : 0}</div>
+        </div>
+        <div>
+          <div style="font-size:11px;color:var(--muted);margin-bottom:4px">Danger Zone</div>
+          <div style="font-family:'Bebas Neue',sans-serif;font-size:24px;color:var(--red)">${dangerZone}</div>
+          <div style="font-size:10px;color:var(--muted)">players</div>
+        </div>
+        <div>
+          <div style="font-size:11px;color:var(--muted);margin-bottom:4px">Threshold</div>
+          <div style="font-family:'Bebas Neue',sans-serif;font-size:24px;color:var(--muted)">${eliminationThreshold} ❤️</div>
+        </div>
+      </div>
+      ${player.lives <= 2 ? '<div style="background:rgba(239,68,68,0.1);border:2px solid var(--red);border-radius:6px;padding:10px;text-align:center;font-size:12px;color:var(--red);font-weight:600">⚠️ YOU ARE IN THE DANGER ZONE!</div>' : ''}
+    </div>
+  `;
+  
+  // === END NEW SECTIONS ===
   
   // Show Continue button for host, waiting message for players
   const continueBtn = document.getElementById('daily-continue-btn');
