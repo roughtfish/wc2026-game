@@ -4539,6 +4539,49 @@ function reassignRivalsInTestMode(g) {
   });
 }
 
+// Track rival victories for all players in test mode
+function trackAllRivalVictoriesInTestMode(g, matchIndices) {
+  if(g.mode !== 'test') return;
+  
+  if(!g.rivalVictories) g.rivalVictories = {};
+  
+  // For each player who had a rival set
+  g.players.forEach(player => {
+    if(!player.currentRival) return;
+    
+    const rivalPlayer = g.players.find(p => p.name === player.currentRival);
+    if(!rivalPlayer) return;
+    
+    // Count correct predictions for this day
+    let playerCorrect = 0;
+    let rivalCorrect = 0;
+    
+    matchIndices.forEach(idx => {
+      const result = g.results?.[idx];
+      const playerPred = g.predictions[idx]?.[player.name];
+      const rivalPred = g.predictions[idx]?.[rivalPlayer.name];
+      
+      if(!result || playerPred === undefined || playerPred === null || rivalPred === undefined || rivalPred === null) return;
+      
+      const actualWinner = result.pens ? result.pens : (result.home > result.away ? 'home' : result.away > result.home ? 'away' : 'draw');
+      
+      if(playerPred === actualWinner) playerCorrect++;
+      if(rivalPred === actualWinner) rivalCorrect++;
+    });
+    
+    // Update victory counts
+    if(!g.rivalVictories[player.name]) g.rivalVictories[player.name] = 0;
+    if(!g.rivalVictories[rivalPlayer.name]) g.rivalVictories[rivalPlayer.name] = 0;
+    
+    if(playerCorrect > rivalCorrect) {
+      g.rivalVictories[player.name]++;
+    } else if(rivalCorrect > playerCorrect) {
+      g.rivalVictories[rivalPlayer.name]++;
+    }
+    // Draws don't count for anyone
+  });
+}
+
 // Open rival selection modal
 // Add listener for daily summary button
 document.getElementById('set-rival-from-summary')?.addEventListener('click', async () => {
@@ -4674,7 +4717,8 @@ async function completeDayAsHost(g) {
   // Broadcast to all players to show summary
   g.showDailySummary = { matches: calculatedTodaysMatches, timestamp: Date.now() };
   
-  // In test mode, occasionally reassign rivals for next day
+  // In test mode, track rival victories for all players and occasionally reassign rivals
+  trackAllRivalVictoriesInTestMode(g, calculatedTodaysMatches);
   reassignRivalsInTestMode(g);
   
   await saveGame(g);
