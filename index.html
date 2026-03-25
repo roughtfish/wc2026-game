@@ -377,7 +377,12 @@
   <div id="screen-game" class="screen">
     <div class="scoreboard">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-        <div class="scoreboard-title" style="margin:0">STANDINGS</div>
+        <div style="display:flex;flex-direction:column;gap:3px;">
+          <div class="scoreboard-title" style="margin:0">STANDINGS</div>
+          <div id="host-current-rival" style="display:none;font-size:11px;color:var(--muted);">
+            Rival: <span style="color:var(--accent2);font-weight:600;" id="host-rival-name"></span>
+          </div>
+        </div>
         <div style="display:flex;gap:7px">
         <button class="btn btn-secondary btn-sm" id="view-schedule-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7">📅 Schedule</button>
         <button class="btn btn-secondary btn-sm" id="complete-day-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7;display:none">📊 Complete Day</button>
@@ -409,7 +414,12 @@
   <div id="screen-watch" class="screen">
     <div class="scoreboard">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-        <div class="scoreboard-title" style="margin:0">STANDINGS</div>
+        <div style="display:flex;flex-direction:column;gap:3px;">
+          <div class="scoreboard-title" style="margin:0">STANDINGS</div>
+          <div id="watch-current-rival" style="display:none;font-size:11px;color:var(--muted);">
+            Rival: <span style="color:var(--accent2);font-weight:600;" id="watch-rival-name"></span>
+          </div>
+        </div>
         <div style="display:flex;gap:6px">
           <button class="btn btn-secondary btn-sm" id="view-schedule-btn-watch" style="font-size:11px;letter-spacing:1px;opacity:0.7">📅 Schedule</button>
           <button class="btn btn-secondary btn-sm" id="open-watch-group-preds-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7;display:none">📋 My Group Picks</button>
@@ -1820,6 +1830,19 @@ async function enterGame(g){
 async function renderGameHost(g){
   renderScoreboard(g,'players-grid');
   
+  // Update current rival display
+  const rivalDisplay = document.getElementById('host-current-rival');
+  const rivalName = document.getElementById('host-rival-name');
+  const myPlayer = g.players.find(p => p.name === me.name);
+  if(rivalDisplay && rivalName && myPlayer) {
+    if(myPlayer.currentRival) {
+      rivalDisplay.style.display = 'block';
+      rivalName.textContent = myPlayer.currentRival;
+    } else {
+      rivalDisplay.style.display = 'none';
+    }
+  }
+  
   // Calculate today's matches from game state
   const currentMatch = g.matches[g.currentMatchIdx];
   const currentMatchDate = getMatchDateTime(g.currentMatchIdx, currentMatch);
@@ -2430,6 +2453,19 @@ async function renderWatchScreen(g){
   }
   renderScoreboard(g,'watch-players-grid');
   renderProgress(g,'watch-progress-bar');
+  
+  // Update current rival display
+  const rivalDisplay = document.getElementById('watch-current-rival');
+  const rivalName = document.getElementById('watch-rival-name');
+  if(rivalDisplay && rivalName && myPlayer) {
+    if(myPlayer.currentRival) {
+      rivalDisplay.style.display = 'block';
+      rivalName.textContent = myPlayer.currentRival;
+    } else {
+      rivalDisplay.style.display = 'none';
+    }
+  }
+  
   // Show "My Group Picks" button during group stage
   const watchGroupBtn=document.getElementById('open-watch-group-preds-btn');
   if(watchGroupBtn){
