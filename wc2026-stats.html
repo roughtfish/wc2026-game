@@ -539,20 +539,12 @@ function renderRivalStats(g){
   const players=Array.isArray(g.players)?g.players:Object.values(g.players||{});
   const rivalVictories=g.rivalVictories||{};
   
-  // Check if any victories exist
-  const hasVictories=Object.values(rivalVictories).some(v=>v>0);
-  
-  if(!hasVictories){
-    el.innerHTML='<div style="color:var(--muted);font-size:13px;padding:12px 0">No rival matchups completed yet</div>';
-    return;
-  }
-  
-  // Create leaderboard sorted by victories
+  // Create leaderboard with ALL players, sorted by victories
   const playerStats=players.map(p=>({
     name:p.name,
     victories:rivalVictories[p.name]||0,
     currentRival:p.currentRival
-  })).filter(p=>p.victories>0).sort((a,b)=>b.victories-a.victories);
+  })).sort((a,b)=>b.victories-a.victories);
   
   // Show leaderboard
   el.innerHTML=`
@@ -561,10 +553,11 @@ function renderRivalStats(g){
       const rank=i+1;
       const medal=rank===1?'🥇':rank===2?'🥈':rank===3?'🥉':'';
       const bonus=rank===1?'+3 ❤️':rank===2?'+2 ❤️':rank===3?'+1 ❤️':'';
+      const hasVictories = p.victories > 0;
       
       return `
-      <div class="lb-row" style="cursor:pointer;transition:background 0.2s;grid-template-columns:50px 1fr auto auto" onclick="showRivalDetail('${p.name}')">
-        <div class="lb-rank ${rank<=3?'gold':''}" style="font-size:${medal?'24px':'20px'}">${medal||rank}</div>
+      <div class="lb-row" style="cursor:pointer;transition:background 0.2s;grid-template-columns:50px 1fr auto auto;${!hasVictories?'opacity:0.5;':''}" onclick="showRivalDetail('${p.name}')">
+        <div class="lb-rank ${rank<=3?'gold':''}" style="font-size:${medal?'24px':'16px'}">${medal||rank}</div>
         <div class="lb-name">${p.name}</div>
         <div style="font-family:'Bebas Neue',sans-serif;font-size:18px;color:var(--accent2);text-align:right">${p.victories}</div>
         <div style="font-size:11px;color:${rank<=3?'var(--accent)':'var(--muted)'};text-align:right;min-width:60px">${bonus}</div>
@@ -573,7 +566,7 @@ function renderRivalStats(g){
     }).join('')}
   </div>
   <div style="font-size:11px;color:var(--muted);text-align:center;margin-top:8px">
-    💡 Click a player to see their head-to-head records
+    💡 Click a player to see their domination & nemesis
   </div>
   `;
   
@@ -1499,84 +1492,78 @@ function showRivalDetail(playerName){
   const entries=Object.entries(h2hRecords);
   
   if(entries.length>0){
-    // Separate into who they beat and who beat them
-    const beaten=entries.filter(([,stats])=>stats.wins>stats.losses);
-    const beatenBy=entries.filter(([,stats])=>stats.losses>stats.wins);
-    const even=entries.filter(([,stats])=>stats.wins===stats.losses);
+    // Sort by total games played for tie-breaker
+    entries.sort((a,b)=>{
+      const totalA=a[1].wins+a[1].losses+a[1].draws;
+      const totalB=b[1].wins+b[1].losses+b[1].draws;
+      return totalB-totalA;
+    });
     
-    // Sort each group by win count / loss count
-    beaten.sort((a,b)=>b[1].wins-a[1].wins);
-    beatenBy.sort((a,b)=>b[1].losses-a[1].losses);
-    even.sort((a,b)=>(b[1].wins+b[1].losses+b[1].draws)-(a[1].wins+a[1].losses+a[1].draws));
+    // Find DOMINATION - who this player beats the most (highest win count)
+    const domination = entries.filter(([,stats])=>stats.wins>stats.losses)
+      .sort((a,b)=>b[1].wins-a[1].wins)[0];
     
-    // Players this player has beaten
-    if(beaten.length>0){
+    // Find NEMESIS - who beats this player the most (highest loss count)
+    const nemesis = entries.filter(([,stats])=>stats.losses>stats.wins)
+      .sort((a,b)=>b[1].losses-a[1].losses)[0];
+    
+    // Show Domination
+    if(domination){
+      const [rival,stats]=domination;
+      const total=stats.wins+stats.losses+stats.draws;
+      const winPct=total>0?Math.round((stats.wins/total)*100):0;
       html+=`
-      <div class="h2h-section-title">BEATEN BY ${playerName.toUpperCase()}</div>
-      <div style="margin-bottom:20px">
-        ${beaten.map(([rival,stats])=>{
-          const total=stats.wins+stats.losses+stats.draws;
-          const winPct=total>0?Math.round((stats.wins/total)*100):0;
-          return `
-          <div style="display:flex;justify-content:space-between;align-items:center;padding:12px;background:var(--surface2);border-radius:8px;margin-bottom:8px">
-            <div style="font-weight:600;font-size:14px">${rival}</div>
-            <div style="display:flex;gap:16px;align-items:center">
-              <div style="font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:1px">
-                <span style="color:var(--green)">${stats.wins}</span>-<span style="color:var(--red)">${stats.losses}</span>${stats.draws>0?`-<span style="color:var(--muted)">${stats.draws}</span>`:''}
-              </div>
-              <div style="color:var(--green);font-family:'Bebas Neue',sans-serif;font-size:18px;min-width:50px;text-align:right">${winPct}%</div>
-            </div>
+      <div style="margin-bottom:24px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+          <span style="font-size:24px">💪</span>
+          <div>
+            <div style="font-size:12px;color:var(--muted);letter-spacing:1px;font-weight:600">DOMINATION</div>
+            <div style="font-size:11px;color:var(--muted)">Most beaten rival</div>
           </div>
-          `;
-        }).join('')}
+        </div>
+        <div style="padding:16px;background:linear-gradient(135deg, rgba(34,197,94,0.1), rgba(34,197,94,0.05));border:2px solid rgba(34,197,94,0.3);border-radius:12px">
+          <div style="font-weight:700;font-size:18px;margin-bottom:8px;color:var(--green)">${rival}</div>
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div style="font-family:'Bebas Neue',sans-serif;font-size:28px;letter-spacing:1px">
+              <span style="color:var(--green)">${stats.wins}</span>-<span style="color:var(--red)">${stats.losses}</span>${stats.draws>0?`-<span style="color:var(--muted)">${stats.draws}</span>`:''}
+            </div>
+            <div style="color:var(--green);font-family:'Bebas Neue',sans-serif;font-size:32px">${winPct}%</div>
+          </div>
+        </div>
       </div>
       `;
     }
     
-    // Even records
-    if(even.length>0){
+    // Show Nemesis
+    if(nemesis){
+      const [rival,stats]=nemesis;
+      const total=stats.wins+stats.losses+stats.draws;
+      const winPct=total>0?Math.round((stats.wins/total)*100):0;
       html+=`
-      <div class="h2h-section-title">EVEN RECORDS</div>
       <div style="margin-bottom:20px">
-        ${even.map(([rival,stats])=>{
-          return `
-          <div style="display:flex;justify-content:space-between;align-items:center;padding:12px;background:var(--surface2);border-radius:8px;margin-bottom:8px">
-            <div style="font-weight:600;font-size:14px">${rival}</div>
-            <div style="display:flex;gap:16px;align-items:center">
-              <div style="font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:1px">
-                <span style="color:var(--green)">${stats.wins}</span>-<span style="color:var(--red)">${stats.losses}</span>${stats.draws>0?`-<span style="color:var(--muted)">${stats.draws}</span>`:''}
-              </div>
-              <div style="color:var(--accent);font-family:'Bebas Neue',sans-serif;font-size:18px;min-width:50px;text-align:right">50%</div>
-            </div>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+          <span style="font-size:24px">😈</span>
+          <div>
+            <div style="font-size:12px;color:var(--muted);letter-spacing:1px;font-weight:600">NEMESIS</div>
+            <div style="font-size:11px;color:var(--muted)">Toughest opponent</div>
           </div>
-          `;
-        }).join('')}
+        </div>
+        <div style="padding:16px;background:linear-gradient(135deg, rgba(239,68,68,0.1), rgba(239,68,68,0.05));border:2px solid rgba(239,68,68,0.3);border-radius:12px">
+          <div style="font-weight:700;font-size:18px;margin-bottom:8px;color:var(--red)">${rival}</div>
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div style="font-family:'Bebas Neue',sans-serif;font-size:28px;letter-spacing:1px">
+              <span style="color:var(--green)">${stats.wins}</span>-<span style="color:var(--red)">${stats.losses}</span>${stats.draws>0?`-<span style="color:var(--muted)">${stats.draws}</span>`:''}
+            </div>
+            <div style="color:var(--red);font-family:'Bebas Neue',sans-serif;font-size:32px">${winPct}%</div>
+          </div>
+        </div>
       </div>
       `;
     }
     
-    // Players who have beaten this player
-    if(beatenBy.length>0){
-      html+=`
-      <div class="h2h-section-title">BEATEN ${playerName.toUpperCase()}</div>
-      <div style="margin-bottom:20px">
-        ${beatenBy.map(([rival,stats])=>{
-          const total=stats.wins+stats.losses+stats.draws;
-          const winPct=total>0?Math.round((stats.wins/total)*100):0;
-          return `
-          <div style="display:flex;justify-content:space-between;align-items:center;padding:12px;background:var(--surface2);border-radius:8px;margin-bottom:8px">
-            <div style="font-weight:600;font-size:14px">${rival}</div>
-            <div style="display:flex;gap:16px;align-items:center">
-              <div style="font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:1px">
-                <span style="color:var(--green)">${stats.wins}</span>-<span style="color:var(--red)">${stats.losses}</span>${stats.draws>0?`-<span style="color:var(--muted)">${stats.draws}</span>`:''}
-              </div>
-              <div style="color:var(--red);font-family:'Bebas Neue',sans-serif;font-size:18px;min-width:50px;text-align:right">${winPct}%</div>
-            </div>
-          </div>
-          `;
-        }).join('')}
-      </div>
-      `;
+    // If no domination or nemesis (all even)
+    if(!domination && !nemesis){
+      html+=`<div style="color:var(--muted);font-size:13px;text-align:center;padding:20px">All rival matchups are even - no clear domination or nemesis yet!</div>`;
     }
   } else {
     html+=`<div style="color:var(--muted);font-size:13px;text-align:center;padding:20px">No rival matchups yet</div>`;
