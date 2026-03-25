@@ -77,6 +77,11 @@
   .badge-host{background:rgba(232,184,75,0.13);color:var(--accent)}
   .pulse{animation:pulse 1.4s ease infinite}
   @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.35}}
+  .rival-pulse{animation:rival-pulse 2s ease-in-out infinite}
+  @keyframes rival-pulse{
+    0%,100%{transform:scale(1);box-shadow:0 0 0 0 rgba(45,212,191,0.7)}
+    50%{transform:scale(1.05);box-shadow:0 0 0 10px rgba(45,212,191,0)}
+  }
   .scoreboard{background:var(--surface);border:1px solid var(--border);border-radius:13px;padding:14px 16px;margin-bottom:18px}
   .scoreboard-title{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:10px}
   .players-grid{display:flex;flex-wrap:wrap;gap:9px}
@@ -4163,13 +4168,19 @@ async function showDailySummary(g, matchIndices) {
     // Show CTA and update its state
     if(rivalCta) rivalCta.style.display = 'block';
     
+    const rivalBtn = document.getElementById('set-rival-from-summary');
+    
     if(player.currentRival && ctaBadge && ctaBadgeName && ctaBtnText) {
+      // Rival already set - no pulse
       ctaBadge.style.display = 'block';
       ctaBadgeName.textContent = player.currentRival;
       ctaBtnText.textContent = '⚔️ Change Rival';
+      if(rivalBtn) rivalBtn.classList.remove('rival-pulse');
     } else if(ctaBadge && ctaBtnText) {
+      // No rival set - add pulse animation
       ctaBadge.style.display = 'none';
       ctaBtnText.textContent = '⚔️ Set My Rival';
+      if(rivalBtn) rivalBtn.classList.add('rival-pulse');
     }
   }
   
@@ -4429,6 +4440,7 @@ async function saveRival() {
     closeRivalModal();
     
     // Update the CTA button if on daily summary
+    const rivalBtn = document.getElementById('set-rival-from-summary');
     const ctaBadge = document.getElementById('current-rival-badge');
     const ctaBadgeName = document.getElementById('current-rival-name-badge');
     const ctaBtnText = document.getElementById('rival-btn-text');
@@ -4436,6 +4448,8 @@ async function saveRival() {
       ctaBadge.style.display = 'block';
       ctaBadgeName.textContent = rivalName;
       ctaBtnText.textContent = '⚔️ Change Rival';
+      // Remove pulse animation
+      if(rivalBtn) rivalBtn.classList.remove('rival-pulse');
     }
     
     alert(`⚔️ ${rivalName} is now your rival!`);
