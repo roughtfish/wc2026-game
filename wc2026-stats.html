@@ -227,7 +227,14 @@
   <div id="stats-area" style="display:none">
     <div class="refresh-note"><span class="spinner"></span>Auto-refreshing every 10s &nbsp;·&nbsp; <span id="last-updated"></span></div>
     <div id="h2h-banner" style="display:none"></div>
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+    
+    <!-- Quick Stats Summary -->
+    <div id="quick-stats-summary" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:24px;"></div>
+    
+    <!-- COMPETITION SECTION -->
+    <div class="section-title" style="margin-top:24px;font-size:16px;color:var(--accent);letter-spacing:1.5px;border-bottom:2px solid var(--accent);padding-bottom:8px">⚔️ COMPETITION</div>
+    
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;margin-top:20px">
       <div class="section-title" style="margin:0;flex:1">STANDINGS</div>
       <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);cursor:pointer;user-select:none">
         <input type="checkbox" id="h2h-mode-toggle" style="width:16px;height:16px;cursor:pointer;accent-color:var(--accent2)">
@@ -237,6 +244,8 @@
     <div class="leaderboard" id="leaderboard"></div>
     <div class="section-title">STREAKS 🔥</div>
     <div id="streak-stats"></div>
+    <div class="section-title">PERFECT DAYS ⭐</div>
+    <div id="perfect-days"></div>
     <div class="section-title" style="cursor:pointer;user-select:none;display:flex;align-items:center;justify-content:space-between" id="rival-victories-header">
       <span>RIVAL VICTORIES ⚔️</span>
       <span style="font-size:11px;color:var(--muted);transition:transform 0.2s" id="rival-victories-arrow">▼</span>
@@ -247,18 +256,28 @@
       <span style="font-size:11px;color:var(--muted);transition:transform 0.2s" id="most-picked-rival-arrow">▼</span>
     </div>
     <div id="most-picked-rival"></div>
-    <div class="section-title">BEST SCORE PREDICTORS 🎯</div>
+    
+    <!-- PREDICTIONS SECTION -->
+    <div class="section-title" style="margin-top:32px;font-size:16px;color:var(--accent);letter-spacing:1.5px;border-bottom:2px solid var(--accent);padding-bottom:8px">🎯 PREDICTIONS</div>
+    
+    <div class="section-title" style="margin-top:20px">BEST SCORE PREDICTORS</div>
     <div id="score-predictors"></div>
-    <div class="section-title">BIGGEST UPSET</div>
-    <div id="biggest-upset"></div>
     <div class="section-title" style="cursor:pointer;user-select:none;display:flex;align-items:center;justify-content:space-between" id="exact-scores-header">
-      <span>EXACT SCORE PREDICTIONS 🎯</span>
+      <span>EXACT SCORE PREDICTIONS</span>
       <span style="font-size:11px;color:var(--muted);transition:transform 0.2s" id="exact-scores-arrow">▼</span>
     </div>
     <div id="exact-scores"></div>
+    <div class="section-title">BIGGEST UPSET</div>
+    <div id="biggest-upset"></div>
+    <div class="section-title">UNDERDOG PICKS 🐕</div>
+    <div id="underdog-picks"></div>
     <div class="section-title">MOST PICKED TEAMS 🌟</div>
     <div id="most-picked-teams"></div>
-    <div class="section-title">SURVIVAL PROBABILITY</div>
+    
+    <!-- PERFORMANCE SECTION -->
+    <div class="section-title" style="margin-top:32px;font-size:16px;color:var(--accent);letter-spacing:1.5px;border-bottom:2px solid var(--accent);padding-bottom:8px">📊 PERFORMANCE</div>
+    
+    <div class="section-title" style="margin-top:20px">SURVIVAL ANALYSIS</div>
     <div id="survival-prob"></div>
     <div class="section-title">LIVES OVER TIME</div>
     <div class="chart-wrap">
@@ -266,7 +285,11 @@
       <div id="chart-legend" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;"></div>
       <div style="font-size:10px;color:var(--muted);text-align:center;margin-top:8px;letter-spacing:1px">💡 Click player names to show/hide lines</div>
     </div>
-    <div class="section-title">MATCH HISTORY</div>
+    
+    <!-- HISTORY SECTION -->
+    <div class="section-title" style="margin-top:32px;font-size:16px;color:var(--accent);letter-spacing:1.5px;border-bottom:2px solid var(--accent);padding-bottom:8px">📜 HISTORY</div>
+    
+    <div class="section-title" style="margin-top:20px">MATCH HISTORY</div>
     <div class="history-controls">
       <button class="filter-btn active" data-filter="all">All</button>
       <button class="filter-btn" data-filter="group">Group Stage</button>
@@ -393,13 +416,16 @@ function render(g){
   else if(g.status&&g.status.startsWith('reveal:')){statusLabel='REVEAL';statusClass='status-live';}
   const subEl=document.querySelector('.header .sub');
   if(subEl)subEl.innerHTML=`Live Stats &nbsp;·&nbsp; <span class="status-chip ${statusClass}">${statusLabel}</span>`;
+  renderQuickStats(g);
   renderLeaderboard(g);
   renderStreakStats(g);
+  renderPerfectDays(g);
   renderRivalStats(g);
   renderMostPickedRival(g);
   renderScorePredictors(g);
   renderBiggestUpset(g);
   renderExactScores(g);
+  renderUnderdogPicks(g);
   renderMostPickedTeams(g);
   renderSurvivalProb(g);
   renderLivesChart(g);
@@ -408,6 +434,225 @@ function render(g){
     console.error('render failed',e);
     document.getElementById('leaderboard').innerHTML=`<div style="color:red;padding:12px;font-size:12px">Render error: ${e.message}</div>`;
   }
+}
+
+// ─── QUICK STATS SUMMARY ─────────────────────────────────────────────────────
+function renderQuickStats(g){
+  const el=document.getElementById('quick-stats-summary');
+  if(!el)return;
+  
+  const players=Array.isArray(g.players)?g.players:Object.values(g.players||{});
+  const results=g.results||{};
+  const playedIdxs=Object.keys(results).map(Number).filter(n=>!isNaN(n)&&results[n]!=null).sort((a,b)=>a-b);
+  const totalMatches=g.matches.length;
+  const progress=Math.round((g.currentMatchIdx/totalMatches)*100);
+  
+  // Calculate average correct per match
+  let totalCorrect=0;
+  let totalPredictions=0;
+  playedIdxs.forEach(idx=>{
+    players.forEach(p=>{
+      const pred=g.predictions[idx]?.[p.name];
+      const result=results[idx];
+      if(pred!==null&&pred!==undefined&&result){
+        totalPredictions++;
+        const actualWinner=result.pens?result.pens:(result.home>result.away?'home':result.away>result.home?'away':'draw');
+        if(pred===actualWinner)totalCorrect++;
+      }
+    });
+  });
+  const avgCorrect=totalPredictions>0?(totalCorrect/totalPredictions*100).toFixed(1):0;
+  
+  // Find current leader
+  const sortedPlayers=[...players].sort((a,b)=>{
+    if(b.lives!==a.lives)return b.lives-a.lives;
+    const aCorrect=playedIdxs.filter(idx=>{
+      const r=results[idx];const v=(g.predictions[idx]||{})[a.name];
+      return v&&v===(r.pens?r.pens:(r.home>r.away?'home':r.away>r.home?'away':'draw'));
+    }).length;
+    const bCorrect=playedIdxs.filter(idx=>{
+      const r=results[idx];const v=(g.predictions[idx]||{})[b.name];
+      return v&&v===(r.pens?r.pens:(r.home>r.away?'home':r.away>r.home?'away':'draw'));
+    }).length;
+    return bCorrect-aCorrect;
+  });
+  const leader=sortedPlayers[0];
+  
+  el.innerHTML=`
+    <div style="background:var(--surface);border-radius:8px;padding:12px;border-left:3px solid var(--accent2)">
+      <div style="font-size:10px;color:var(--muted);letter-spacing:1px;margin-bottom:4px">MATCHES PLAYED</div>
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:24px;color:var(--accent2)">${playedIdxs.length}</div>
+      <div style="font-size:10px;color:var(--muted);margin-top:2px">of ${totalMatches}</div>
+    </div>
+    <div style="background:var(--surface);border-radius:8px;padding:12px;border-left:3px solid var(--accent)">
+      <div style="font-size:10px;color:var(--muted);letter-spacing:1px;margin-bottom:4px">PROGRESS</div>
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:24px;color:var(--accent)">${progress}%</div>
+      <div style="font-size:10px;color:var(--muted);margin-top:2px">${totalMatches-g.currentMatchIdx} remaining</div>
+    </div>
+    <div style="background:var(--surface);border-radius:8px;padding:12px;border-left:3px solid var(--green)">
+      <div style="font-size:10px;color:var(--muted);letter-spacing:1px;margin-bottom:4px">AVG ACCURACY</div>
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:24px;color:var(--green)">${avgCorrect}%</div>
+      <div style="font-size:10px;color:var(--muted);margin-top:2px">across all players</div>
+    </div>
+    <div style="background:var(--surface);border-radius:8px;padding:12px;border-left:3px solid gold">
+      <div style="font-size:10px;color:var(--muted);letter-spacing:1px;margin-bottom:4px">LEADER</div>
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:18px;color:gold">${leader.name}</div>
+      <div style="font-size:10px;color:var(--muted);margin-top:2px">${leader.lives} ❤️</div>
+    </div>
+  `;
+}
+
+// ─── PERFECT DAYS ────────────────────────────────────────────────────────────
+function renderPerfectDays(g){
+  const el=document.getElementById('perfect-days');
+  if(!el)return;
+  
+  const players=Array.isArray(g.players)?g.players:Object.values(g.players||{});
+  const completedDays=g.completedDays||[];
+  
+  if(completedDays.length===0){
+    el.innerHTML='<div style="color:var(--muted);font-size:13px;padding:12px 0">No days completed yet</div>';
+    return;
+  }
+  
+  // Track perfect days per player
+  const perfectDays={};
+  
+  completedDays.forEach(day=>{
+    const matchIndices=day.matches||[];
+    if(matchIndices.length===0)return;
+    
+    players.forEach(p=>{
+      let allCorrect=true;
+      let hasAnyPrediction=false;
+      
+      matchIndices.forEach(idx=>{
+        const result=g.results?.[idx];
+        const pred=g.predictions[idx]?.[p.name];
+        
+        if(pred===null||pred===undefined)return;
+        hasAnyPrediction=true;
+        
+        if(!result)return;
+        
+        const actualWinner=result.pens?result.pens:(result.home>result.away?'home':result.away>result.home?'away':'draw');
+        if(pred!==actualWinner)allCorrect=false;
+      });
+      
+      if(allCorrect&&hasAnyPrediction){
+        if(!perfectDays[p.name])perfectDays[p.name]=0;
+        perfectDays[p.name]++;
+      }
+    });
+  });
+  
+  const entries=Object.entries(perfectDays).sort((a,b)=>b[1]-a[1]);
+  
+  if(entries.length===0){
+    el.innerHTML='<div style="color:var(--muted);font-size:13px;padding:12px 0">No perfect days yet — get all predictions correct in a day!</div>';
+    return;
+  }
+  
+  el.innerHTML=`
+    <div class="leaderboard">
+      ${entries.map(([name,count],i)=>{
+        const rank=i+1;
+        const medal=rank===1?'⭐':rank===2?'🌟':rank===3?'✨':'';
+        return `
+        <div class="lb-row" style="grid-template-columns:50px 1fr auto">
+          <div class="lb-rank" style="font-size:${medal?'22px':'16px'}">${medal||rank}</div>
+          <div class="lb-name">${name}</div>
+          <div style="font-family:'Bebas Neue',sans-serif;font-size:18px;color:gold;text-align:right">${count}</div>
+        </div>
+        `;
+      }).join('')}
+    </div>
+    <div style="font-size:11px;color:var(--muted);text-align:center;margin-top:8px">
+      💡 A perfect day = 100% correct predictions for all matches that day
+    </div>
+  `;
+}
+
+// ─── UNDERDOG PICKS ──────────────────────────────────────────────────────────
+function renderUnderdogPicks(g){
+  const el=document.getElementById('underdog-picks');
+  if(!el)return;
+  
+  const players=Array.isArray(g.players)?g.players:Object.values(g.players||{});
+  const results=g.results||{};
+  const playedIdxs=Object.keys(results).map(Number).filter(n=>!isNaN(n)&&results[n]!=null).sort((a,b)=>a-b);
+  
+  if(playedIdxs.length===0){
+    el.innerHTML='<div style="color:var(--muted);font-size:13px;padding:12px 0">No matches played yet</div>';
+    return;
+  }
+  
+  // For each match, find the underdog (least picked team)
+  const underdogPicks={};
+  
+  playedIdxs.forEach(idx=>{
+    const match=g.matches[idx];
+    if(!match)return;
+    
+    // Count predictions for each team
+    let homeCount=0;
+    let awayCount=0;
+    let drawCount=0;
+    
+    players.forEach(p=>{
+      const pred=g.predictions[idx]?.[p.name];
+      if(pred==='home')homeCount++;
+      else if(pred==='away')awayCount++;
+      else if(pred==='draw')drawCount++;
+    });
+    
+    // Determine underdog (least picked)
+    const counts=[
+      {pick:'home',count:homeCount},
+      {pick:'away',count:awayCount},
+      {pick:'draw',count:drawCount}
+    ].filter(c=>c.count>0).sort((a,b)=>a.count-b.count);
+    
+    if(counts.length===0)return;
+    const underdog=counts[0].pick;
+    
+    // Track who picked the underdog
+    players.forEach(p=>{
+      const pred=g.predictions[idx]?.[p.name];
+      if(pred===underdog){
+        if(!underdogPicks[p.name])underdogPicks[p.name]=0;
+        underdogPicks[p.name]++;
+      }
+    });
+  });
+  
+  const entries=Object.entries(underdogPicks).sort((a,b)=>b[1]-a[1]);
+  
+  if(entries.length===0){
+    el.innerHTML='<div style="color:var(--muted);font-size:13px;padding:12px 0">No underdog picks yet</div>';
+    return;
+  }
+  
+  el.innerHTML=`
+    <div class="leaderboard">
+      ${entries.map(([name,count],i)=>{
+        const rank=i+1;
+        const medal=rank===1?'🐕':rank===2?'🦴':rank===3?'🐾':'';
+        const pct=playedIdxs.length>0?Math.round((count/playedIdxs.length)*100):0;
+        return `
+        <div class="lb-row" style="grid-template-columns:50px 1fr auto auto">
+          <div class="lb-rank" style="font-size:${medal?'22px':'16px'}">${medal||rank}</div>
+          <div class="lb-name">${name}</div>
+          <div style="font-family:'Bebas Neue',sans-serif;font-size:18px;color:var(--accent2);text-align:right">${count}</div>
+          <div style="font-size:11px;color:var(--muted);text-align:right;min-width:50px">${pct}%</div>
+        </div>
+        `;
+      }).join('')}
+    </div>
+    <div style="font-size:11px;color:var(--muted);text-align:center;margin-top:8px">
+      💡 Underdog = least popular pick for each match
+    </div>
+  `;
 }
 
 // ─── LIVES CHART ─────────────────────────────────────────────────────────────
@@ -471,21 +716,59 @@ function renderSurvivalProb(g){
 
   const sorted=[...players].sort((a,b)=>survivalPct[b.name]-survivalPct[a.name]);
   const maxPct=Math.max(...sorted.map(p=>survivalPct[p.name]),1);
-
-  el.innerHTML=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px 20px;margin-bottom:22px">
-    <div style="font-size:11px;color:var(--muted);margin-bottom:12px">Based on ${remaining} remaining match${remaining===1?'':'es'} and each player's accuracy so far (${SIMS} simulations)</div>
-    ${sorted.map(p=>{
-      const pct=survivalPct[p.name];
-      const col=pct>=70?'var(--green)':pct>=35?'var(--accent)':'var(--red)';
+  
+  // Calculate days until elimination (estimated)
+  const daysToElim={};
+  players.forEach(p=>{
+    if(p.eliminated||p.lives<=0){
+      daysToElim[p.name]=0;
+    } else {
       const acc=accuracy[p.name];
-      return`<div class="surv-row${p.eliminated?' ':''}">
-        <div class="surv-name">${p.name}${p.eliminated?' 💀':''}</div>
-        <div class="surv-bar-wrap"><div class="surv-bar" style="width:${Math.round(pct/maxPct*100)}%;background:${col}"></div></div>
-        <div class="surv-pct" style="color:${col}">${pct}%</div>
-        <div class="surv-lives">❤️${p.lives} · ${Math.round(acc*100)}% acc</div>
-      </div>`;
-    }).join('')}
-  </div>`;
+      const avgLossRate=(1-acc)*0.92; // Wrong = -1 life
+      if(avgLossRate>0){
+        daysToElim[p.name]=Math.ceil(p.lives/avgLossRate);
+      } else {
+        daysToElim[p.name]=999; // Effectively infinite
+      }
+    }
+  });
+
+  el.innerHTML=`
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px 20px;margin-bottom:22px">
+      <div style="font-size:11px;color:var(--muted);margin-bottom:16px">
+        Based on ${remaining} remaining match${remaining===1?'':'es'} and historical accuracy (${SIMS} simulations)
+      </div>
+      
+      <!-- Risk Zones -->
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px">
+        <div style="background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.3);border-radius:6px;padding:8px;text-align:center">
+          <div style="font-size:10px;color:var(--green);font-weight:600;margin-bottom:2px">SAFE ZONE</div>
+          <div style="font-size:11px;color:var(--muted)">≥70% survival</div>
+        </div>
+        <div style="background:rgba(45,212,191,0.1);border:1px solid rgba(45,212,191,0.3);border-radius:6px;padding:8px;text-align:center">
+          <div style="font-size:10px;color:var(--accent);font-weight:600;margin-bottom:2px">RISK ZONE</div>
+          <div style="font-size:11px;color:var(--muted)">35-69%</div>
+        </div>
+        <div style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:6px;padding:8px;text-align:center">
+          <div style="font-size:10px;color:var(--red);font-weight:600;margin-bottom:2px">DANGER ZONE</div>
+          <div style="font-size:11px;color:var(--muted)">&lt;35%</div>
+        </div>
+      </div>
+      
+      ${sorted.map(p=>{
+        const pct=survivalPct[p.name];
+        const col=pct>=70?'var(--green)':pct>=35?'var(--accent)':'var(--red)';
+        const acc=accuracy[p.name];
+        const days=daysToElim[p.name];
+        const daysText=days===0?'Eliminated':days>100?'∞':days===1?'1 day':days+' days';
+        return`<div class="surv-row${p.eliminated?' ':''}">
+          <div class="surv-name">${p.name}${p.eliminated?' 💀':''}</div>
+          <div class="surv-bar-wrap"><div class="surv-bar" style="width:${Math.round(pct/maxPct*100)}%;background:${col}"></div></div>
+          <div class="surv-pct" style="color:${col}">${pct}%</div>
+          <div class="surv-lives">❤️${p.lives} · ${Math.round(acc*100)}% acc · ~${daysText}</div>
+        </div>`;
+      }).join('')}
+    </div>`;
 }
 
 function renderStreakStats(g){
