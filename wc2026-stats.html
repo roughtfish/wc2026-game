@@ -538,7 +538,6 @@ function renderRivalStats(g){
   
   const players=Array.isArray(g.players)?g.players:Object.values(g.players||{});
   const rivalVictories=g.rivalVictories||{};
-  const completedDays=g.completedDays||[];
   
   // Check if any victories exist
   const hasVictories=Object.values(rivalVictories).some(v=>v>0);
@@ -548,79 +547,12 @@ function renderRivalStats(g){
     return;
   }
   
-  // Calculate detailed stats for each player
-  const playerStats=players.map(p=>{
-    const victories=rivalVictories[p.name]||0;
-    
-    // Track who this player faced and the results
-    const asChallenger={}; // When this player SET someone as rival
-    const asTarget={}; // When someone else SET this player as rival
-    
-    completedDays.forEach(day=>{
-      const matchIndices=day.matches||[];
-      
-      // Check each player's rival choice for this day
-      players.forEach(other=>{
-        if(other.name===p.name)return;
-        
-        // If this player had 'other' as rival
-        if(p.currentRival===other.name){
-          let pCorrect=0;
-          let otherCorrect=0;
-          
-          matchIndices.forEach(idx=>{
-            const result=g.results?.[idx];
-            const pPred=g.predictions[idx]?.[p.name];
-            const otherPred=g.predictions[idx]?.[other.name];
-            
-            if(!result||pPred===undefined||pPred===null||otherPred===undefined||otherPred===null)return;
-            
-            const actualWinner=result.pens?result.pens:(result.home>result.away?'home':result.away>result.home?'away':'draw');
-            
-            if(pPred===actualWinner)pCorrect++;
-            if(otherPred===actualWinner)otherCorrect++;
-          });
-          
-          if(!asChallenger[other.name])asChallenger[other.name]={wins:0,losses:0,draws:0};
-          if(pCorrect>otherCorrect)asChallenger[other.name].wins++;
-          else if(otherCorrect>pCorrect)asChallenger[other.name].losses++;
-          else asChallenger[other.name].draws++;
-        }
-        
-        // If 'other' had this player as rival
-        if(other.currentRival===p.name){
-          let pCorrect=0;
-          let otherCorrect=0;
-          
-          matchIndices.forEach(idx=>{
-            const result=g.results?.[idx];
-            const pPred=g.predictions[idx]?.[p.name];
-            const otherPred=g.predictions[idx]?.[other.name];
-            
-            if(!result||pPred===undefined||pPred===null||otherPred===undefined||otherPred===null)return;
-            
-            const actualWinner=result.pens?result.pens:(result.home>result.away?'home':result.away>result.home?'away':'draw');
-            
-            if(pPred===actualWinner)pCorrect++;
-            if(otherPred===actualWinner)otherCorrect++;
-          });
-          
-          if(!asTarget[other.name])asTarget[other.name]={wins:0,losses:0,draws:0};
-          if(pCorrect>otherCorrect)asTarget[other.name].wins++;
-          else if(otherCorrect>pCorrect)asTarget[other.name].losses++;
-          else asTarget[other.name].draws++;
-        }
-      });
-    });
-    
-    return {
-      name:p.name,
-      victories,
-      currentRival:p.currentRival,
-      asChallenger,
-      asTarget
-    };
-  }).sort((a,b)=>b.victories-a.victories);
+  // Create leaderboard sorted by victories
+  const playerStats=players.map(p=>({
+    name:p.name,
+    victories:rivalVictories[p.name]||0,
+    currentRival:p.currentRival
+  })).filter(p=>p.victories>0).sort((a,b)=>b.victories-a.victories);
   
   // Show leaderboard
   el.innerHTML=`
@@ -641,7 +573,7 @@ function renderRivalStats(g){
     }).join('')}
   </div>
   <div style="font-size:11px;color:var(--muted);text-align:center;margin-top:8px">
-    💡 Click a player to see their rival matchup details
+    💡 Click a player to see their head-to-head records
   </div>
   `;
   
@@ -1511,6 +1443,46 @@ function showRivalDetail(playerName){
   
   title.textContent=`⚔️ ${playerName}'s Rival Matchups`;
   
+  const players=Array.isArray(g.players)?g.players:Object.values(g.players||{});
+  const completedDays=g.completedDays||[];
+  
+  // Calculate head-to-head record against each other player
+  const h2hRecords={};
+  
+  completedDays.forEach(day=>{
+    const matchIndices=day.matches||[];
+    
+    players.forEach(other=>{
+      if(other.name===playerName)return;
+      
+      // Count who won this day
+      let myCorrect=0;
+      let theirCorrect=0;
+      
+      matchIndices.forEach(idx=>{
+        const result=g.results?.[idx];
+        const myPred=g.predictions[idx]?.[playerName];
+        const theirPred=g.predictions[idx]?.[other.name];
+        
+        if(!result||myPred===undefined||myPred===null||theirPred===undefined||theirPred===null)return;
+        
+        const actualWinner=result.pens?result.pens:(result.home>result.away?'home':result.away>result.home?'away':'draw');
+        
+        if(myPred===actualWinner)myCorrect++;
+        if(theirPred===actualWinner)theirCorrect++;
+      });
+      
+      // Only track if they actually faced each other this day
+      if(myCorrect>0||theirCorrect>0){
+        if(!h2hRecords[other.name])h2hRecords[other.name]={wins:0,losses:0,draws:0};
+        
+        if(myCorrect>theirCorrect)h2hRecords[other.name].wins++;
+        else if(theirCorrect>myCorrect)h2hRecords[other.name].losses++;
+        else h2hRecords[other.name].draws++;
+      }
+    });
+  });
+  
   // Build detail view
   let html=`
     <div style="text-align:center;margin-bottom:20px">
@@ -1520,57 +1492,40 @@ function showRivalDetail(playerName){
     </div>
   `;
   
-  // As Challenger (when this player SET someone as rival)
-  const challengerEntries=Object.entries(player.asChallenger);
-  if(challengerEntries.length>0){
+  const entries=Object.entries(h2hRecords);
+  
+  if(entries.length>0){
+    // Sort by total games, then by win percentage
+    entries.sort((a,b)=>{
+      const totalA=a[1].wins+a[1].losses+a[1].draws;
+      const totalB=b[1].wins+b[1].losses+b[1].draws;
+      if(totalB!==totalA)return totalB-totalA;
+      const pctA=totalA>0?a[1].wins/totalA:0;
+      const pctB=totalB>0?b[1].wins/totalB:0;
+      return pctB-pctA;
+    });
+    
     html+=`
-    <div class="h2h-section-title">AS CHALLENGER (${playerName} picked them)</div>
+    <div class="h2h-section-title">HEAD-TO-HEAD RECORDS</div>
     <div style="margin-bottom:20px">
-      ${challengerEntries.map(([rival,stats])=>{
+      ${entries.map(([rival,stats])=>{
         const total=stats.wins+stats.losses+stats.draws;
         const winPct=total>0?Math.round((stats.wins/total)*100):0;
         return `
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px;background:var(--surface2);border-radius:8px;margin-bottom:6px">
-          <div style="font-weight:600">${rival}</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:12px;background:var(--surface2);border-radius:8px;margin-bottom:8px">
+          <div style="font-weight:600;font-size:14px">${rival}</div>
           <div style="display:flex;gap:12px;align-items:center;font-size:13px">
-            <span style="color:var(--green)">${stats.wins}W</span>
-            <span style="color:var(--red)">${stats.losses}L</span>
+            <span style="color:var(--green);font-weight:600">${stats.wins}W</span>
+            <span style="color:var(--red);font-weight:600">${stats.losses}L</span>
             ${stats.draws>0?`<span style="color:var(--muted)">${stats.draws}D</span>`:''}
-            <span style="color:var(--accent2);font-family:'Bebas Neue',sans-serif;font-size:16px;margin-left:8px">${winPct}%</span>
+            <span style="color:var(--accent2);font-family:'Bebas Neue',sans-serif;font-size:18px;margin-left:8px">${winPct}%</span>
           </div>
         </div>
         `;
       }).join('')}
     </div>
     `;
-  }
-  
-  // As Target (when someone else SET this player as rival)
-  const targetEntries=Object.entries(player.asTarget);
-  if(targetEntries.length>0){
-    html+=`
-    <div class="h2h-section-title">AS TARGET (They picked ${playerName})</div>
-    <div style="margin-bottom:20px">
-      ${targetEntries.map(([rival,stats])=>{
-        const total=stats.wins+stats.losses+stats.draws;
-        const winPct=total>0?Math.round((stats.wins/total)*100):0;
-        return `
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px;background:var(--surface2);border-radius:8px;margin-bottom:6px">
-          <div style="font-weight:600">${rival}</div>
-          <div style="display:flex;gap:12px;align-items:center;font-size:13px">
-            <span style="color:var(--green)">${stats.wins}W</span>
-            <span style="color:var(--red)">${stats.losses}L</span>
-            ${stats.draws>0?`<span style="color:var(--muted)">${stats.draws}D</span>`:''}
-            <span style="color:var(--accent2);font-family:'Bebas Neue',sans-serif;font-size:16px;margin-left:8px">${winPct}%</span>
-          </div>
-        </div>
-        `;
-      }).join('')}
-    </div>
-    `;
-  }
-  
-  if(challengerEntries.length===0&&targetEntries.length===0){
+  } else {
     html+=`<div style="color:var(--muted);font-size:13px;text-align:center;padding:20px">No rival matchups yet</div>`;
   }
   
