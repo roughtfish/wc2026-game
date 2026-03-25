@@ -2083,9 +2083,16 @@ async function renderGameHost(g){
   const completeDayBtn=document.getElementById('complete-day-btn');
   if(completeDayBtn){
     const hasMatchesToday = calculatedTodaysMatches.length > 0;
-    completeDayBtn.style.display = hasMatchesToday ? 'inline-block' : 'none';
+    const hasResultForCurrentMatch = g.results && g.results[g.currentMatchIdx];
+    const isInRevealState = g.status && g.status.startsWith('reveal:');
     
-    if(hasMatchesToday && isLastMatchOfDay){
+    // Only show Complete Day if:
+    // 1. There are matches from today that have results, AND
+    // 2. We're either in a reveal state OR the current match has a result
+    const shouldShow = hasMatchesToday && (isInRevealState || hasResultForCurrentMatch);
+    completeDayBtn.style.display = shouldShow ? 'inline-block' : 'none';
+    
+    if(shouldShow && isLastMatchOfDay){
       completeDayBtn.style.background = 'var(--accent)';
       completeDayBtn.style.color = 'var(--bg)';
       completeDayBtn.style.fontWeight = '700';
