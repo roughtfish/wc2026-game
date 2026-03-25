@@ -4139,8 +4139,8 @@ async function showDailySummary(g, matchIndices) {
       }
       
       document.getElementById('rival-showdown-content').innerHTML = `
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;text-align:center;margin-bottom:10px">
-          <div style="background:var(--surface);border-radius:8px;padding:12px">
+        <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:16px;align-items:center;margin-bottom:10px">
+          <div style="background:var(--surface);border-radius:8px;padding:12px;text-align:center;border:2px solid ${winner === 'you' ? 'var(--green)' : winner === 'rival' ? 'var(--red)' : 'var(--border)'}">
             <div style="font-size:12px;font-weight:600;color:var(--accent);margin-bottom:8px">YOU</div>
             <div style="font-size:11px;color:var(--muted)">Record</div>
             <div style="font-size:16px;font-family:'Bebas Neue',sans-serif;color:${correct > rivalCorrect ? 'var(--green)' : correct < rivalCorrect ? 'var(--red)' : 'var(--muted)'};">${correct}-${wrong}</div>
@@ -4150,7 +4150,16 @@ async function showDailySummary(g, matchIndices) {
             <div style="font-size:16px;font-family:'Bebas Neue',sans-serif;">#${myRank}</div>
             ${exactScorePlayers.filter(e => e.player === me.name).length > 0 ? '<div style="font-size:11px;color:var(--accent2);margin-top:6px">🎯 Exact: ' + exactScorePlayers.filter(e => e.player === me.name).length + '</div>' : ''}
           </div>
-          <div style="background:var(--surface);border-radius:8px;padding:12px">
+          
+          <div style="text-align:center">
+            <div style="font-size:28px;margin-bottom:4px">${winner === 'you' ? '🏆' : winner === 'rival' ? '💀' : '🤝'}</div>
+            <div style="font-size:11px;color:var(--muted);margin-bottom:8px">${winner === 'you' ? 'YOU WON' : winner === 'rival' ? 'THEY WON' : 'DRAW'}</div>
+            <div style="font-family:'Bebas Neue',sans-serif;font-size:24px;letter-spacing:2px">
+              <span style="color:${winner === 'you' ? 'var(--green)' : 'var(--red)'}">${correct}</span><span style="color:var(--muted)">–</span><span style="color:${winner === 'rival' ? 'var(--green)' : 'var(--red)'}">${rivalCorrect}</span>
+            </div>
+          </div>
+          
+          <div style="background:var(--surface);border-radius:8px;padding:12px;text-align:center;border:2px solid ${winner === 'rival' ? 'var(--green)' : winner === 'you' ? 'var(--red)' : 'var(--border)'}">
             <div style="font-size:12px;font-weight:600;color:var(--accent2);margin-bottom:8px">${rivalPlayer.name.toUpperCase()}</div>
             <div style="font-size:11px;color:var(--muted)">Record</div>
             <div style="font-size:16px;font-family:'Bebas Neue',sans-serif;color:${rivalCorrect > correct ? 'var(--green)' : rivalCorrect < correct ? 'var(--red)' : 'var(--muted)'};">${rivalCorrect}-${rivalWrong}</div>
@@ -4252,7 +4261,10 @@ async function showDailySummary(g, matchIndices) {
           
           <div style="text-align:center">
             <div style="font-size:28px;margin-bottom:4px">${winner==='me'?'🏆':winner==='rival'?'💀':'🤝'}</div>
-            <div style="font-size:11px;color:var(--muted)">${winner==='me'?'YOU WON!':winner==='rival'?'THEY WON':'DRAW'}</div>
+            <div style="font-size:11px;color:var(--muted);margin-bottom:8px">${winner==='me'?'YOU WON!':winner==='rival'?'THEY WON':'DRAW'}</div>
+            <div style="font-family:'Bebas Neue',sans-serif;font-size:24px;letter-spacing:2px">
+              <span style="color:${winner === 'me' ? 'var(--green)' : 'var(--red)'}">${correct}</span><span style="color:var(--muted)">–</span><span style="color:${winner === 'rival' ? 'var(--green)' : 'var(--red)'}">${rivalCorrect}</span>
+            </div>
           </div>
           
           <div style="text-align:center;padding:12px;background:${winner==='rival'?'rgba(45,212,191,0.1)':'var(--surface)'};border-radius:8px;border:2px solid ${winner==='rival'?'var(--accent2)':'var(--border)'}">
