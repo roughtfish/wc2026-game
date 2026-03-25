@@ -1053,7 +1053,7 @@ function weightedPick(hTeam,aTeam,canHome,canAway,canDraw,isKO){
 }
 
 function autoFillPredictions(g){
-  const MAX_PICKS=5, MAX_DRAWS=24;
+
   const gms=g.matches.reduce((acc,m,i)=>{if(m.group)acc.push({m,i});return acc;},[]);
 
   g.players.forEach(p=>{
@@ -1116,7 +1116,6 @@ function autoFillPredictions(g){
 }
 
 function autoFillKORound(g, round){
-  const MAX_PICKS=5;
   const gms=g.matches.reduce((acc,m,i)=>{
     if(m.round===round&&m.home!=='TBD'&&m.away!=='TBD') acc.push({m,i});
     return acc;
@@ -1349,6 +1348,32 @@ function populateNextKORound(g, justFinishedMatchIdx){
 
 // ─── FIREBASE REALTIME DATABASE STORAGE ──────────────────────────────────────
 const FIREBASE_URL = 'https://wc2026-4b84a-default-rtdb.europe-west1.firebasedatabase.app';
+const MAX_PICKS = 5;
+const MAX_DRAWS = 24;
+
+// Returns array of over-limit team names, or empty array if all OK.
+// draft = {matchIdx: 'home'|'away'|'draw'}
+function checkPickLimit(fresh, draft) {
+  const counts = {};
+  fresh.matches.forEach((m, i) => {
+    const pred = (fresh.predictions[i] || {})[me.name];
+    if(!pred) return;
+    const r = (fresh.results || {})[i];
+    if(r && r.penWinner && !m.group) return; // pen wins are free picks
+    const team = pred === 'home' ? m.home : pred === 'away' ? m.away : null;
+    if(team && team !== 'TBD') counts[team] = (counts[team] || 0) + 1;
+  });
+  const over = [];
+  Object.entries(draft).forEach(([i, v]) => {
+    const m = fresh.matches[parseInt(i)];
+    if(!m) return;
+    const team = v === 'home' ? m.home : v === 'away' ? m.away : null;
+    if(!team) return;
+    counts[team] = (counts[team] || 0) + 1;
+    if(counts[team] > MAX_PICKS) over.push(team);
+  });
+  return [...new Set(over)];
+}
 
 function getFirebaseUrl(){ return FIREBASE_URL; }
 
@@ -1803,8 +1828,6 @@ function renderBulkForm(g){
   const rem=gms.length-done;
 
   // Count how many times each team has been picked by THIS player only (per-player limit)
-  const MAX_PICKS = 5;
-  const MAX_DRAWS = 24;
   const teamPicks = {}; // teamName -> count of THIS player's win predictions
   // Count from this player's already-submitted predictions (not in draft yet)
   // KO pen wins don't count toward the 5-pick limit
@@ -1961,27 +1984,9 @@ async function commitBulk(g){
       return;
     }
     // Enforce 5-pick limit using fresh state before writing
-    const MAX_PICKS_COMMIT = 5;
-    const freshTeamPicks = {};
-    fresh.matches.forEach((m, i) => {
-      const pred = (fresh.predictions[i] || {})[me.name];
-      if(!pred) return;
-      const r = (fresh.results || {})[i];
-      if(r && r.penWinner && !m.group) return; // pen wins are free
-      if(pred === 'home' && m.home !== 'TBD') freshTeamPicks[m.home] = (freshTeamPicks[m.home] || 0) + 1;
-      else if(pred === 'away' && m.away !== 'TBD') freshTeamPicks[m.away] = (freshTeamPicks[m.away] || 0) + 1;
-    });
-    const overLimit = [];
-    Object.entries(bulkDraft).forEach(([i, v]) => {
-      const m = fresh.matches[parseInt(i)];
-      if(!m) return;
-      const team = v === 'home' ? m.home : v === 'away' ? m.away : null;
-      if(!team) return;
-      freshTeamPicks[team] = (freshTeamPicks[team] || 0) + 1;
-      if(freshTeamPicks[team] > MAX_PICKS_COMMIT) overLimit.push(team);
-    });
+    const overLimit = checkPickLimit(fresh, bulkDraft);
     if(overLimit.length > 0){
-      const teams = [...new Set(overLimit)].join(', ');
+      const teams = overLimit.join(', ');
       alert(`Pick limit exceeded for: ${teams}. Please remove some picks and try again.`);
       if(submitBtn){submitBtn.textContent='Lock in my predictions ✓';submitBtn.disabled=false;}
       return;
@@ -2660,15 +2665,7 @@ async function renderReveal(g){
     // 2. Current match has a result
     // 3. This is the LAST match of the day
     const shouldShow = isInRevealState && hasResultForCurrentMatch && isLastMatchOfDay;
-    
-    console.log('[Complete Day Button Debug]', {
-      hasResultForCurrentMatch,
-      isInRevealState,
-      isLastMatchOfDay,
-      shouldShow,
-      status: g.status
-    });
-    
+
     completeDayBtn.style.display = shouldShow ? 'inline-block' : 'none';
     
     if(shouldShow){
@@ -3325,7 +3322,6 @@ function showScheduleModal(g) {
 
 // Show My Stats modal - team pick counts
 function showMyStatsModal(g) {
-  const MAX_PICKS = 5;
   
   // Count picks per team for current player — ALL matches (group + knockout), per the rules
   const teamCounts = {};
@@ -3688,7 +3684,6 @@ function renderKOBulkForm(g, round) {
     else if (sel === 'away') teamPicks[m.away] = (teamPicks[m.away] || 0) + 1;
   });
 
-  const MAX_PICKS = 5;
   const blockedMatches = new Set(gms.filter(({m, i}) => {
     const sel = koBulkDraft[i];
     const hc = teamPicks[m.home] || 0;
@@ -3778,27 +3773,9 @@ async function commitKOBulk(g, round) {
     const fresh = await loadGame(me.code);
     if (!fresh) { alert('Could not load game — check your connection.'); if (submitBtn) { submitBtn.textContent = 'Lock in my predictions ✓'; submitBtn.disabled = false; } return; }
     // Enforce 5-pick limit using fresh state before writing
-    const MAX_PICKS_COMMIT = 5;
-    const freshTeamPicksKO = {};
-    fresh.matches.forEach((m, i) => {
-      const pred = (fresh.predictions[i] || {})[me.name];
-      if(!pred) return;
-      const r = (fresh.results || {})[i];
-      if(r && r.penWinner && !m.group) return;
-      const winner = pred === 'home' ? m.home : pred === 'away' ? m.away : null;
-      if(winner && winner !== 'TBD') freshTeamPicksKO[winner] = (freshTeamPicksKO[winner] || 0) + 1;
-    });
-    const overLimitKO = [];
-    Object.entries(koBulkDraft).forEach(([i, v]) => {
-      const m = fresh.matches[parseInt(i)];
-      if(!m) return;
-      const team = v === 'home' ? m.home : v === 'away' ? m.away : null;
-      if(!team) return;
-      freshTeamPicksKO[team] = (freshTeamPicksKO[team] || 0) + 1;
-      if(freshTeamPicksKO[team] > MAX_PICKS_COMMIT) overLimitKO.push(team);
-    });
+    const overLimitKO = checkPickLimit(fresh, koBulkDraft);
     if(overLimitKO.length > 0){
-      const teams = [...new Set(overLimitKO)].join(', ');
+      const teams = overLimitKO.join(', ');
       alert(`Pick limit exceeded for: ${teams}. Please remove some picks and try again.`);
       if (submitBtn) { submitBtn.textContent = 'Lock in my predictions ✓'; submitBtn.disabled = false; }
       return;
@@ -3831,27 +3808,9 @@ async function commitKOBulkFromWatch(g, round) {
     const fresh = await loadGame(me.code);
     if (!fresh) { alert('Could not load game.'); if (submitBtn) { submitBtn.textContent = 'Lock in my predictions ✓'; submitBtn.disabled = false; } return; }
     // Enforce 5-pick limit using fresh state before writing
-    const MAX_PICKS_COMMIT_W = 5;
-    const freshTeamPicksW = {};
-    fresh.matches.forEach((m, i) => {
-      const pred = (fresh.predictions[i] || {})[me.name];
-      if(!pred) return;
-      const r = (fresh.results || {})[i];
-      if(r && r.penWinner && !m.group) return;
-      const winner = pred === 'home' ? m.home : pred === 'away' ? m.away : null;
-      if(winner && winner !== 'TBD') freshTeamPicksW[winner] = (freshTeamPicksW[winner] || 0) + 1;
-    });
-    const overLimitW = [];
-    Object.entries(koBulkDraft).forEach(([i, v]) => {
-      const m = fresh.matches[parseInt(i)];
-      if(!m) return;
-      const team = v === 'home' ? m.home : v === 'away' ? m.away : null;
-      if(!team) return;
-      freshTeamPicksW[team] = (freshTeamPicksW[team] || 0) + 1;
-      if(freshTeamPicksW[team] > MAX_PICKS_COMMIT_W) overLimitW.push(team);
-    });
+    const overLimitW = checkPickLimit(fresh, koBulkDraft);
     if(overLimitW.length > 0){
-      const teams = [...new Set(overLimitW)].join(', ');
+      const teams = overLimitW.join(', ');
       alert(`Pick limit exceeded for: ${teams}. Please remove some picks and try again.`);
       if (submitBtn) { submitBtn.textContent = 'Lock in my predictions ✓'; submitBtn.disabled = false; }
       return;
@@ -5072,12 +5031,6 @@ async function showDailySummary(g, matchIndices) {
   show('screen-daily-summary');
 }
 
-// This function is no longer used - players automatically return when host continues
-async function closeDailySummary() {
-  // Legacy function - kept for compatibility
-  todaysMatches = [];
-}
-
 // Host continues from daily summary to next day
 async function hostContinueFromSummary() {
   const g = await loadGame(me.code);
@@ -5448,11 +5401,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 });
-
-// Track when results are entered (add to existing result submission logic)
-// We'll need to modify the place where match results are saved to track todaysMatches
-// For now, this is a placeholder - the actual integration depends on existing code structure
-
 </script>
 </body>
 </html>
