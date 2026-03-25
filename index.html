@@ -1873,11 +1873,29 @@ async function renderGameHost(g){
     undoBtn.style.display=hasResults?'inline-block':'none';
   }
   
-  // Show/hide Set Rival button based on elimination status
+  // Show/hide Set Rival button based on elimination status and whether day has started
   const setRivalBtnHost = document.getElementById('set-rival-btn-host');
   if(setRivalBtnHost) {
     const myPlayer = g.players.find(p => p.name === me.name);
-    setRivalBtnHost.style.display = (myPlayer && myPlayer.eliminated) ? 'none' : 'inline-block';
+    const isEliminated = myPlayer && myPlayer.eliminated;
+    
+    // Check if this is first day (no completed days yet)
+    const isFirstDay = !g.completedDays || g.completedDays.length === 0;
+    
+    // Check if day has started (any results entered for today)
+    const currentMatch = g.matches[g.currentMatchIdx];
+    const currentMatchDate = getMatchDateTime(g.currentMatchIdx, currentMatch);
+    let dayHasStarted = false;
+    if(g.results){
+      dayHasStarted = Object.keys(g.results).some(idx => {
+        const matchIdx = parseInt(idx);
+        const match = g.matches[matchIdx];
+        return match && getMatchDateTime(matchIdx, match) === currentMatchDate;
+      });
+    }
+    
+    // Show button only if: not eliminated AND (first day OR day hasn't started)
+    setRivalBtnHost.style.display = (isEliminated || (!isFirstDay && dayHasStarted)) ? 'none' : 'inline-block';
   }
   
   renderProgress(g,'progress-bar');
@@ -2473,11 +2491,29 @@ async function renderWatchScreen(g){
     }
   }
   
-  // Show/hide Set Rival button based on elimination status
+  // Show/hide Set Rival button based on elimination status and whether day has started
   const setRivalBtn = document.getElementById('set-rival-btn');
   if(setRivalBtn) {
     const myPlayer = g.players.find(p => p.name === me.name);
-    setRivalBtn.style.display = (myPlayer && myPlayer.eliminated) ? 'none' : 'inline-block';
+    const isEliminated = myPlayer && myPlayer.eliminated;
+    
+    // Check if this is first day (no completed days yet)
+    const isFirstDay = !g.completedDays || g.completedDays.length === 0;
+    
+    // Check if day has started (any results entered for today)
+    const currentMatch = g.matches[g.currentMatchIdx];
+    const currentMatchDate = getMatchDateTime(g.currentMatchIdx, currentMatch);
+    let dayHasStarted = false;
+    if(g.results){
+      dayHasStarted = Object.keys(g.results).some(idx => {
+        const matchIdx = parseInt(idx);
+        const match = g.matches[matchIdx];
+        return match && getMatchDateTime(matchIdx, match) === currentMatchDate;
+      });
+    }
+    
+    // Show button only if: not eliminated AND (first day OR day hasn't started)
+    setRivalBtn.style.display = (isEliminated || (!isFirstDay && dayHasStarted)) ? 'none' : 'inline-block';
   }
 
   // Show "My Picks" button during KO rounds
@@ -4429,6 +4465,28 @@ async function saveRival() {
   const rivalName = document.getElementById('rival-select').value;
   if(!rivalName) {
     alert('Please select a rival');
+    return;
+  }
+  
+  // Check if this is first day (no completed days yet)
+  const isFirstDay = !g.completedDays || g.completedDays.length === 0;
+  
+  // Check if day has started (any results entered for today)
+  const currentMatch = g.matches[g.currentMatchIdx];
+  const currentMatchDate = getMatchDateTime(g.currentMatchIdx, currentMatch);
+  let dayHasStarted = false;
+  if(g.results){
+    dayHasStarted = Object.keys(g.results).some(idx => {
+      const matchIdx = parseInt(idx);
+      const match = g.matches[matchIdx];
+      return match && getMatchDateTime(matchIdx, match) === currentMatchDate;
+    });
+  }
+  
+  // Prevent rival changes once day has started (except first day)
+  if(!isFirstDay && dayHasStarted) {
+    alert('⚔️ Cannot change rival once the day has started! Wait for the daily summary.');
+    closeRivalModal();
     return;
   }
   
