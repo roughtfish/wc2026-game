@@ -479,9 +479,40 @@ function simulatePlayers(groupMatches, koMatches, numPlayers, startingLives, ski
   const players = Array(numPlayers).fill(0).map((_, idx) => ({
     lives: startingLives,
     teamPicks: {},
-    skill: playerSkills ? playerSkills[idx] : skillLevel, // Use individual skill if provided
-    drawsPicked: 0 // Track how many draws this player has predicted
+    skill: playerSkills ? playerSkills[idx] : skillLevel,
+    drawsPicked: 0,
+    groupCorrect: 0,
+    rival: null,
+    rivalVictories: 0
   }));
+
+  // Assign rivals at start of each group round (every 24 matches = 1 round)
+  // Skilled players target weaker rivals (fewer lives/correct); random players pick randomly
+  const ROUND_SIZE = 24; // matches per group round
+  function assignRivals() {
+    const available = [...players];
+    // Shuffle available pool first so ties are broken randomly
+    for(let i = available.length - 1; i > 0; i--){
+      const j = Math.floor(Math.random() * (i + 1));
+      [available[i], available[j]] = [available[j], available[i]];
+    }
+    players.forEach(p => {
+      // Skilled players (>0.6) pick the opponent with fewest lives among available (excluding self)
+      // Others pick randomly
+      const candidates = available.filter(o => o !== p);
+      if(candidates.length === 0){ p.rival = null; return; }
+      if(p.skill > 0.6){
+        // Target weakest (fewest lives, tiebreak: fewest correct)
+        candidates.sort((a, b) => a.lives - b.lives || a.groupCorrect - b.groupCorrect);
+        p.rival = candidates[0];
+      } else {
+        p.rival = candidates[Math.floor(Math.random() * candidates.length)];
+      }
+    });
+  }
+
+  // Initial rival assignment before group stage starts
+  assignRivals();
   
   const roundSurvivors = {
     start: numPlayers,
@@ -495,8 +526,20 @@ function simulatePlayers(groupMatches, koMatches, numPlayers, startingLives, ski
   
   const matchDanger = {}; // Track eliminations per match
   
-  // Group stage
+  // Group stage — process match by match, reassign rivals at each round boundary
+  const roundCorrect = players.map(() => 0); // correct counts for current round only
   groupMatches.forEach((match, matchIdx) => {
+    // At start of each new round (after round 0), tally rival victories then reassign
+    if(matchIdx > 0 && matchIdx % ROUND_SIZE === 0){
+      players.forEach((p, i) => {
+        if(!p.rival) return;
+        const ri = players.indexOf(p.rival);
+        if(roundCorrect[i] > roundCorrect[ri]) p.rivalVictories++;
+      });
+      roundCorrect.fill(0);
+      assignRivals();
+    }
+
     const matchKey = `G-${match.group}-${match.home}-${match.away}`;
     let eliminationsThisMatch = 0;
     
@@ -506,38 +549,47 @@ function simulatePlayers(groupMatches, koMatches, numPlayers, startingLives, ski
       const rating1 = TEAM_RATINGS[match.home] || 0.5;
       const rating2 = TEAM_RATINGS[match.away] || 0.5;
       const ratingDiff = rating1 - rating2;
-      
+
+      // Track picks toward 5-pick limit — max 3 group matches per team so limit
+      // can never be reached in group stage, but counts carry into KO
+      const homePickCount = player.teamPicks[match.home] || 0;
+      const awayPickCount = player.teamPicks[match.away] || 0;
+
+      const livesBefore = player.lives;
+
       // Players can pick: home win, away win, or draw
-      // Skilled players are less likely to pick draws unless teams are evenly matched
       const drawLikelihood = Math.max(0.15, 0.30 - Math.abs(ratingDiff) * 0.5);
-      
-      let prediction;
       const rand = Math.random();
-      
-      // Determine player's prediction using their individual skill
       const playerSkill = player.skill;
       const canPickDraw = player.drawsPicked < maxDraws;
-      
+
+      let prediction;
       if (canPickDraw && Math.abs(ratingDiff) < 0.1 && rand < drawLikelihood * (1 - playerSkill * 0.5)) {
-        // Evenly matched + player considers draw + under draw limit
         prediction = 'draw';
         player.drawsPicked++;
       } else {
-        // Pick a winner
         const favoriteBonus = ratingDiff * playerSkill * 2;
-        const pickHome = Math.random() < (0.5 + favoriteBonus);
-        prediction = pickHome ? match.home : match.away;
+        prediction = Math.random() < (0.5 + favoriteBonus) ? match.home : match.away;
       }
-      
-      const livesBefore = player.lives;
+
       const correct = prediction === match.result.winner;
-      
+
       if (correct) {
-        if (Math.random() < scoreRate) player.lives += 1;
+        player.groupCorrect++;
+        roundCorrect[players.indexOf(player)]++;
+        // Track pick toward 5-pick limit (carries into KO)
+        if(prediction !== 'draw'){
+          player.teamPicks[prediction] = (player.teamPicks[prediction] || 0) + 1;
+        }
+        // Exact score bonus: +1 life (correct prediction alone gives nothing)
+        if (Math.random() < scoreRate) {
+          player.lives += 1;
+          player.scoreBonuses = (player.scoreBonuses || 0) + 1;
+        }
       } else {
         player.lives -= 1;
       }
-      
+
       if (livesBefore > 0 && player.lives <= 0) eliminationsThisMatch++;
     });
     
@@ -546,7 +598,25 @@ function simulatePlayers(groupMatches, koMatches, numPlayers, startingLives, ski
   
   // Count survivors after group stage
   roundSurvivors.afterGroup = players.filter(p => p.lives > 0).length;
-  
+
+  // Tally the final group round's rival victories
+  players.forEach((p, i) => {
+    if(!p.rival) return;
+    const ri = players.indexOf(p.rival);
+    if(roundCorrect[i] > roundCorrect[ri]) p.rivalVictories++;
+  });
+
+  // Award rival bonus lives (top 3 by total rival victories: +3, +2, +1)
+  const rivalRanked = players
+    .map((p, i) => ({ i, v: p.rivalVictories }))
+    .sort((a, b) => b.v - a.v);
+  if(rivalRanked[0] && rivalRanked[0].v > 0)
+    players[rivalRanked[0].i].lives += 3;
+  if(rivalRanked[1] && rivalRanked[1].v > 0 && rivalRanked[1].v < rivalRanked[0].v)
+    players[rivalRanked[1].i].lives += 2;
+  if(rivalRanked[2] && rivalRanked[2].v > 0 && rivalRanked[2].v < rivalRanked[1].v)
+    players[rivalRanked[2].i].lives += 1;
+
   // Knockout - track by round
   let currentRound = null;
   koMatches.forEach((koMatch, matchIdx) => {
@@ -567,6 +637,7 @@ function simulatePlayers(groupMatches, koMatches, numPlayers, startingLives, ski
       if (!homeAvailable && !awayAvailable) {
         // Both teams at 5-pick limit - forced violation, -2 lives penalty
         player.lives -= 2;
+        player.blockedPenalties = (player.blockedPenalties || 0) + 1;
         if (livesBefore > 0 && player.lives <= 0) eliminationsThisMatch++;
         return; // Skip this match
       } else if (!homeAvailable) {
@@ -667,6 +738,7 @@ async function runSimulation() {
   const upsetCounts = []; // Track upsets per sim
   const scoreBonusImpact = { withBonus: [], withoutBonus: [] };
   const livesFromBonuses = [];
+  let totalBlockedPenalties = 0; // lives lost to both-teams-at-limit across all sims
   
   for (let sim = 0; sim < numSims; sim++) {
     const { groupResults, groupMatches, thirdPlaceTeams, momentum } = simulateGroupStage();
@@ -705,6 +777,15 @@ async function runSimulation() {
         teamPickCounts[team] = (teamPickCounts[team] || 0) + player.teamPicks[team];
       });
     });
+
+    // Track actual score bonuses awarded this sim
+    const totalScoreBonuses = players.reduce((sum, p) => sum + (p.scoreBonuses || 0), 0);
+    livesFromBonuses.push(totalScoreBonuses / numPlayers);
+
+    // Track lives lost to blocked matches (both teams at pick limit)
+    // We infer this from players whose lives dropped by 2 without a wrong prediction
+    // Simpler: track directly via a counter on the player object
+    totalBlockedPenalties += players.reduce((sum, p) => sum + (p.blockedPenalties || 0), 0);
     
     const survivors = players.filter(p => p.lives > 0);
     survivalCounts[survivors.length]++;
@@ -731,21 +812,19 @@ async function runSimulation() {
   const avgUpsetsInWipeouts = wipeouts.length > 0 ? wipeouts.reduce((sum, d) => sum + d.upsets, 0) / wipeouts.length : 0;
   const upsetThreshold = Math.round(avgUpsetsInWipeouts);
   
-  // 2. Score bonus impact - estimate based on score rate and accuracy
-  const totalGroupMatches = 72;
-  const avgAccuracy = skillLevel * 0.75; // Rough estimate: skill 0.65 → ~49% accuracy
-  const avgBonusesPerPlayer = totalGroupMatches * avgAccuracy * scoreRate;
-  const bonusContribution = avgBonusesPerPlayer * (avgSurvivors > 0 ? 1 : 0);
-  
+  // 2. Score bonus impact — actual average bonuses per player from simulation
+  const avgBonusesPerPlayer = livesFromBonuses.reduce((s, v) => s + v, 0) / numSims;
+  const bonusContribution = avgBonusesPerPlayer;
+
   // 3. Penalty rate sensitivity - theoretical calculation
   const penaltyRateValue = penaltyRate * 100;
   const knockoutMatches = 32;
   const avgPenalties = knockoutMatches * penaltyRate;
-  const penaltyImpact = avgPenalties * 0.5; // Each penalty saves ~0.5 team picks on average
-  
-  // 4. 5-pick limit impact - theoretical (would need separate sim, estimate instead)
-  const estimatedWithoutLimit = avgSurvivors * 1.15; // ~15% more survivors without limit
-  
+  const penaltyImpact = avgPenalties * 0.5;
+
+  // 4. 5-pick limit impact — avg lives lost per player to blocked KO matches
+  const avgBlockedPenaltiesPerPlayer = totalBlockedPenalties / (numSims * numPlayers);
+
   const dataInsights = {
     upsetThreshold,
     avgUpsets,
@@ -754,7 +833,7 @@ async function runSimulation() {
     bonusContribution: bonusContribution.toFixed(1),
     penaltyRate: penaltyRateValue,
     avgPenalties: avgPenalties.toFixed(1),
-    pickLimitImpact: ((estimatedWithoutLimit - avgSurvivors) / avgSurvivors * 100).toFixed(0)
+    pickLimitImpact: avgBlockedPenaltiesPerPlayer.toFixed(2)
   };
   
   displayResults({ 
@@ -1025,7 +1104,7 @@ function displayResults(data) {
         <div>
           <div style="font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:8px">🎯 Score Bonus Impact</div>
           <div style="font-size:24px;font-family:'Bebas Neue',sans-serif;color:var(--green)">+${data.dataInsights.scoreBonusAvg} lives</div>
-          <div style="font-size:10px;color:var(--muted);margin-top:4px">Avg bonuses per player in group stage (${(parseFloat(document.getElementById('score-rate').value))}% rate)</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:4px">Avg score bonuses per player in group stage (${(parseFloat(document.getElementById('score-rate').value))}% rate) · Rival bonuses (+3/+2/+1) awarded at group stage end</div>
         </div>
         <div>
           <div style="font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:8px">🎲 Penalty Rate Impact</div>
@@ -1034,7 +1113,8 @@ function displayResults(data) {
         </div>
         <div>
           <div style="font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:8px">🚫 5-Pick Limit Impact</div>
-          <div style="font-size:24px;font-family:'Bebas Neue',sans-serif;color:var(--accent)">${data.dataInsights.pickLimitImpact}%</div>
+          <div style="font-size:24px;font-family:'Bebas Neue',sans-serif;color:var(--accent)">${data.dataInsights.pickLimitImpact}</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:4px">Avg lives lost per player to blocked KO matches (both teams at 5-pick limit)</div>
           <div style="font-size:10px;color:var(--muted);margin-top:4px">Estimated reduction in survivors due to the 5-pick limit forcing bad picks</div>
         </div>
       </div>
@@ -1098,8 +1178,8 @@ function displayResults(data) {
   }
   
   // 5-pick limit impact
-  if (parseInt(data.dataInsights.pickLimitImpact) > 20) {
-    recommendations.push(`🚫 5-pick limit is harsh (${data.dataInsights.pickLimitImpact}% impact) - consider allowing more team picks or increasing penalty rate`);
+  if (parseFloat(data.dataInsights.pickLimitImpact) > 0.5) {
+    recommendations.push(`🚫 5-pick limit is causing blocked KO matches (~${data.dataInsights.pickLimitImpact} lives lost per player) - consider increasing penalty rate so more picks stay free`);
   }
   
   document.getElementById('detail').innerHTML = `
