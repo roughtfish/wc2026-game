@@ -379,7 +379,6 @@
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
         <div class="scoreboard-title" style="margin:0">STANDINGS</div>
         <div style="display:flex;gap:7px">
-        <button class="btn btn-secondary btn-sm" id="set-rival-btn-host" style="font-size:11px;letter-spacing:1px;opacity:0.7">⚔️ Set Rival</button>
         <button class="btn btn-secondary btn-sm" id="view-schedule-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7">📅 Schedule</button>
         <button class="btn btn-secondary btn-sm" id="complete-day-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7;display:none">📊 Complete Day</button>
         <button class="btn btn-secondary btn-sm" id="open-ko-preds-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7;display:none">🎯 My Picks</button>
@@ -412,7 +411,6 @@
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
         <div class="scoreboard-title" style="margin:0">STANDINGS</div>
         <div style="display:flex;gap:6px">
-          <button class="btn btn-secondary btn-sm" id="set-rival-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7">⚔️ Set Rival</button>
           <button class="btn btn-secondary btn-sm" id="view-schedule-btn-watch" style="font-size:11px;letter-spacing:1px;opacity:0.7">📅 Schedule</button>
           <button class="btn btn-secondary btn-sm" id="open-watch-group-preds-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7;display:none">📋 My Group Picks</button>
           <button class="btn btn-secondary btn-sm" id="open-watch-ko-preds-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7;display:none">🎯 My KO Picks</button>
@@ -1874,31 +1872,6 @@ async function renderGameHost(g){
     undoBtn.style.display=hasResults?'inline-block':'none';
   }
   
-  // Show/hide Set Rival button based on elimination status and whether day has started
-  const setRivalBtnHost = document.getElementById('set-rival-btn-host');
-  if(setRivalBtnHost) {
-    const myPlayer = g.players.find(p => p.name === me.name);
-    const isEliminated = myPlayer && myPlayer.eliminated;
-    
-    // Check if this is first day (no completed days yet)
-    const isFirstDay = !g.completedDays || g.completedDays.length === 0;
-    
-    // Check if day has started (any results entered for today)
-    const currentMatch = g.matches[g.currentMatchIdx];
-    const currentMatchDate = getMatchDateTime(g.currentMatchIdx, currentMatch);
-    let dayHasStarted = false;
-    if(g.results){
-      dayHasStarted = Object.keys(g.results).some(idx => {
-        const matchIdx = parseInt(idx);
-        const match = g.matches[matchIdx];
-        return match && getMatchDateTime(matchIdx, match) === currentMatchDate;
-      });
-    }
-    
-    // Show button only if: not eliminated AND (first day OR day hasn't started)
-    setRivalBtnHost.style.display = (isEliminated || (!isFirstDay && dayHasStarted)) ? 'none' : 'inline-block';
-  }
-  
   renderProgress(g,'progress-bar');
   
   // Check if game should end - only count non-host players
@@ -2492,31 +2465,6 @@ async function renderWatchScreen(g){
     }
   }
   
-  // Show/hide Set Rival button based on elimination status and whether day has started
-  const setRivalBtn = document.getElementById('set-rival-btn');
-  if(setRivalBtn) {
-    const myPlayer = g.players.find(p => p.name === me.name);
-    const isEliminated = myPlayer && myPlayer.eliminated;
-    
-    // Check if this is first day (no completed days yet)
-    const isFirstDay = !g.completedDays || g.completedDays.length === 0;
-    
-    // Check if day has started (any results entered for today)
-    const currentMatch = g.matches[g.currentMatchIdx];
-    const currentMatchDate = getMatchDateTime(g.currentMatchIdx, currentMatch);
-    let dayHasStarted = false;
-    if(g.results){
-      dayHasStarted = Object.keys(g.results).some(idx => {
-        const matchIdx = parseInt(idx);
-        const match = g.matches[matchIdx];
-        return match && getMatchDateTime(matchIdx, match) === currentMatchDate;
-      });
-    }
-    
-    // Show button only if: not eliminated AND (first day OR day hasn't started)
-    setRivalBtn.style.display = (isEliminated || (!isFirstDay && dayHasStarted)) ? 'none' : 'inline-block';
-  }
-
   // Show "My Picks" button during KO rounds
   const watchKoBtn=document.getElementById('open-watch-ko-preds-btn');
   if(watchKoBtn){
@@ -4388,55 +4336,6 @@ function reassignRivalsInTestMode(g) {
 }
 
 // Open rival selection modal
-document.getElementById('set-rival-btn')?.addEventListener('click', async () => {
-  const g = await loadGame(me.code);
-  if(!g) return;
-  
-  // Populate dropdown with other players
-  const select = document.getElementById('rival-select');
-  const otherPlayers = g.players.filter(p => p.name !== me.name);
-  
-  select.innerHTML = '<option value="">-- Choose a player --</option>' +
-    otherPlayers.map(p => `<option value="${p.name}">${p.name}</option>`).join('');
-  
-  // Show current rival if set
-  const myPlayer = g.players.find(p => p.name === me.name);
-  if(myPlayer && myPlayer.currentRival){
-    document.getElementById('current-rival-display').style.display = 'block';
-    document.getElementById('current-rival-name').textContent = myPlayer.currentRival;
-    select.value = myPlayer.currentRival;
-  } else {
-    document.getElementById('current-rival-display').style.display = 'none';
-  }
-  
-  document.getElementById('rival-modal').style.display = 'flex';
-});
-
-// Also add listener for host button
-document.getElementById('set-rival-btn-host')?.addEventListener('click', async () => {
-  const g = await loadGame(me.code);
-  if(!g) return;
-  
-  // Populate dropdown with other players
-  const select = document.getElementById('rival-select');
-  const otherPlayers = g.players.filter(p => p.name !== me.name);
-  
-  select.innerHTML = '<option value="">-- Choose a player --</option>' +
-    otherPlayers.map(p => `<option value="${p.name}">${p.name}</option>`).join('');
-  
-  // Show current rival if set
-  const myPlayer = g.players.find(p => p.name === me.name);
-  if(myPlayer && myPlayer.currentRival){
-    document.getElementById('current-rival-display').style.display = 'block';
-    document.getElementById('current-rival-name').textContent = myPlayer.currentRival;
-    select.value = myPlayer.currentRival;
-  } else {
-    document.getElementById('current-rival-display').style.display = 'none';
-  }
-  
-  document.getElementById('rival-modal').style.display = 'flex';
-});
-
 // Add listener for daily summary button
 document.getElementById('set-rival-from-summary')?.addEventListener('click', async () => {
   const g = await loadGame(me.code);
@@ -4476,23 +4375,23 @@ async function saveRival() {
     return;
   }
   
-  // Check if this is first day (no completed days yet)
-  const isFirstDay = !g.completedDays || g.completedDays.length === 0;
+  // Check if this is the very start of the game (no results entered at all)
+  const hasAnyResults = g.results && Object.keys(g.results).some(k => !isNaN(k) && g.results[k] != null);
   
-  // Check if day has started (any results entered for today)
+  // Check if current day has started (any results entered for today)
   const currentMatch = g.matches[g.currentMatchIdx];
   const currentMatchDate = getMatchDateTime(g.currentMatchIdx, currentMatch);
-  let dayHasStarted = false;
+  let todayHasResults = false;
   if(g.results){
-    dayHasStarted = Object.keys(g.results).some(idx => {
+    todayHasResults = Object.keys(g.results).some(idx => {
       const matchIdx = parseInt(idx);
       const match = g.matches[matchIdx];
       return match && getMatchDateTime(matchIdx, match) === currentMatchDate;
     });
   }
   
-  // Prevent rival changes once day has started (except first day)
-  if(!isFirstDay && dayHasStarted) {
+  // Prevent rival changes once any day has started (except at very beginning)
+  if(hasAnyResults && todayHasResults) {
     alert('⚔️ Cannot change rival once the day has started! Wait for the daily summary.');
     closeRivalModal();
     return;
