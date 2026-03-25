@@ -2588,6 +2588,44 @@ async function renderReveal(g){
     await saveGame(f);
     renderGameHost(f);
   });
+  
+  // Complete Day button logic (same as in renderGameHost)
+  const completeDayBtn = document.getElementById('complete-day-btn');
+  if(completeDayBtn){
+    // Calculate today's matches
+    const currentMatchDate = getMatchDateTime(g.currentMatchIdx, match);
+    const calculatedTodaysMatches = [];
+    if(g.results){
+      Object.keys(g.results).forEach(idx => {
+        const matchIdx = parseInt(idx);
+        const m = g.matches[matchIdx];
+        if(m && getMatchDateTime(matchIdx, m) === currentMatchDate){
+          calculatedTodaysMatches.push(matchIdx);
+        }
+      });
+    }
+    
+    const hasMatchesToday = calculatedTodaysMatches.length > 0;
+    const hasResultForCurrentMatch = g.results && g.results[g.currentMatchIdx];
+    const isInRevealState = g.status && g.status.startsWith('reveal:');
+    
+    const shouldShow = hasMatchesToday && (isInRevealState || hasResultForCurrentMatch);
+    completeDayBtn.style.display = shouldShow ? 'inline-block' : 'none';
+    
+    if(shouldShow && isLastMatchOfDay){
+      completeDayBtn.style.background = 'var(--accent)';
+      completeDayBtn.style.color = 'var(--bg)';
+      completeDayBtn.style.fontWeight = '700';
+      completeDayBtn.style.opacity = '1';
+      completeDayBtn.style.animation = 'pulse 2s ease-in-out infinite';
+    } else {
+      completeDayBtn.style.background = '';
+      completeDayBtn.style.color = '';
+      completeDayBtn.style.fontWeight = '';
+      completeDayBtn.style.opacity = '';
+      completeDayBtn.style.animation = '';
+    }
+  }
 }
 
 // ─── PLAYER WATCH ────────────────────────────────────────────────────────────
