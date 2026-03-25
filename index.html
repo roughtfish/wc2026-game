@@ -2079,17 +2079,17 @@ async function renderGameHost(g){
   
   const completeDayBtn=document.getElementById('complete-day-btn');
   if(completeDayBtn){
-    const hasMatchesToday = calculatedTodaysMatches.length > 0;
     const hasResultForCurrentMatch = g.results && g.results[g.currentMatchIdx];
     const isInRevealState = g.status && g.status.startsWith('reveal:');
     
-    // Only show Complete Day if:
-    // 1. There are matches from today that have results, AND
-    // 2. We're either in a reveal state OR the current match has a result
-    const shouldShow = hasMatchesToday && (isInRevealState || hasResultForCurrentMatch);
+    // Only show Complete Day button when:
+    // 1. We're in reveal state (result was just entered)
+    // 2. Current match has a result
+    // 3. This is the LAST match of the day
+    const shouldShow = isInRevealState && hasResultForCurrentMatch && isLastMatchOfDay;
     completeDayBtn.style.display = shouldShow ? 'inline-block' : 'none';
     
-    if(shouldShow && isLastMatchOfDay){
+    if(shouldShow){
       completeDayBtn.style.background = 'var(--accent)';
       completeDayBtn.style.color = 'var(--bg)';
       completeDayBtn.style.fontWeight = '700';
@@ -2592,27 +2592,16 @@ async function renderReveal(g){
   // Complete Day button logic (same as in renderGameHost)
   const completeDayBtn = document.getElementById('complete-day-btn');
   if(completeDayBtn){
-    // Calculate today's matches
-    const currentMatchDate = getMatchDateTime(g.currentMatchIdx, match);
-    const calculatedTodaysMatches = [];
-    if(g.results){
-      Object.keys(g.results).forEach(idx => {
-        const matchIdx = parseInt(idx);
-        const m = g.matches[matchIdx];
-        if(m && getMatchDateTime(matchIdx, m) === currentMatchDate){
-          calculatedTodaysMatches.push(matchIdx);
-        }
-      });
-    }
-    
-    const hasMatchesToday = calculatedTodaysMatches.length > 0;
     const hasResultForCurrentMatch = g.results && g.results[g.currentMatchIdx];
     const isInRevealState = g.status && g.status.startsWith('reveal:');
     
-    const shouldShow = hasMatchesToday && (isInRevealState || hasResultForCurrentMatch);
+    // Only show Complete Day button when:
+    // 1. We're in reveal state (result was just entered)
+    // 2. Current match has a result
+    // 3. This is the LAST match of the day
+    const shouldShow = isInRevealState && hasResultForCurrentMatch && isLastMatchOfDay;
     
     console.log('[Complete Day Button Debug]', {
-      hasMatchesToday,
       hasResultForCurrentMatch,
       isInRevealState,
       isLastMatchOfDay,
@@ -2622,7 +2611,7 @@ async function renderReveal(g){
     
     completeDayBtn.style.display = shouldShow ? 'inline-block' : 'none';
     
-    if(shouldShow && isLastMatchOfDay){
+    if(shouldShow){
       completeDayBtn.style.background = 'var(--accent)';
       completeDayBtn.style.color = 'var(--bg)';
       completeDayBtn.style.fontWeight = '700';
