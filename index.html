@@ -1867,6 +1867,14 @@ async function renderGameHost(g){
     const hasResults=g.results&&Object.keys(g.results).filter(k=>!isNaN(k)&&(g.results||{})[k]!=null).length>0;
     undoBtn.style.display=hasResults?'inline-block':'none';
   }
+  
+  // Show/hide Set Rival button based on elimination status
+  const setRivalBtnHost = document.getElementById('set-rival-btn-host');
+  if(setRivalBtnHost) {
+    const myPlayer = g.players.find(p => p.name === me.name);
+    setRivalBtnHost.style.display = (myPlayer && myPlayer.eliminated) ? 'none' : 'inline-block';
+  }
+  
   renderProgress(g,'progress-bar');
   
   // Check if game should end - only count non-host players
@@ -2458,6 +2466,13 @@ async function renderWatchScreen(g){
         renderBulkForm(g);
       };
     }
+  }
+  
+  // Show/hide Set Rival button based on elimination status
+  const setRivalBtn = document.getElementById('set-rival-btn');
+  if(setRivalBtn) {
+    const myPlayer = g.players.find(p => p.name === me.name);
+    setRivalBtn.style.display = (myPlayer && myPlayer.eliminated) ? 'none' : 'inline-block';
   }
 
   // Show "My Picks" button during KO rounds
@@ -4135,17 +4150,27 @@ async function showDailySummary(g, matchIndices) {
     if(waitingMsg) waitingMsg.style.display = 'block';
   }
   
-  // Update Set Rival CTA
+  // Update Set Rival CTA (hide if player is eliminated)
+  const rivalCta = document.getElementById('daily-set-rival-cta');
   const ctaBadge = document.getElementById('current-rival-badge');
   const ctaBadgeName = document.getElementById('current-rival-name-badge');
   const ctaBtnText = document.getElementById('rival-btn-text');
-  if(player.currentRival && ctaBadge && ctaBadgeName && ctaBtnText) {
-    ctaBadge.style.display = 'block';
-    ctaBadgeName.textContent = player.currentRival;
-    ctaBtnText.textContent = '⚔️ Change Rival';
-  } else if(ctaBadge && ctaBtnText) {
-    ctaBadge.style.display = 'none';
-    ctaBtnText.textContent = '⚔️ Set My Rival';
+  
+  if(player.eliminated) {
+    // Hide entire CTA if player is eliminated
+    if(rivalCta) rivalCta.style.display = 'none';
+  } else {
+    // Show CTA and update its state
+    if(rivalCta) rivalCta.style.display = 'block';
+    
+    if(player.currentRival && ctaBadge && ctaBadgeName && ctaBtnText) {
+      ctaBadge.style.display = 'block';
+      ctaBadgeName.textContent = player.currentRival;
+      ctaBtnText.textContent = '⚔️ Change Rival';
+    } else if(ctaBadge && ctaBtnText) {
+      ctaBadge.style.display = 'none';
+      ctaBtnText.textContent = '⚔️ Set My Rival';
+    }
   }
   
   show('screen-daily-summary');
