@@ -242,6 +242,11 @@
       <span style="font-size:11px;color:var(--muted);transition:transform 0.2s" id="rival-victories-arrow">▼</span>
     </div>
     <div id="rival-stats"></div>
+    <div class="section-title" style="cursor:pointer;user-select:none;display:flex;align-items:center;justify-content:space-between" id="most-picked-rival-header">
+      <span>MOST PICKED AS RIVAL 🎯</span>
+      <span style="font-size:11px;color:var(--muted);transition:transform 0.2s" id="most-picked-rival-arrow">▼</span>
+    </div>
+    <div id="most-picked-rival"></div>
     <div class="section-title">BEST SCORE PREDICTORS 🎯</div>
     <div id="score-predictors"></div>
     <div class="section-title">BIGGEST UPSET</div>
@@ -391,6 +396,7 @@ function render(g){
   renderLeaderboard(g);
   renderStreakStats(g);
   renderRivalStats(g);
+  renderMostPickedRival(g);
   renderScorePredictors(g);
   renderBiggestUpset(g);
   renderExactScores(g);
@@ -572,6 +578,60 @@ function renderRivalStats(g){
   
   // Store stats for modal
   window._rivalStatsData={g,playerStats};
+}
+
+function renderMostPickedRival(g){
+  const el=document.getElementById('most-picked-rival');
+  if(!el)return;
+  
+  const players=Array.isArray(g.players)?g.players:Object.values(g.players||{});
+  const completedDays=g.completedDays||[];
+  
+  // Count how many times each player was picked as a rival
+  const pickCounts={};
+  
+  completedDays.forEach(day=>{
+    const rivalSelections=day.rivalSelections||{};
+    Object.values(rivalSelections).forEach(rivalName=>{
+      pickCounts[rivalName]=(pickCounts[rivalName]||0)+1;
+    });
+  });
+  
+  // Check if any picks exist
+  const hasPicks=Object.keys(pickCounts).length>0;
+  
+  if(!hasPicks){
+    el.innerHTML='<div style="color:var(--muted);font-size:13px;padding:12px 0">No rival selections yet</div>';
+    return;
+  }
+  
+  // Create leaderboard with ALL players, sorted by times picked
+  const pickStats=players.map(p=>({
+    name:p.name,
+    timesPicked:pickCounts[p.name]||0
+  })).sort((a,b)=>b.timesPicked-a.timesPicked);
+  
+  // Show leaderboard
+  el.innerHTML=`
+  <div class="leaderboard">
+    ${pickStats.map((p,i)=>{
+      const rank=i+1;
+      const medal=rank===1?'🎯':rank===2?'👁️':rank===3?'📍':'';
+      const hasPicksValue = p.timesPicked > 0;
+      
+      return `
+      <div class="lb-row" style="grid-template-columns:50px 1fr auto;${!hasPicksValue?'opacity:0.5;':''}">
+        <div class="lb-rank" style="font-size:${medal?'22px':'16px'}">${medal||rank}</div>
+        <div class="lb-name">${p.name}</div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:18px;color:var(--accent2);text-align:right">${p.timesPicked}</div>
+      </div>
+      `;
+    }).join('')}
+  </div>
+  <div style="font-size:11px;color:var(--muted);text-align:center;margin-top:8px">
+    💡 Shows how many times each player was selected as someone's rival
+  </div>
+  `;
 }
 
 function renderScorePredictors(g){
@@ -1606,6 +1666,16 @@ function showRivalDetail(playerName){
   document.getElementById('rival-victories-header')?.addEventListener('click', () => {
     const content = document.getElementById('rival-stats');
     const arrow = document.getElementById('rival-victories-arrow');
+    if(content && arrow) {
+      const isHidden = content.style.display === 'none';
+      content.style.display = isHidden ? 'block' : 'none';
+      arrow.textContent = isHidden ? '▼' : '▶';
+    }
+  });
+  
+  document.getElementById('most-picked-rival-header')?.addEventListener('click', () => {
+    const content = document.getElementById('most-picked-rival');
+    const arrow = document.getElementById('most-picked-rival-arrow');
     if(content && arrow) {
       const isHidden = content.style.display === 'none';
       content.style.display = isHidden ? 'block' : 'none';
