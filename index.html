@@ -2895,6 +2895,16 @@ function showScheduleModal(g) {
     return dateA - dateB;
   });
   
+  // Find current day's date (date containing current match)
+  let currentDayDate = null;
+  if (g.currentMatchIdx < g.matches.length) {
+    const currentMatch = g.matches[g.currentMatchIdx];
+    const currentDateTime = getMatchDateTime(g.currentMatchIdx, currentMatch);
+    if (currentDateTime) {
+      currentDayDate = currentDateTime.split('•')[0].trim();
+    }
+  }
+  
   // Build HTML
   let html = `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
@@ -2906,9 +2916,10 @@ function showScheduleModal(g) {
   
   sortedDates.forEach(date => {
     const matches = matchesByDate[date];
+    const isCurrentDay = date === currentDayDate;
     html += `
-      <div style="margin-bottom:24px">
-        <div style="font-weight:700;font-size:14px;margin-bottom:12px;color:var(--accent);letter-spacing:0.5px">${date.toUpperCase()}</div>
+      <div ${isCurrentDay ? 'id="current-day-section"' : ''} style="margin-bottom:24px">
+        <div style="font-weight:700;font-size:14px;margin-bottom:12px;color:var(--accent);letter-spacing:0.5px">${date.toUpperCase()}${isCurrentDay ? ' ▶️' : ''}</div>
     `;
     
     matches.forEach(({idx, match, dateTime, time}) => {
@@ -2943,6 +2954,14 @@ function showScheduleModal(g) {
   modal.innerHTML = html;
   overlay.appendChild(modal);
   document.body.appendChild(overlay);
+  
+  // Scroll to current day after modal is rendered
+  setTimeout(() => {
+    const currentDaySection = document.getElementById('current-day-section');
+    if (currentDaySection) {
+      currentDaySection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, 100);
   
   // Close button handler
   document.getElementById('close-schedule-btn').addEventListener('click', () => {
