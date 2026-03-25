@@ -237,7 +237,10 @@
     <div class="leaderboard" id="leaderboard"></div>
     <div class="section-title">STREAKS 🔥</div>
     <div id="streak-stats"></div>
-    <div class="section-title">RIVAL VICTORIES ⚔️</div>
+    <div class="section-title" style="cursor:pointer;user-select:none;display:flex;align-items:center;justify-content:space-between" id="rival-victories-header">
+      <span>RIVAL VICTORIES ⚔️</span>
+      <span style="font-size:11px;color:var(--muted);transition:transform 0.2s" id="rival-victories-arrow">▼</span>
+    </div>
     <div id="rival-stats"></div>
     <div class="section-title">BEST SCORE PREDICTORS 🎯</div>
     <div id="score-predictors"></div>
@@ -1602,5 +1605,18 @@ function showRivalDetail(playerName){
       <div class="modal-body" id="h2h-body"></div>
     </div>
   </div>
+  
+  <script>
+  // Rival Victories collapse handler
+  document.getElementById('rival-victories-header')?.addEventListener('click', () => {
+    const content = document.getElementById('rival-stats');
+    const arrow = document.getElementById('rival-victories-arrow');
+    if(content && arrow) {
+      const isHidden = content.style.display === 'none';
+      content.style.display = isHidden ? 'block' : 'none';
+      arrow.textContent = isHidden ? '▼' : '▶';
+    }
+  });
+  </script>
 </body>
 </html>
