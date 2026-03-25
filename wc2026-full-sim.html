@@ -137,6 +137,10 @@
           <input type="number" id="rival-bonus-2" value="2" min="0" max="20">
           <input type="number" id="rival-bonus-3" value="1" min="0" max="20">
         </div>
+        <div style="margin-top:8px">
+          <button class="btn btn-sm" id="suggest-rival-btn" onclick="suggestRivalBonus()" style="background:var(--accent2);color:#0a0f1a;width:auto;padding:8px 16px;font-size:12px">🔍 SUGGEST</button>
+          <span id="suggest-rival-status" style="font-size:11px;color:var(--muted);margin-left:10px"></span>
+        </div>
         <div class="help">Lives awarded to top 3 rival victory leaders at end of group stage</div>
       </div>
     </div>
@@ -709,6 +713,72 @@ function simulatePlayers(groupMatches, koMatches, numPlayers, startingLives, ski
   });
   
   return { players, roundSurvivors, matchDanger };
+}
+
+async function suggestRivalBonus() {
+  const btn = document.getElementById('suggest-rival-btn');
+  const status = document.getElementById('suggest-rival-status');
+  btn.disabled = true;
+  status.textContent = 'Testing combinations…';
+
+  const numPlayers = parseInt(document.getElementById('num-players').value);
+  const startingLives = parseInt(document.getElementById('starting-lives').value);
+  const skillLevel = parseFloat(document.getElementById('skill-level').value);
+  const scoreRate = parseFloat(document.getElementById('score-rate').value) / 100;
+  const penaltyRate = parseFloat(document.getElementById('penalty-rate').value) / 100;
+  const maxDraws = parseInt(document.getElementById('max-draws').value);
+  const playerSkills = getPlayerSkills();
+  const QUICK_SIMS = 300;
+
+  // Score a set of bonus values: higher avg survivors = better, wipeouts penalised
+  function scoreCombination(bonus) {
+    let totalSurvivors = 0;
+    let wipeouts = 0;
+    for(let s = 0; s < QUICK_SIMS; s++) {
+      const { groupResults, groupMatches, thirdPlaceTeams, momentum } = simulateGroupStage();
+      const koMatches = simulateKnockout(groupResults, thirdPlaceTeams, penaltyRate, momentum);
+      const { players } = simulatePlayers(groupMatches, koMatches, numPlayers, startingLives, skillLevel, scoreRate, penaltyRate, playerSkills, maxDraws, bonus);
+      const survivors = players.filter(p => p.lives > 0).length;
+      totalSurvivors += survivors;
+      if(survivors === 0) wipeouts++;
+    }
+    const avgSurvivors = totalSurvivors / QUICK_SIMS;
+    const wipeoutRate = wipeouts / QUICK_SIMS;
+    // Score: avg survivors, heavily penalise wipeouts
+    return avgSurvivors - (wipeoutRate * numPlayers * 2);
+  }
+
+  // Candidate grid: 1st in 0–8, 2nd ≤ 1st, 3rd ≤ 2nd, steps of 1
+  const candidates = [];
+  for(let a = 0; a <= 8; a++)
+    for(let b = 0; b <= a; b++)
+      for(let c = 0; c <= b; c++)
+        candidates.push([a, b, c]);
+
+  await new Promise(r => setTimeout(r, 10));
+
+  let best = null;
+  let bestScore = -Infinity;
+  let tested = 0;
+
+  for(const combo of candidates) {
+    const score = scoreCombination(combo);
+    if(score > bestScore) { bestScore = score; best = combo; }
+    tested++;
+    // Yield to UI every 10 combos
+    if(tested % 10 === 0) {
+      status.textContent = `Testing… ${tested}/${candidates.length}`;
+      await new Promise(r => setTimeout(r, 0));
+    }
+  }
+
+  // Apply suggestion
+  document.getElementById('rival-bonus-1').value = best[0];
+  document.getElementById('rival-bonus-2').value = best[1];
+  document.getElementById('rival-bonus-3').value = best[2];
+
+  status.textContent = `✓ Suggested: ${best[0]} / ${best[1]} / ${best[2]}`;
+  btn.disabled = false;
 }
 
 async function runSimulation() {
