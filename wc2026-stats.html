@@ -589,11 +589,16 @@ function renderMostPickedRival(g){
   
   // Count how many times each player was picked as a rival
   const pickCounts={};
+  const pickedBy={}; // Track who picked whom
   
   completedDays.forEach(day=>{
     const rivalSelections=day.rivalSelections||{};
-    Object.values(rivalSelections).forEach(rivalName=>{
+    Object.entries(rivalSelections).forEach(([picker,rivalName])=>{
       pickCounts[rivalName]=(pickCounts[rivalName]||0)+1;
+      
+      // Track who picked this rival
+      if(!pickedBy[rivalName])pickedBy[rivalName]={};
+      pickedBy[rivalName][picker]=(pickedBy[rivalName][picker]||0)+1;
     });
   });
   
@@ -606,10 +611,20 @@ function renderMostPickedRival(g){
   }
   
   // Create leaderboard with ALL players, sorted by times picked
-  const pickStats=players.map(p=>({
-    name:p.name,
-    timesPicked:pickCounts[p.name]||0
-  })).sort((a,b)=>b.timesPicked-a.timesPicked);
+  const pickStats=players.map(p=>{
+    const pickers=pickedBy[p.name]||{};
+    // Find who picked this player the most
+    const pickerEntries=Object.entries(pickers).sort((a,b)=>b[1]-a[1]);
+    const maxPicks=pickerEntries.length>0?pickerEntries[0][1]:0;
+    const topPickers=pickerEntries.filter(([,count])=>count===maxPicks).map(([name])=>name);
+    
+    return {
+      name:p.name,
+      timesPicked:pickCounts[p.name]||0,
+      topPickers:topPickers,
+      topPickCount:maxPicks
+    };
+  }).sort((a,b)=>b.timesPicked-a.timesPicked);
   
   // Show leaderboard
   el.innerHTML=`
@@ -619,11 +634,24 @@ function renderMostPickedRival(g){
       const medal=rank===1?'🎯':rank===2?'👁️':rank===3?'📍':'';
       const hasPicksValue = p.timesPicked > 0;
       
+      // Format top pickers
+      let pickerText='';
+      if(p.topPickers.length>0){
+        if(p.topPickers.length===1){
+          pickerText=`<div style="font-size:11px;color:var(--muted);margin-top:4px">Most picked by: <span style="color:var(--accent2)">${p.topPickers[0]}</span> (${p.topPickCount}×)</div>`;
+        } else {
+          pickerText=`<div style="font-size:11px;color:var(--muted);margin-top:4px">Most picked by: <span style="color:var(--accent2)">${p.topPickers.join(', ')}</span> (${p.topPickCount}× each)</div>`;
+        }
+      }
+      
       return `
       <div class="lb-row" style="grid-template-columns:50px 1fr auto;${!hasPicksValue?'opacity:0.5;':''}">
         <div class="lb-rank" style="font-size:${medal?'22px':'16px'}">${medal||rank}</div>
-        <div class="lb-name">${p.name}</div>
-        <div style="font-family:'Bebas Neue',sans-serif;font-size:18px;color:var(--accent2);text-align:right">${p.timesPicked}</div>
+        <div>
+          <div class="lb-name">${p.name}</div>
+          ${pickerText}
+        </div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:18px;color:var(--accent2);text-align:right;align-self:start">${p.timesPicked}</div>
       </div>
       `;
     }).join('')}
