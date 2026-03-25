@@ -358,6 +358,16 @@
   .badge-away{background:rgba(45,212,191,0.1);color:var(--accent2)}
   .spinner{display:inline-block;width:16px;height:16px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.7s linear infinite;margin-right:7px;vertical-align:middle}
   @keyframes spin{to{transform:rotate(360deg)}}
+  /* Toast notifications */
+  #toast-container{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:9999;display:flex;flex-direction:column;align-items:center;gap:8px;pointer-events:none}
+  .toast{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 18px;font-size:13px;font-weight:500;color:var(--text);box-shadow:0 4px 20px rgba(0,0,0,0.5);animation:toastIn 0.25s ease,toastOut 0.3s ease 2.2s forwards;white-space:nowrap}
+  .toast.toast-success{border-color:var(--accent2);color:var(--accent2)}
+  .toast.toast-error{border-color:var(--red);color:var(--red)}
+  @keyframes toastIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+  @keyframes toastOut{from{opacity:1}to{opacity:0;transform:translateY(8px)}}
+  /* Rival CTA enhancements */
+  .rival-set-display{display:flex;align-items:center;justify-content:center;gap:10px;margin-top:10px;background:rgba(45,212,191,0.08);border-radius:8px;padding:10px 14px}
+  .rival-set-name{font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:2px;color:var(--accent2)}
   .btn-next{display:block;width:100%;margin-top:12px;padding:12px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);color:var(--text);font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:2px;cursor:pointer;transition:all 0.2s}
   .btn-next:hover{border-color:var(--accent2);color:var(--accent2)}
   .error-msg{color:var(--red);font-size:12px;margin-bottom:11px;display:none}
@@ -602,10 +612,13 @@
   </div>
 
   <!-- Rival Selection Modal -->
+  <div id="toast-container"></div>
+
   <div id="rival-modal" class="modal" style="display:none">
     <div class="modal-content" style="max-width:380px">
       <h2 style="margin-bottom:16px;font-size:18px">⚔️ Choose Your Rival</h2>
       <p style="font-size:13px;color:var(--muted);margin-bottom:16px">Pick a rival for the next game day. Whoever gets more correct predictions wins!</p>
+      <p style="font-size:11px;color:var(--muted);background:var(--surface2);border-radius:6px;padding:8px 10px;margin-bottom:16px;line-height:1.5">⚠️ You can only change your rival during the daily summary. Once the day starts, it's locked in.</p>
       
       <div style="margin-bottom:16px">
         <label style="display:block;font-size:11px;color:var(--muted);margin-bottom:6px;letter-spacing:1px">SELECT RIVAL</label>
@@ -702,8 +715,14 @@
         <button class="btn btn-teal" id="set-rival-from-summary" style="max-width:280px;margin:0 auto;">
           <span id="rival-btn-text">⚔️ Set My Rival</span>
         </button>
-        <div id="current-rival-badge" style="display:none;margin-top:10px;font-size:12px;">
-          Current rival: <span style="color:var(--accent2);font-weight:600;" id="current-rival-name-badge"></span>
+        <div id="current-rival-badge" style="display:none;margin-top:12px;">
+          <div class="rival-set-display">
+            <span style="font-size:18px;">⚔️</span>
+            <div>
+              <div style="font-size:10px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-bottom:2px">Your Rival</div>
+              <div class="rival-set-name" id="current-rival-name-badge"></div>
+            </div>
+          </div>
         </div>
       </div>
       
@@ -1496,6 +1515,15 @@ function show(id){
     else{nameEl.style.display='none';}
   }
 }
+function showToast(msg, type='success', duration=2500){
+  const container = document.getElementById('toast-container');
+  if(!container) return;
+  const t = document.createElement('div');
+  t.className = 'toast' + (type === 'error' ? ' toast-error' : ' toast-success');
+  t.textContent = msg;
+  container.appendChild(t);
+  setTimeout(() => t.remove(), duration + 300);
+}
 function stopPolling(){if(pollTimer){clearInterval(pollTimer);pollTimer=null;}}
 function startPolling(fn,ms=2500){stopPolling();fn();pollTimer=setInterval(fn,ms);}
 
@@ -1966,7 +1994,7 @@ async function pollBulkDone(){
                     fresh.status.startsWith('bulk:') ? 'Group Stage' : null;
       if(round && round !== 'Group Stage'){
         stopPolling();
-        show('screen-ko-bulk');
+        show('screen-bulk');
         const area = document.getElementById('bulk-area');
         area._watchCommit = async () => {
           show('screen-bulk-done');
@@ -5155,7 +5183,7 @@ async function saveRival() {
   
   const rivalName = document.getElementById('rival-select').value;
   if(!rivalName) {
-    alert('Please select a rival');
+    showToast('Please pick a rival first', 'error');
     return;
   }
   
@@ -5181,8 +5209,8 @@ async function saveRival() {
     
     // Prevent rival changes once any day has started (except at very beginning)
     if(hasAnyResults && todayHasResults) {
-      alert('⚔️ Cannot change rival once the day has started! Wait for the daily summary.');
       closeRivalModal();
+      showToast('⚔️ Rivals lock once the day starts — change at next summary.', 'error');
       return;
     }
   }
@@ -5207,7 +5235,7 @@ async function saveRival() {
       if(rivalBtn) rivalBtn.classList.remove('rival-pulse');
     }
     
-    alert(`⚔️ ${rivalName} is now your rival!`);
+    showToast(`⚔️ ${rivalName} is your rival!`);
   }
 }
 
