@@ -4375,26 +4375,32 @@ async function saveRival() {
     return;
   }
   
-  // Check if this is the very start of the game (no results entered at all)
-  const hasAnyResults = g.results && Object.keys(g.results).some(k => !isNaN(k) && g.results[k] != null);
+  // Always allow rival changes during daily summary
+  const isInDailySummary = g.showDailySummary && g.showDailySummary.timestamp;
   
-  // Check if current day has started (any results entered for today)
-  const currentMatch = g.matches[g.currentMatchIdx];
-  const currentMatchDate = getMatchDateTime(g.currentMatchIdx, currentMatch);
-  let todayHasResults = false;
-  if(g.results){
-    todayHasResults = Object.keys(g.results).some(idx => {
-      const matchIdx = parseInt(idx);
-      const match = g.matches[matchIdx];
-      return match && getMatchDateTime(matchIdx, match) === currentMatchDate;
-    });
-  }
-  
-  // Prevent rival changes once any day has started (except at very beginning)
-  if(hasAnyResults && todayHasResults) {
-    alert('⚔️ Cannot change rival once the day has started! Wait for the daily summary.');
-    closeRivalModal();
-    return;
+  if(!isInDailySummary) {
+    // Only validate if NOT in daily summary
+    // Check if this is the very start of the game (no results entered at all)
+    const hasAnyResults = g.results && Object.keys(g.results).some(k => !isNaN(k) && g.results[k] != null);
+    
+    // Check if current day has started (any results entered for today)
+    const currentMatch = g.matches[g.currentMatchIdx];
+    const currentMatchDate = getMatchDateTime(g.currentMatchIdx, currentMatch);
+    let todayHasResults = false;
+    if(g.results){
+      todayHasResults = Object.keys(g.results).some(idx => {
+        const matchIdx = parseInt(idx);
+        const match = g.matches[matchIdx];
+        return match && getMatchDateTime(matchIdx, match) === currentMatchDate;
+      });
+    }
+    
+    // Prevent rival changes once any day has started (except at very beginning)
+    if(hasAnyResults && todayHasResults) {
+      alert('⚔️ Cannot change rival once the day has started! Wait for the daily summary.');
+      closeRivalModal();
+      return;
+    }
   }
   
   // Save rival to player data
