@@ -78,6 +78,159 @@
   .pulse{animation:pulse 1.4s ease infinite}
   @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.35}}
   .rival-pulse{animation:rival-pulse 2s ease-in-out infinite}
+  
+  /* Mobile Optimizations */
+  @media (max-width: 768px) {
+    .app{padding:16px 12px 80px}
+    .header{padding:20px 0 16px}
+    .header h1{font-size:clamp(28px,9vw,48px);letter-spacing:2px}
+    .header .sub{font-size:10px;letter-spacing:2px}
+    .card{padding:18px;border-radius:12px}
+    .card h2{font-size:17px;margin-bottom:12px}
+    
+    /* Touch-friendly buttons */
+    .btn{padding:15px;font-size:16px;min-height:48px}
+    .btn-sm{padding:10px 16px;font-size:13px;min-height:40px}
+    
+    /* Responsive grids */
+    .role-grid{grid-template-columns:1fr;gap:10px}
+    .field-row{flex-direction:column;gap:10px}
+    
+    /* Lobby code - smaller on mobile */
+    .lobby-code{font-size:36px;letter-spacing:8px;padding:12px}
+    
+    /* Match cards */
+    .match-grid{grid-template-columns:1fr !important}
+    
+    /* Prediction buttons */
+    .pred-row{flex-direction:column;gap:8px}
+    .pred-btn{min-height:48px;font-size:15px}
+    
+    /* Score input */
+    .score-input-wrap{flex-direction:column;gap:10px}
+    .score-input{font-size:18px;padding:12px}
+    
+    /* Leaderboard */
+    .lb-row{padding:10px 8px;grid-template-columns:40px 1fr auto !important;gap:8px}
+    .lb-rank{font-size:16px}
+    .lb-name{font-size:13px}
+    .lb-score{font-size:14px}
+    
+    /* Daily Summary Modal */
+    #daily-summary-modal .modal-content{
+      width:100%;
+      max-width:100%;
+      margin:0;
+      border-radius:16px 16px 0 0;
+      max-height:90vh;
+      padding:20px 16px
+    }
+    
+    /* Hero Card */
+    #daily-hero-card{padding:20px !important;border-radius:12px !important}
+    #daily-hero-card > div[style*="grid-template-columns"]{
+      grid-template-columns:1fr !important
+    }
+    
+    /* Performance grid */
+    #daily-performance-details > div{
+      grid-template-columns:1fr !important;
+      gap:10px !important
+    }
+    
+    /* Match results */
+    #daily-match-results > div{font-size:12px !important;padding:10px 8px !important}
+    
+    /* Comparison cards */
+    #daily-comparison > div{
+      grid-template-columns:1fr !important;
+      gap:10px !important
+    }
+    
+    /* Tomorrow's stakes */
+    #daily-tomorrow-stakes > div > div{
+      grid-template-columns:1fr !important;
+      gap:10px !important
+    }
+    
+    /* Standings in summary */
+    #daily-standings .lb-row{
+      grid-template-columns:30px 1fr auto !important
+    }
+    
+    /* Rival showdown */
+    #rival-showdown-content > div{
+      grid-template-columns:1fr !important;
+      gap:12px !important
+    }
+    #rival-showdown-content > div > div:nth-child(2){
+      order:-1
+    }
+    
+    /* Stats page quick summary */
+    #quick-stats-summary{
+      grid-template-columns:1fr 1fr !important;
+      gap:10px !important
+    }
+    
+    /* Hide certain columns on mobile for tables */
+    .surv-lives{display:none}
+    
+    /* Schedule modal */
+    .schedule-modal .modal-content{
+      width:100%;
+      padding:16px;
+      max-height:85vh
+    }
+    
+    /* Smaller flags on mobile */
+    .flag-icon{width:18px !important;height:18px !important}
+    
+    /* Touch-friendly tap targets */
+    button,a,.clickable{min-height:44px}
+    
+    /* Prevent horizontal scroll */
+    body{overflow-x:hidden}
+    .app{overflow-x:hidden}
+    
+    /* Responsive font sizes */
+    h1{font-size:clamp(24px,6vw,32px) !important}
+    h2{font-size:clamp(18px,4vw,22px) !important}
+    h3{font-size:clamp(14px,3vw,16px) !important}
+    
+    /* Modal close buttons - larger touch target */
+    .modal-close{min-width:44px;min-height:44px;font-size:28px}
+    
+    /* Sticky headers less intrusive */
+    .section-title{font-size:13px;padding:8px 0}
+  }
+  
+  /* Small phones (< 400px) */
+  @media (max-width: 400px) {
+    .app{padding:12px 10px 70px}
+    .header h1{font-size:24px;letter-spacing:1px}
+    .card{padding:14px}
+    .btn{font-size:14px}
+    .lobby-code{font-size:28px;letter-spacing:6px}
+    
+    /* Even more compact */
+    .lb-row{padding:8px 6px;gap:6px}
+    #daily-summary-modal .modal-content{padding:16px 12px}
+  }
+  
+  /* Landscape mobile */
+  @media (max-width: 768px) and (orientation: landscape) {
+    .header{padding:12px 0}
+    .app{padding:12px}
+    #daily-summary-modal .modal-content{max-height:85vh}
+  }
+  
+  /* Tablet optimization */
+  @media (min-width: 769px) and (max-width: 1024px) {
+    .app{max-width:720px;padding:20px 18px}
+    .match-grid{grid-template-columns:1fr 1fr}
+    #quick-stats-summary{grid-template-columns:repeat(2,1fr) !important}
+  }
   @keyframes rival-pulse{
     0%,100%{transform:scale(1);box-shadow:0 0 0 0 rgba(45,212,191,0.7)}
     50%{transform:scale(1.05);box-shadow:0 0 0 10px rgba(45,212,191,0)}
