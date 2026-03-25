@@ -1954,6 +1954,32 @@ async function commitBulk(g){
       if(submitBtn){submitBtn.textContent='Lock in my predictions ✓';submitBtn.disabled=false;}
       return;
     }
+    // Enforce 5-pick limit using fresh state before writing
+    const MAX_PICKS_COMMIT = 5;
+    const freshTeamPicks = {};
+    fresh.matches.forEach((m, i) => {
+      const pred = (fresh.predictions[i] || {})[me.name];
+      if(!pred) return;
+      const r = (fresh.results || {})[i];
+      if(r && r.penWinner && !m.group) return; // pen wins are free
+      if(pred === 'home' && m.home !== 'TBD') freshTeamPicks[m.home] = (freshTeamPicks[m.home] || 0) + 1;
+      else if(pred === 'away' && m.away !== 'TBD') freshTeamPicks[m.away] = (freshTeamPicks[m.away] || 0) + 1;
+    });
+    const overLimit = [];
+    Object.entries(bulkDraft).forEach(([i, v]) => {
+      const m = fresh.matches[parseInt(i)];
+      if(!m) return;
+      const team = v === 'home' ? m.home : v === 'away' ? m.away : null;
+      if(!team) return;
+      freshTeamPicks[team] = (freshTeamPicks[team] || 0) + 1;
+      if(freshTeamPicks[team] > MAX_PICKS_COMMIT) overLimit.push(team);
+    });
+    if(overLimit.length > 0){
+      const teams = [...new Set(overLimit)].join(', ');
+      alert(`Pick limit exceeded for: ${teams}. Please remove some picks and try again.`);
+      if(submitBtn){submitBtn.textContent='Lock in my predictions ✓';submitBtn.disabled=false;}
+      return;
+    }
     Object.entries(bulkDraft).forEach(([i,v])=>{
       const idx=parseInt(i);
       if(!fresh.predictions[idx])fresh.predictions[idx]={};
@@ -3295,11 +3321,13 @@ function showScheduleModal(g) {
 function showMyStatsModal(g) {
   const MAX_PICKS = 5;
   
-  // Count picks per team for current player (both group stage AND knockout)
+  // Count picks per team for current player — ALL matches (group + knockout), per the rules
   const teamCounts = {};
   g.matches.forEach((m, i) => {
-    // Include both group stage and knockout matches
     const pred = g.predictions[i]?.[me.name];
+    // Pen wins are free picks and don't count toward the 5-pick limit
+    const r = (g.results || {})[i];
+    if(r && r.penWinner && !m.group) return;
     if(pred === 'home' && m.home !== 'TBD') {
       teamCounts[m.home] = (teamCounts[m.home] || 0) + 1;
     } else if(pred === 'away' && m.away !== 'TBD') {
@@ -3644,10 +3672,10 @@ function renderKOBulkForm(g, round) {
     const winner = pred === 'home' ? m.home : pred === 'away' ? m.away : null;
     if (!winner) return;
     const r = (g.results || {})[i];
-    if (r && r.penWinner && !m.group) return;
+    if (r && r.penWinner && !m.group) return; // pen wins are free picks
     teamPicks[winner] = (teamPicks[winner] || 0) + 1;
   });
-  
+
   gms.forEach(({ m, i }) => {
     const sel = koBulkDraft[i];
     if (sel === 'home') teamPicks[m.home] = (teamPicks[m.home] || 0) + 1;
@@ -3743,6 +3771,32 @@ async function commitKOBulk(g, round) {
   try {
     const fresh = await loadGame(me.code);
     if (!fresh) { alert('Could not load game — check your connection.'); if (submitBtn) { submitBtn.textContent = 'Lock in my predictions ✓'; submitBtn.disabled = false; } return; }
+    // Enforce 5-pick limit using fresh state before writing
+    const MAX_PICKS_COMMIT = 5;
+    const freshTeamPicksKO = {};
+    fresh.matches.forEach((m, i) => {
+      const pred = (fresh.predictions[i] || {})[me.name];
+      if(!pred) return;
+      const r = (fresh.results || {})[i];
+      if(r && r.penWinner && !m.group) return;
+      const winner = pred === 'home' ? m.home : pred === 'away' ? m.away : null;
+      if(winner && winner !== 'TBD') freshTeamPicksKO[winner] = (freshTeamPicksKO[winner] || 0) + 1;
+    });
+    const overLimitKO = [];
+    Object.entries(koBulkDraft).forEach(([i, v]) => {
+      const m = fresh.matches[parseInt(i)];
+      if(!m) return;
+      const team = v === 'home' ? m.home : v === 'away' ? m.away : null;
+      if(!team) return;
+      freshTeamPicksKO[team] = (freshTeamPicksKO[team] || 0) + 1;
+      if(freshTeamPicksKO[team] > MAX_PICKS_COMMIT) overLimitKO.push(team);
+    });
+    if(overLimitKO.length > 0){
+      const teams = [...new Set(overLimitKO)].join(', ');
+      alert(`Pick limit exceeded for: ${teams}. Please remove some picks and try again.`);
+      if (submitBtn) { submitBtn.textContent = 'Lock in my predictions ✓'; submitBtn.disabled = false; }
+      return;
+    }
     Object.entries(koBulkDraft).forEach(([i, v]) => {
       const idx = parseInt(i);
       if (!fresh.predictions[idx]) fresh.predictions[idx] = {};
@@ -3770,6 +3824,32 @@ async function commitKOBulkFromWatch(g, round) {
   try {
     const fresh = await loadGame(me.code);
     if (!fresh) { alert('Could not load game.'); if (submitBtn) { submitBtn.textContent = 'Lock in my predictions ✓'; submitBtn.disabled = false; } return; }
+    // Enforce 5-pick limit using fresh state before writing
+    const MAX_PICKS_COMMIT_W = 5;
+    const freshTeamPicksW = {};
+    fresh.matches.forEach((m, i) => {
+      const pred = (fresh.predictions[i] || {})[me.name];
+      if(!pred) return;
+      const r = (fresh.results || {})[i];
+      if(r && r.penWinner && !m.group) return;
+      const winner = pred === 'home' ? m.home : pred === 'away' ? m.away : null;
+      if(winner && winner !== 'TBD') freshTeamPicksW[winner] = (freshTeamPicksW[winner] || 0) + 1;
+    });
+    const overLimitW = [];
+    Object.entries(koBulkDraft).forEach(([i, v]) => {
+      const m = fresh.matches[parseInt(i)];
+      if(!m) return;
+      const team = v === 'home' ? m.home : v === 'away' ? m.away : null;
+      if(!team) return;
+      freshTeamPicksW[team] = (freshTeamPicksW[team] || 0) + 1;
+      if(freshTeamPicksW[team] > MAX_PICKS_COMMIT_W) overLimitW.push(team);
+    });
+    if(overLimitW.length > 0){
+      const teams = [...new Set(overLimitW)].join(', ');
+      alert(`Pick limit exceeded for: ${teams}. Please remove some picks and try again.`);
+      if (submitBtn) { submitBtn.textContent = 'Lock in my predictions ✓'; submitBtn.disabled = false; }
+      return;
+    }
     Object.entries(koBulkDraft).forEach(([i, v]) => {
       const idx = parseInt(i);
       if (!fresh.predictions[idx]) fresh.predictions[idx] = {};
