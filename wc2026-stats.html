@@ -417,6 +417,10 @@
     <div id="underdog-picks"></div>
     <div class="section-title">MOST PICKED TEAMS 🌟</div>
     <div id="most-picked-teams"></div>
+    <div class="section-title">WORST TEAM TO BACK 💀</div>
+    <div id="worst-team"></div>
+    <div class="section-title">PICK AGREEMENT 🤝</div>
+    <div id="pick-agreement"></div>
     
     <!-- PERFORMANCE SECTION -->
     <div class="section-title" style="margin-top:32px;font-size:16px;color:var(--accent);letter-spacing:1.5px;border-bottom:2px solid var(--accent);padding-bottom:8px">📊 PERFORMANCE</div>
@@ -571,6 +575,8 @@ function render(g){
   renderExactScores(g);
   renderUnderdogPicks(g);
   renderMostPickedTeams(g);
+  renderWorstTeam(g);
+  renderPickAgreement(g);
   renderSurvivalProb(g);
   renderLivesChart(g);
   renderHistory(g);
@@ -1347,6 +1353,160 @@ function renderMostPickedTeams(g){
       </div>
     </div>`;
   }).join('')}</div>`;
+}
+
+function renderWorstTeam(g){
+  const el=document.getElementById('worst-team');
+  if(!el)return;
+  const players=Array.isArray(g.players)?g.players:Object.values(g.players||{});
+  const results=g.results||{};
+  const playedIdxs=Object.keys(results).map(Number).filter(n=>!isNaN(n)&&results[n]!=null);
+  if(playedIdxs.length===0){el.innerHTML='<div style="color:var(--muted);font-size:13px;padding:12px 0">No matches played yet</div>';return;}
+
+  // For each team: count how many times they were picked AND lost
+  const teamStats={}; // team -> {picked, betrayals, livesLost}
+  playedIdxs.forEach(idx=>{
+    const match=g.matches[idx];
+    const result=results[idx];
+    if(!result)return;
+    const winner=actualOutcome(result);
+    const preds=g.predictions[idx]||{};
+    players.forEach(p=>{
+      const pred=preds[p.name];
+      if(pred===null||pred===undefined||pred==='draw')return;
+      const pickedTeam=pred==='home'?match.home:match.away;
+      if(!teamStats[pickedTeam])teamStats[pickedTeam]={picked:0,betrayals:0};
+      teamStats[pickedTeam].picked++;
+      if(pred!==winner)teamStats[pickedTeam].betrayals++;
+    });
+  });
+
+  // Sort by betrayals desc, then by betrayal rate desc
+  const ranked=Object.entries(teamStats)
+    .filter(([,s])=>s.picked>=2&&s.betrayals>0)
+    .map(([team,s])=>({team,picked:s.picked,betrayals:s.betrayals,rate:s.betrayals/s.picked}))
+    .sort((a,b)=>b.betrayals-a.betrayals||b.rate-a.rate)
+    .slice(0,8);
+
+  if(ranked.length===0){el.innerHTML='<div style="color:var(--muted);font-size:13px;padding:12px 0">No betrayals yet — everyone has been reliable!</div>';return;}
+
+  const maxBetrayed=ranked[0].betrayals;
+  el.innerHTML=`<div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px">${ranked.map((t,i)=>{
+    const barW=Math.round((t.betrayals/maxBetrayed)*100);
+    const pct=Math.round(t.rate*100);
+    const skull=i===0?'💀':'';
+    return`<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <div style="display:flex;align-items:center;gap:8px">
+          ${flag(t.team,20)}
+          <span style="font-weight:600;font-size:14px">${t.team}</span>
+          ${skull?`<span style="font-size:14px">${skull}</span>`:''}
+        </div>
+        <div style="text-align:right">
+          <span style="font-family:'Bebas Neue',sans-serif;font-size:18px;color:var(--red)">${t.betrayals}</span>
+          <span style="font-size:11px;color:var(--muted)"> lost / ${t.picked} picked</span>
+        </div>
+      </div>
+      <div style="background:var(--surface2);border-radius:3px;height:6px;overflow:hidden">
+        <div style="background:var(--red);height:100%;width:${barW}%;border-radius:3px"></div>
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin-top:5px">${pct}% betrayal rate</div>
+    </div>`;
+  }).join('')}</div>`;
+}
+
+function renderPickAgreement(g){
+  const el=document.getElementById('pick-agreement');
+  if(!el)return;
+  const players=Array.isArray(g.players)?g.players:Object.values(g.players||{});
+  const results=g.results||{};
+  const playedIdxs=Object.keys(results).map(Number).filter(n=>!isNaN(n)&&results[n]!=null);
+  if(playedIdxs.length===0){el.innerHTML='<div style="color:var(--muted);font-size:13px;padding:12px 0">No matches played yet</div>';return;}
+
+  const matchData=playedIdxs.map(idx=>{
+    const match=g.matches[idx];
+    const result=results[idx];
+    const preds=g.predictions[idx]||{};
+    const votes={home:0,away:0,draw:0};
+    let total=0;
+    players.forEach(p=>{
+      const pred=preds[p.name];
+      if(pred===null||pred===undefined)return;
+      votes[pred]=(votes[pred]||0)+1;
+      total++;
+    });
+    if(total<2)return null;
+    const maxVotes=Math.max(votes.home,votes.away,votes.draw);
+    const agreement=maxVotes/total; // 1.0 = full consensus
+    const winner=actualOutcome(result);
+    const topPick=votes.home>=votes.away&&votes.home>=votes.draw?'home':votes.away>=votes.draw?'away':'draw';
+    const consensusCorrect=topPick===winner;
+    return{idx,match,votes,total,agreement,consensusCorrect,winner};
+  }).filter(Boolean);
+
+  if(matchData.length===0){el.innerHTML='<div style="color:var(--muted);font-size:13px;padding:12px 0">Not enough data yet</div>';return;}
+
+  const consensus=matchData.filter(m=>m.agreement===1).sort((a,b)=>b.total-a.total);
+  const mostSplit=matchData.filter(m=>m.total>=2).sort((a,b)=>a.agreement-b.agreement).slice(0,5);
+
+  let html='';
+
+  // Consensus matches
+  if(consensus.length>0){
+    html+=`<div style="margin-bottom:20px">
+      <div style="font-size:11px;letter-spacing:2px;color:var(--accent2);text-transform:uppercase;margin-bottom:10px">🤝 Full Consensus — Everyone agreed</div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+      ${consensus.slice(0,6).map(m=>{
+        const pickedTeam=m.votes.home>0?(m.match.home):(m.votes.away>0?m.match.away:null);
+        const correct=m.consensusCorrect;
+        return`<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;background:var(--surface);border-radius:8px;border:1px solid ${correct?'rgba(34,197,94,0.25)':'rgba(239,68,68,0.25)'}">
+          <div style="display:flex;align-items:center;gap:8px;font-size:13px">
+            ${pickedTeam?flag(pickedTeam,16):''}
+            <span>${m.match.home} vs ${m.match.away}</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <span style="font-size:11px;color:var(--muted)">${m.total} players</span>
+            <span style="font-size:14px">${correct?'✅':'💀'}</span>
+          </div>
+        </div>`;
+      }).join('')}
+      </div>
+    </div>`;
+  }
+
+  // Most split matches
+  if(mostSplit.length>0){
+    html+=`<div>
+      <div style="font-size:11px;letter-spacing:2px;color:var(--accent);text-transform:uppercase;margin-bottom:10px">🔀 Most Divided — Biggest disagreements</div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+      ${mostSplit.map(m=>{
+        const winner=m.winner;
+        const winnerTeam=winner==='home'?m.match.home:winner==='away'?m.match.away:null;
+        const homeW=Math.round((m.votes.home/m.total)*100);
+        const awayW=Math.round((m.votes.away/m.total)*100);
+        const drawW=Math.round((m.votes.draw/m.total)*100);
+        return`<div style="padding:10px 12px;background:var(--surface);border-radius:8px;border:1px solid var(--border)">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+            <span style="font-size:13px;font-weight:600">${m.match.home} vs ${m.match.away}</span>
+            <span style="font-size:11px;color:var(--muted)">Won: ${winnerTeam?flag(winnerTeam,14)+' '+winnerTeam:'Draw'}</span>
+          </div>
+          <div style="display:flex;gap:3px;height:8px;border-radius:4px;overflow:hidden">
+            ${homeW>0?`<div style="width:${homeW}%;background:var(--accent2)" title="${m.match.home} ${homeW}%"></div>`:''}
+            ${drawW>0?`<div style="width:${drawW}%;background:var(--muted)" title="Draw ${drawW}%"></div>`:''}
+            ${awayW>0?`<div style="width:${awayW}%;background:var(--accent)" title="${m.match.away} ${awayW}%"></div>`:''}
+          </div>
+          <div style="display:flex;justify-content:space-between;margin-top:5px;font-size:10px;color:var(--muted)">
+            <span>${flag(m.match.home,12)} ${homeW}%</span>
+            ${drawW>0?`<span>= ${drawW}%</span>`:''}
+            <span>${awayW}% ${flag(m.match.away,12)}</span>
+          </div>
+        </div>`;
+      }).join('')}
+      </div>
+    </div>`;
+  }
+
+  el.innerHTML=html||'<div style="color:var(--muted);font-size:13px;padding:12px 0">Not enough data yet</div>';
 }
 
 const hiddenChartPlayers=new Set();
