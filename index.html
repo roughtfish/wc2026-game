@@ -4467,9 +4467,19 @@ async function completeDayAsHost(g) {
   
   // Mark in game state that this day is complete
   if (!g.completedDays) g.completedDays = [];
+  
+  // Store rival selections for this day
+  const rivalSelections = {};
+  g.players.forEach(p => {
+    if(p.currentRival) {
+      rivalSelections[p.name] = p.currentRival;
+    }
+  });
+  
   g.completedDays.push({
     date: new Date().toISOString(),
-    matches: [...calculatedTodaysMatches]
+    matches: [...calculatedTodaysMatches],
+    rivalSelections: rivalSelections
   });
   
   // Broadcast to all players to show summary
