@@ -5152,6 +5152,22 @@ function trackAllRivalVictoriesInTestMode(g, matchIndices) {
 document.getElementById('set-rival-from-summary')?.addEventListener('click', async () => {
   const g = await loadGame(me.code);
   if(!g) return;
+
+  // Block if day has started (same check as saveRival)
+  const hasAnyResults = g.results && Object.keys(g.results).some(k => !isNaN(k) && g.results[k] != null);
+  const isInDailySummary = g.showDailySummary && g.showDailySummary.timestamp;
+  if(hasAnyResults && !isInDailySummary){
+    const currentMatch = g.matches[g.currentMatchIdx];
+    const currentMatchDate = getMatchDateTime(g.currentMatchIdx, currentMatch);
+    const todayHasResults = Object.keys(g.results).some(idx => {
+      const match = g.matches[parseInt(idx)];
+      return match && getMatchDateTime(parseInt(idx), match) === currentMatchDate;
+    });
+    if(todayHasResults){
+      showToast('⚔️ Rivals lock once the day starts — change at next summary.', 'error');
+      return;
+    }
+  }
   
   // Populate dropdown with other players
   const select = document.getElementById('rival-select');
