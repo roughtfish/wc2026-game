@@ -1495,36 +1495,86 @@ function showRivalDetail(playerName){
   const entries=Object.entries(h2hRecords);
   
   if(entries.length>0){
-    // Sort by total games, then by win percentage
-    entries.sort((a,b)=>{
-      const totalA=a[1].wins+a[1].losses+a[1].draws;
-      const totalB=b[1].wins+b[1].losses+b[1].draws;
-      if(totalB!==totalA)return totalB-totalA;
-      const pctA=totalA>0?a[1].wins/totalA:0;
-      const pctB=totalB>0?b[1].wins/totalB:0;
-      return pctB-pctA;
-    });
+    // Separate into who they beat and who beat them
+    const beaten=entries.filter(([,stats])=>stats.wins>stats.losses);
+    const beatenBy=entries.filter(([,stats])=>stats.losses>stats.wins);
+    const even=entries.filter(([,stats])=>stats.wins===stats.losses);
     
-    html+=`
-    <div class="h2h-section-title">HEAD-TO-HEAD RECORDS</div>
-    <div style="margin-bottom:20px">
-      ${entries.map(([rival,stats])=>{
-        const total=stats.wins+stats.losses+stats.draws;
-        const winPct=total>0?Math.round((stats.wins/total)*100):0;
-        return `
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:12px;background:var(--surface2);border-radius:8px;margin-bottom:8px">
-          <div style="font-weight:600;font-size:14px">${rival}</div>
-          <div style="display:flex;gap:12px;align-items:center;font-size:13px">
-            <span style="color:var(--green);font-weight:600">${stats.wins}W</span>
-            <span style="color:var(--red);font-weight:600">${stats.losses}L</span>
-            ${stats.draws>0?`<span style="color:var(--muted)">${stats.draws}D</span>`:''}
-            <span style="color:var(--accent2);font-family:'Bebas Neue',sans-serif;font-size:18px;margin-left:8px">${winPct}%</span>
+    // Sort each group by win count / loss count
+    beaten.sort((a,b)=>b[1].wins-a[1].wins);
+    beatenBy.sort((a,b)=>b[1].losses-a[1].losses);
+    even.sort((a,b)=>(b[1].wins+b[1].losses+b[1].draws)-(a[1].wins+a[1].losses+a[1].draws));
+    
+    // Players this player has beaten
+    if(beaten.length>0){
+      html+=`
+      <div class="h2h-section-title">BEATEN BY ${playerName.toUpperCase()}</div>
+      <div style="margin-bottom:20px">
+        ${beaten.map(([rival,stats])=>{
+          const total=stats.wins+stats.losses+stats.draws;
+          const winPct=total>0?Math.round((stats.wins/total)*100):0;
+          return `
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:12px;background:var(--surface2);border-radius:8px;margin-bottom:8px">
+            <div style="font-weight:600;font-size:14px">${rival}</div>
+            <div style="display:flex;gap:12px;align-items:center;font-size:13px">
+              <span style="color:var(--green);font-weight:600">${stats.wins}W</span>
+              <span style="color:var(--red);font-weight:600">${stats.losses}L</span>
+              ${stats.draws>0?`<span style="color:var(--muted)">${stats.draws}D</span>`:''}
+              <span style="color:var(--green);font-family:'Bebas Neue',sans-serif;font-size:18px;margin-left:8px">${winPct}%</span>
+            </div>
           </div>
-        </div>
-        `;
-      }).join('')}
-    </div>
-    `;
+          `;
+        }).join('')}
+      </div>
+      `;
+    }
+    
+    // Even records
+    if(even.length>0){
+      html+=`
+      <div class="h2h-section-title">EVEN RECORDS</div>
+      <div style="margin-bottom:20px">
+        ${even.map(([rival,stats])=>{
+          const total=stats.wins+stats.losses+stats.draws;
+          return `
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:12px;background:var(--surface2);border-radius:8px;margin-bottom:8px">
+            <div style="font-weight:600;font-size:14px">${rival}</div>
+            <div style="display:flex;gap:12px;align-items:center;font-size:13px">
+              <span style="color:var(--green);font-weight:600">${stats.wins}W</span>
+              <span style="color:var(--red);font-weight:600">${stats.losses}L</span>
+              ${stats.draws>0?`<span style="color:var(--muted)">${stats.draws}D</span>`:''}
+              <span style="color:var(--accent);font-family:'Bebas Neue',sans-serif;font-size:18px;margin-left:8px">50%</span>
+            </div>
+          </div>
+          `;
+        }).join('')}
+      </div>
+      `;
+    }
+    
+    // Players who have beaten this player
+    if(beatenBy.length>0){
+      html+=`
+      <div class="h2h-section-title">BEATEN ${playerName.toUpperCase()}</div>
+      <div style="margin-bottom:20px">
+        ${beatenBy.map(([rival,stats])=>{
+          const total=stats.wins+stats.losses+stats.draws;
+          const winPct=total>0?Math.round((stats.wins/total)*100):0;
+          return `
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:12px;background:var(--surface2);border-radius:8px;margin-bottom:8px">
+            <div style="font-weight:600;font-size:14px">${rival}</div>
+            <div style="display:flex;gap:12px;align-items:center;font-size:13px">
+              <span style="color:var(--green);font-weight:600">${stats.wins}W</span>
+              <span style="color:var(--red);font-weight:600">${stats.losses}L</span>
+              ${stats.draws>0?`<span style="color:var(--muted)">${stats.draws}D</span>`:''}
+              <span style="color:var(--red);font-family:'Bebas Neue',sans-serif;font-size:18px;margin-left:8px">${winPct}%</span>
+            </div>
+          </div>
+          `;
+        }).join('')}
+      </div>
+      `;
+    }
   } else {
     html+=`<div style="color:var(--muted);font-size:13px;text-align:center;padding:20px">No rival matchups yet</div>`;
   }
