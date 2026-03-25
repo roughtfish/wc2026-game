@@ -2610,6 +2610,16 @@ async function renderReveal(g){
     const isInRevealState = g.status && g.status.startsWith('reveal:');
     
     const shouldShow = hasMatchesToday && (isInRevealState || hasResultForCurrentMatch);
+    
+    console.log('[Complete Day Button Debug]', {
+      hasMatchesToday,
+      hasResultForCurrentMatch,
+      isInRevealState,
+      isLastMatchOfDay,
+      shouldShow,
+      status: g.status
+    });
+    
     completeDayBtn.style.display = shouldShow ? 'inline-block' : 'none';
     
     if(shouldShow && isLastMatchOfDay){
@@ -2626,6 +2636,16 @@ async function renderReveal(g){
       completeDayBtn.style.animation = '';
     }
   }
+  
+  // Show undo button if there are results
+  const undoBtn=document.getElementById('undo-result-btn');
+  if(undoBtn){
+    const hasResults=g.results&&Object.keys(g.results).filter(k=>!isNaN(k)&&(g.results||{})[k]!=null).length>0;
+    undoBtn.style.display=hasResults?'inline-block':'none';
+  }
+  
+  // Update progress bar
+  renderProgress(g,'progress-bar');
 }
 
 // ─── PLAYER WATCH ────────────────────────────────────────────────────────────
