@@ -413,6 +413,7 @@
         <div class="scoreboard-title" style="margin:0">STANDINGS</div>
         <div style="display:flex;gap:6px">
           <button class="btn btn-secondary btn-sm" id="set-rival-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7">⚔️ Set Rival</button>
+          <button class="btn btn-secondary btn-sm" id="view-schedule-btn-watch" style="font-size:11px;letter-spacing:1px;opacity:0.7">📅 Schedule</button>
           <button class="btn btn-secondary btn-sm" id="open-watch-group-preds-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7;display:none">📋 My Group Picks</button>
           <button class="btn btn-secondary btn-sm" id="open-watch-ko-preds-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7;display:none">🎯 My KO Picks</button>
           <button class="btn btn-secondary btn-sm" id="watch-quit-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7;color:var(--red);border-color:rgba(239,68,68,0.3)">✕ Quit</button>
@@ -2787,6 +2788,13 @@ document.getElementById('open-history-btn').addEventListener('click', async () =
 });
 
 document.getElementById('view-schedule-btn').addEventListener('click', async () => {
+  const g = await loadGame(me.code);
+  if (!g) return;
+  showScheduleModal(g);
+});
+
+// Also add for watch screen
+document.getElementById('view-schedule-btn-watch')?.addEventListener('click', async () => {
   const g = await loadGame(me.code);
   if (!g) return;
   showScheduleModal(g);
