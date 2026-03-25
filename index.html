@@ -699,6 +699,12 @@
         <div id="daily-milestones"></div>
       </div>
       
+      <!-- Perfect Pickers -->
+      <div id="daily-perfect-section" style="display:none;margin-bottom:20px;">
+        <h3 style="color:gold;margin-bottom:12px;">⭐ PERFECT DAY</h3>
+        <div id="daily-perfect-pickers"></div>
+      </div>
+      
       <!-- Biggest Movers -->
       <div style="margin-bottom:20px;">
         <h3 style="color:var(--accent);margin-bottom:12px;">📈 BIGGEST MOVERS</h3>
@@ -4837,6 +4843,44 @@ async function showDailySummary(g, matchIndices) {
       document.getElementById('daily-milestones-section').style.display = 'none';
     }
     
+    // 5a. Perfect Pickers - players who got every match right today
+    const totalMatches = matchIndices.filter(idx => g.results?.[idx]).length;
+    const perfectPickers = totalMatches > 0 ? g.players.filter(p => {
+      if(p.eliminated) return false;
+      let allCorrect = true;
+      let hasPred = false;
+      matchIndices.forEach(idx => {
+        const r = g.results?.[idx];
+        const pred = g.predictions[idx]?.[p.name];
+        if(r && pred !== undefined && pred !== null) {
+          hasPred = true;
+          if(pred !== actualOutcome(r)) allCorrect = false;
+        }
+      });
+      return hasPred && allCorrect;
+    }) : [];
+
+    const perfectEl = document.getElementById('daily-perfect-section');
+    const perfectPickersEl = document.getElementById('daily-perfect-pickers');
+    if(perfectPickers.length > 0 && totalMatches >= 2) {
+      const isMe = perfectPickers.some(p => p.name === me.name);
+      perfectPickersEl.innerHTML = `
+        <div style="background:linear-gradient(135deg,rgba(255,215,0,0.12),rgba(255,215,0,0.04));border:1px solid rgba(255,215,0,0.3);border-radius:10px;padding:14px 16px;display:flex;align-items:center;gap:14px">
+          <div style="font-size:36px;flex-shrink:0">${perfectPickers.length === 1 ? '🌟' : '✨'}</div>
+          <div>
+            <div style="font-weight:600;font-size:14px;color:gold;margin-bottom:4px">
+              ${perfectPickers.map(p => p.name).join(', ')}
+            </div>
+            <div style="font-size:12px;color:var(--muted)">
+              ${totalMatches} from ${totalMatches} correct${isMe ? ' · That\'s you! 🎉' : ''}
+            </div>
+          </div>
+        </div>`;
+      perfectEl.style.display = 'block';
+    } else {
+      perfectEl.style.display = 'none';
+    }
+
     // 5. Biggest Movers - calculate based on lives gained/lost today
     const movers = standings.map(p => {
       // Count this player's correct/wrong for today
