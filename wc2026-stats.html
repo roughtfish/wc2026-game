@@ -1446,41 +1446,45 @@ function showRivalDetail(playerName){
   const players=Array.isArray(g.players)?g.players:Object.values(g.players||{});
   const completedDays=g.completedDays||[];
   
-  // Calculate head-to-head record against each other player
+  // Calculate head-to-head record ONLY when they were actually rivals
   const h2hRecords={};
   
   completedDays.forEach(day=>{
     const matchIndices=day.matches||[];
+    const rivalSelections=day.rivalSelections||{};
     
-    players.forEach(other=>{
-      if(other.name===playerName)return;
+    // Only process if this player had a rival set for this day
+    const myRivalForDay=rivalSelections[playerName];
+    if(!myRivalForDay)return;
+    
+    const rivalPlayer=players.find(p=>p.name===myRivalForDay);
+    if(!rivalPlayer)return;
+    
+    // Count who won this day
+    let myCorrect=0;
+    let theirCorrect=0;
+    
+    matchIndices.forEach(idx=>{
+      const result=g.results?.[idx];
+      const myPred=g.predictions[idx]?.[playerName];
+      const theirPred=g.predictions[idx]?.[myRivalForDay];
       
-      // Count who won this day
-      let myCorrect=0;
-      let theirCorrect=0;
+      if(!result||myPred===undefined||myPred===null||theirPred===undefined||theirPred===null)return;
       
-      matchIndices.forEach(idx=>{
-        const result=g.results?.[idx];
-        const myPred=g.predictions[idx]?.[playerName];
-        const theirPred=g.predictions[idx]?.[other.name];
-        
-        if(!result||myPred===undefined||myPred===null||theirPred===undefined||theirPred===null)return;
-        
-        const actualWinner=result.pens?result.pens:(result.home>result.away?'home':result.away>result.home?'away':'draw');
-        
-        if(myPred===actualWinner)myCorrect++;
-        if(theirPred===actualWinner)theirCorrect++;
-      });
+      const actualWinner=result.pens?result.pens:(result.home>result.away?'home':result.away>result.home?'away':'draw');
       
-      // Only track if they actually faced each other this day
-      if(myCorrect>0||theirCorrect>0){
-        if(!h2hRecords[other.name])h2hRecords[other.name]={wins:0,losses:0,draws:0};
-        
-        if(myCorrect>theirCorrect)h2hRecords[other.name].wins++;
-        else if(theirCorrect>myCorrect)h2hRecords[other.name].losses++;
-        else h2hRecords[other.name].draws++;
-      }
+      if(myPred===actualWinner)myCorrect++;
+      if(theirPred===actualWinner)theirCorrect++;
     });
+    
+    // Track this matchup
+    if(myCorrect>0||theirCorrect>0){
+      if(!h2hRecords[myRivalForDay])h2hRecords[myRivalForDay]={wins:0,losses:0,draws:0};
+      
+      if(myCorrect>theirCorrect)h2hRecords[myRivalForDay].wins++;
+      else if(theirCorrect>myCorrect)h2hRecords[myRivalForDay].losses++;
+      else h2hRecords[myRivalForDay].draws++;
+    }
   });
   
   // Build detail view
@@ -1516,11 +1520,11 @@ function showRivalDetail(playerName){
           return `
           <div style="display:flex;justify-content:space-between;align-items:center;padding:12px;background:var(--surface2);border-radius:8px;margin-bottom:8px">
             <div style="font-weight:600;font-size:14px">${rival}</div>
-            <div style="display:flex;gap:12px;align-items:center;font-size:13px">
-              <span style="color:var(--green);font-weight:600">${stats.wins}W</span>
-              <span style="color:var(--red);font-weight:600">${stats.losses}L</span>
-              ${stats.draws>0?`<span style="color:var(--muted)">${stats.draws}D</span>`:''}
-              <span style="color:var(--green);font-family:'Bebas Neue',sans-serif;font-size:18px;margin-left:8px">${winPct}%</span>
+            <div style="display:flex;gap:16px;align-items:center">
+              <div style="font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:1px">
+                <span style="color:var(--green)">${stats.wins}</span>-<span style="color:var(--red)">${stats.losses}</span>${stats.draws>0?`-<span style="color:var(--muted)">${stats.draws}</span>`:''}
+              </div>
+              <div style="color:var(--green);font-family:'Bebas Neue',sans-serif;font-size:18px;min-width:50px;text-align:right">${winPct}%</div>
             </div>
           </div>
           `;
@@ -1535,15 +1539,14 @@ function showRivalDetail(playerName){
       <div class="h2h-section-title">EVEN RECORDS</div>
       <div style="margin-bottom:20px">
         ${even.map(([rival,stats])=>{
-          const total=stats.wins+stats.losses+stats.draws;
           return `
           <div style="display:flex;justify-content:space-between;align-items:center;padding:12px;background:var(--surface2);border-radius:8px;margin-bottom:8px">
             <div style="font-weight:600;font-size:14px">${rival}</div>
-            <div style="display:flex;gap:12px;align-items:center;font-size:13px">
-              <span style="color:var(--green);font-weight:600">${stats.wins}W</span>
-              <span style="color:var(--red);font-weight:600">${stats.losses}L</span>
-              ${stats.draws>0?`<span style="color:var(--muted)">${stats.draws}D</span>`:''}
-              <span style="color:var(--accent);font-family:'Bebas Neue',sans-serif;font-size:18px;margin-left:8px">50%</span>
+            <div style="display:flex;gap:16px;align-items:center">
+              <div style="font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:1px">
+                <span style="color:var(--green)">${stats.wins}</span>-<span style="color:var(--red)">${stats.losses}</span>${stats.draws>0?`-<span style="color:var(--muted)">${stats.draws}</span>`:''}
+              </div>
+              <div style="color:var(--accent);font-family:'Bebas Neue',sans-serif;font-size:18px;min-width:50px;text-align:right">50%</div>
             </div>
           </div>
           `;
@@ -1563,11 +1566,11 @@ function showRivalDetail(playerName){
           return `
           <div style="display:flex;justify-content:space-between;align-items:center;padding:12px;background:var(--surface2);border-radius:8px;margin-bottom:8px">
             <div style="font-weight:600;font-size:14px">${rival}</div>
-            <div style="display:flex;gap:12px;align-items:center;font-size:13px">
-              <span style="color:var(--green);font-weight:600">${stats.wins}W</span>
-              <span style="color:var(--red);font-weight:600">${stats.losses}L</span>
-              ${stats.draws>0?`<span style="color:var(--muted)">${stats.draws}D</span>`:''}
-              <span style="color:var(--red);font-family:'Bebas Neue',sans-serif;font-size:18px;margin-left:8px">${winPct}%</span>
+            <div style="display:flex;gap:16px;align-items:center">
+              <div style="font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:1px">
+                <span style="color:var(--green)">${stats.wins}</span>-<span style="color:var(--red)">${stats.losses}</span>${stats.draws>0?`-<span style="color:var(--muted)">${stats.draws}</span>`:''}
+              </div>
+              <div style="color:var(--red);font-family:'Bebas Neue',sans-serif;font-size:18px;min-width:50px;text-align:right">${winPct}%</div>
             </div>
           </div>
           `;
