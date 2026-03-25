@@ -118,6 +118,150 @@
   .status-live{background:rgba(34,197,94,0.13);color:var(--green)}
   .status-done{background:rgba(100,116,139,0.15);color:var(--muted)}
   .status-lobby{background:rgba(232,184,75,0.13);color:var(--accent)}
+  
+  /* Mobile Optimizations */
+  @media(max-width:768px){
+    body{padding:16px 12px 60px}
+    .app{padding:0}
+    .header{padding:16px 0 12px}
+    .header h1{font-size:clamp(24px,8vw,40px);letter-spacing:2px}
+    .header .sub{font-size:10px;letter-spacing:2px}
+    .code-pill{font-size:9px;padding:4px 10px}
+    .code-pill .code{font-size:16px;letter-spacing:3px}
+    
+    /* Setup screen */
+    .setup{padding:18px;max-width:100%}
+    .setup h2{font-size:16px}
+    .field input{font-size:24px;letter-spacing:6px;padding:12px}
+    .btn{padding:14px;font-size:15px;min-height:48px}
+    
+    /* Section titles */
+    .section-title{font-size:13px;margin:18px 0 8px;letter-spacing:2px}
+    
+    /* Leaderboard - responsive columns */
+    .lb-row{
+      grid-template-columns:32px 1fr auto auto !important;
+      gap:8px;
+      padding:10px 12px
+    }
+    .lb-rank{font-size:18px}
+    .lb-name{font-size:13px}
+    .lb-lives{font-size:15px}
+    .lb-correct{font-size:11px}
+    .lb-pct{display:none}
+    .lb-score{font-size:13px}
+    
+    /* Quick stats grid */
+    #quick-stats-summary{
+      grid-template-columns:1fr 1fr !important;
+      gap:10px !important
+    }
+    
+    /* Streak cards */
+    .streak-grid{grid-template-columns:1fr !important;gap:10px}
+    .streak-card{padding:14px}
+    .streak-value{font-size:36px}
+    
+    /* Charts */
+    .chart-wrap{padding:14px 12px}
+    .chart-canvas{height:180px}
+    
+    /* Survival */
+    .surv-row{gap:8px;padding:6px 0;font-size:12px}
+    .surv-name{min-width:60px;font-size:12px}
+    .surv-pct{font-size:12px;min-width:38px}
+    .surv-lives{display:none}
+    
+    /* Upset card */
+    .upset-card{padding:14px;gap:12px}
+    .upset-match{min-width:100%}
+    .upset-bar-wrap{min-width:100%}
+    .upset-teams{font-size:14px}
+    
+    /* Most picked teams grid */
+    .team-picks-grid{grid-template-columns:1fr !important;gap:10px}
+    .team-pick-card{padding:12px 14px}
+    .team-pick-header{gap:8px}
+    .team-pick-flag{width:20px;height:20px}
+    .team-pick-name{font-size:13px}
+    .team-pick-count{font-size:18px}
+    
+    /* Score predictors */
+    .score-predictors-grid{grid-template-columns:repeat(auto-fill,minmax(120px,1fr)) !important}
+    .score-predictor-card{padding:12px}
+    .score-predictor-count{font-size:28px}
+    
+    /* History */
+    .history-controls{gap:6px}
+    .filter-btn,.export-btn{font-size:10px;padding:6px 10px}
+    
+    /* Round sections */
+    .round-section-header{padding:10px 12px}
+    .round-section-title{font-size:12px}
+    .round-section-meta{font-size:10px}
+    
+    /* Match history table */
+    .history-wrap{font-size:12px}
+    table{min-width:500px}
+    
+    /* H2H modal */
+    #h2h-modal .modal-content{
+      width:100%;
+      max-width:100%;
+      margin:0;
+      padding:20px 16px;
+      border-radius:16px 16px 0 0;
+      max-height:90vh
+    }
+    
+    /* H2H sections */
+    .h2h-section-title{font-size:11px;margin-top:16px}
+    
+    /* Player detail modal */
+    .player-modal .modal-content{
+      width:100%;
+      padding:18px 14px;
+      border-radius:12px 12px 0 0
+    }
+    
+    /* Touch-friendly */
+    button,a,.clickable,.filter-btn,.export-btn{min-height:44px}
+    
+    /* Hide tooltips on mobile */
+    [data-tip]::after{display:none}
+    
+    /* Prevent zoom on input focus */
+    input,select,textarea{font-size:16px !important}
+  }
+  
+  /* Small phones */
+  @media(max-width:400px){
+    body{padding:12px 10px 50px}
+    .header h1{font-size:22px;letter-spacing:1px}
+    .setup{padding:14px}
+    .lb-row{padding:8px 10px;gap:6px}
+    .lb-rank{font-size:16px}
+    .lb-name{font-size:12px}
+    #quick-stats-summary{gap:8px !important}
+    .streak-card{padding:12px}
+    .chart-canvas{height:160px}
+  }
+  
+  /* Landscape mobile */
+  @media(max-width:768px) and (orientation:landscape){
+    .header{padding:10px 0}
+    body{padding:12px}
+    .chart-canvas{height:140px}
+  }
+  
+  /* Tablet */
+  @media(min-width:769px) and (max-width:1024px){
+    .app{max-width:720px}
+    .lb-row{grid-template-columns:36px 1fr auto auto auto auto !important}
+    #quick-stats-summary{grid-template-columns:repeat(2,1fr) !important}
+    .team-picks-grid{grid-template-columns:repeat(2,1fr) !important}
+  }
+  
   @media(max-width:500px){
     .lb-row{grid-template-columns:28px 1fr auto auto}
     .lb-pct{display:none}
