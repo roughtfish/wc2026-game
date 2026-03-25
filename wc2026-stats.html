@@ -645,20 +645,6 @@ function renderRivalStats(g){
   // Store stats for modal
   window._rivalStatsData={g,playerStats};
 }
-          <div style="font-family:'Bebas Neue',sans-serif;font-size:24px;color:var(--accent2)">${p.victories}</div>
-        </div>
-        <div style="font-size:11px;color:var(--muted)">
-          ${p.victories===1?'victory':'victories'} earned
-          ${p.currentRival?`<br>Current rival: <span style="color:var(--accent2)">${p.currentRival}</span>`:''}
-        </div>
-      </div>
-      `;
-    }).join('')}
-  </div>
-  
-  ${leaderboard.length===0?'<div style="color:var(--muted);font-size:13px;padding:12px 0">No rival victories yet</div>':''}
-  `;
-}
 
 function renderScorePredictors(g){
   const el=document.getElementById('score-predictors');
