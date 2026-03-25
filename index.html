@@ -384,6 +384,7 @@
           </div>
         </div>
         <div style="display:flex;gap:7px">
+        <button class="btn btn-secondary btn-sm" id="host-my-stats-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7;display:none">📋 Team List</button>
         <button class="btn btn-secondary btn-sm" id="view-schedule-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7">📅 Schedule</button>
         <button class="btn btn-secondary btn-sm" id="complete-day-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7;display:none">📊 Complete Day</button>
         <button class="btn btn-secondary btn-sm" id="open-ko-preds-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7;display:none">🎯 My Picks</button>
@@ -421,6 +422,7 @@
           </div>
         </div>
         <div style="display:flex;gap:6px">
+          <button class="btn btn-secondary btn-sm" id="watch-my-stats-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7;display:none">📋 Team List</button>
           <button class="btn btn-secondary btn-sm" id="view-schedule-btn-watch" style="font-size:11px;letter-spacing:1px;opacity:0.7">📅 Schedule</button>
           <button class="btn btn-secondary btn-sm" id="open-watch-group-preds-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7;display:none">📋 My Group Picks</button>
           <button class="btn btn-secondary btn-sm" id="open-watch-ko-preds-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7;display:none">🎯 My KO Picks</button>
@@ -1888,6 +1890,12 @@ async function renderGameHost(g){
     }
   }
   
+  // Show Team List button always (both group stage and knockout)
+  const myStatsBtn = document.getElementById('host-my-stats-btn');
+  if(myStatsBtn) {
+    myStatsBtn.style.display = 'inline-block';
+  }
+  
   // Show undo button if there are any entered results
   const undoBtn=document.getElementById('undo-result-btn');
   if(undoBtn){
@@ -2501,6 +2509,12 @@ async function renderWatchScreen(g){
     }
   }
   
+  // Show Team List button always (both group stage and knockout)
+  const watchMyStatsBtn = document.getElementById('watch-my-stats-btn');
+  if(watchMyStatsBtn) {
+    watchMyStatsBtn.style.display = 'inline-block';
+  }
+  
   // Show "My Picks" button during KO rounds
   const watchKoBtn=document.getElementById('open-watch-ko-preds-btn');
   if(watchKoBtn){
@@ -2784,6 +2798,19 @@ document.getElementById('view-schedule-btn-watch')?.addEventListener('click', as
   showScheduleModal(g);
 });
 
+// My Stats button listeners
+document.getElementById('host-my-stats-btn')?.addEventListener('click', async () => {
+  const g = await loadGame(me.code);
+  if (!g) return;
+  showMyStatsModal(g);
+});
+
+document.getElementById('watch-my-stats-btn')?.addEventListener('click', async () => {
+  const g = await loadGame(me.code);
+  if (!g) return;
+  showMyStatsModal(g);
+});
+
 document.getElementById('history-back-btn').addEventListener('click', () => {
   if (historyReturnFn) historyReturnFn();
   else show('screen-game');
@@ -2900,6 +2927,128 @@ function showScheduleModal(g) {
   
   // Close button handler
   document.getElementById('close-schedule-btn').addEventListener('click', () => {
+    document.body.removeChild(overlay);
+  });
+  
+  // Click outside to close
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) {
+      document.body.removeChild(overlay);
+    }
+  });
+}
+
+// Show My Stats modal - team pick counts
+function showMyStatsModal(g) {
+  const MAX_PICKS = 5;
+  
+  // Count picks per team for current player (both group stage AND knockout)
+  const teamCounts = {};
+  g.matches.forEach((m, i) => {
+    // Include both group stage and knockout matches
+    const pred = g.predictions[i]?.[me.name];
+    if(pred === 'home' && m.home !== 'TBD') {
+      teamCounts[m.home] = (teamCounts[m.home] || 0) + 1;
+    } else if(pred === 'away' && m.away !== 'TBD') {
+      teamCounts[m.away] = (teamCounts[m.away] || 0) + 1;
+    }
+  });
+  
+  // Get all unique teams from all matches (not just picked ones)
+  const allTeams = new Set();
+  g.matches.forEach(m => {
+    if(m.home && m.home !== 'TBD') allTeams.add(m.home);
+    if(m.away && m.away !== 'TBD') allTeams.add(m.away);
+  });
+  
+  // Create entries for all teams (show 0 counts too)
+  const allTeamEntries = Array.from(allTeams).map(team => [team, teamCounts[team] || 0]);
+  
+  // Sort teams by pick count (most picked first), then alphabetically
+  const sortedTeams = allTeamEntries.sort((a, b) => {
+    if(b[1] !== a[1]) return b[1] - a[1]; // Sort by count descending
+    return a[0].localeCompare(b[0]); // Then alphabetically
+  });
+  
+  // Create modal overlay
+  const overlay = document.createElement('div');
+  overlay.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.85);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    padding: 20px;
+  `;
+  
+  // Build team list HTML
+  let teamListHTML = '';
+  if(sortedTeams.length === 0) {
+    teamListHTML = '<div style="text-align:center;color:var(--muted);padding:20px;font-size:13px;">No teams found</div>';
+  } else {
+    sortedTeams.forEach(([team, count]) => {
+      const percent = count > 0 ? (count / MAX_PICKS) * 100 : 0;
+      const isAtLimit = count >= MAX_PICKS;
+      const barColor = isAtLimit ? 'var(--red)' : count >= 4 ? 'var(--accent)' : count > 0 ? 'var(--accent2)' : 'var(--surface2)';
+      const textOpacity = count > 0 ? '1' : '0.4';
+      
+      teamListHTML += `
+        <div style="margin-bottom:14px;opacity:${textOpacity};">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span style="font-size:20px;">${flag(team, 20)}</span>
+              <span style="font-weight:600;font-size:14px;">${team}</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <span style="font-size:13px;color:var(--muted);">${count} / ${MAX_PICKS}</span>
+              ${isAtLimit ? '<span style="font-size:11px;color:var(--red);font-weight:600;letter-spacing:0.5px;">AT LIMIT</span>' : ''}
+            </div>
+          </div>
+          <div style="background:var(--surface2);border-radius:4px;height:8px;overflow:hidden;">
+            <div style="background:${barColor};height:100%;width:${percent}%;transition:width 0.3s;"></div>
+          </div>
+        </div>
+      `;
+    });
+  }
+  
+  // Create modal content
+  const modal = document.createElement('div');
+  modal.style.cssText = `
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    max-width: 500px;
+    width: 100%;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+  `;
+  
+  modal.innerHTML = `
+    <div style="padding:20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
+      <h2 style="margin:0;font-size:18px;">📋 Team List</h2>
+      <button id="close-stats-btn" style="background:none;border:none;color:var(--text);font-size:24px;cursor:pointer;padding:0;width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:8px;transition:background 0.2s;" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background='none'">×</button>
+    </div>
+    <div style="padding:20px;overflow-y:auto;">
+      <div style="background:var(--surface2);border-radius:8px;padding:14px;margin-bottom:16px;">
+        <div style="font-size:12px;color:var(--muted);margin-bottom:6px;">YOUR PICK COUNTS</div>
+        <div style="font-size:13px;line-height:1.5;">Track how many times you've picked each team across <strong>all stages</strong> (group + knockout). During group stage, you can pick each team to win a maximum of <strong>${MAX_PICKS} times</strong>.</div>
+      </div>
+      ${teamListHTML}
+    </div>
+  `;
+  
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
+  
+  // Close button handler
+  document.getElementById('close-stats-btn').addEventListener('click', () => {
     document.body.removeChild(overlay);
   });
   
