@@ -5171,6 +5171,7 @@ document.getElementById('set-rival-from-summary')?.addEventListener('click', asy
   }
   
   document.getElementById('rival-modal').style.display = 'flex';
+  setTimeout(() => select.focus(), 50);
 });
 
 function closeRivalModal() {
