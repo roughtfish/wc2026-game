@@ -4476,8 +4476,63 @@ async function showDailySummary(g, matchIndices) {
       document.getElementById('daily-milestones-section').style.display = 'none';
     }
     
-    // 5. Biggest Movers - simplified since we don't track history
-    document.getElementById('daily-movers').innerHTML = '<div style="color:var(--muted);font-size:12px;padding:12px;text-align:center">Rank changes tracked across days</div>';
+    // 5. Biggest Movers - calculate based on lives gained/lost today
+    const movers = standings.map(p => {
+      // Count this player's correct/wrong for today
+      let pCorrect = 0;
+      let pWrong = 0;
+      let pExact = 0;
+      
+      matchIndices.forEach(idx => {
+        const r = g.results?.[idx];
+        const pred = g.predictions[idx]?.[p.name];
+        const scoreGuess = g.predictions[idx]?.[p.name + '_score'];
+        
+        if (pred !== null && pred !== undefined && r) {
+          if (pred === actualOutcome(r)) pCorrect++;
+          else pWrong++;
+        }
+        
+        if (scoreGuess && r && scoreGuess.home === r.home && scoreGuess.away === r.away) {
+          pExact++;
+        }
+      });
+      
+      const livesChange = -pWrong + pExact;
+      const currentRank = standings.findIndex(pl => pl.name === p.name) + 1;
+      
+      return {
+        name: p.name,
+        livesChange,
+        currentRank,
+        lives: p.lives,
+        correct: pCorrect,
+        wrong: pWrong
+      };
+    }).filter(m => m.livesChange !== 0).sort((a, b) => b.livesChange - a.livesChange);
+    
+    const topMovers = movers.slice(0, 5);
+    if (topMovers.length > 0) {
+      document.getElementById('daily-movers').innerHTML = topMovers.map(m => {
+        const isUp = m.livesChange > 0;
+        return `
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:10px;background:var(--surface);border-radius:6px;margin-bottom:6px">
+            <div style="display:flex;align-items:center;gap:8px">
+              <div style="font-size:20px">${isUp ? '📈' : '📉'}</div>
+              <div>
+                <div style="font-weight:600;font-size:13px">${m.name}</div>
+                <div style="font-size:11px;color:var(--muted)">Rank #${m.currentRank} · ${m.lives} ❤️ · ${m.correct}-${m.wrong} today</div>
+              </div>
+            </div>
+            <div style="font-family:'Bebas Neue',sans-serif;font-size:20px;color:${isUp ? 'var(--green)' : 'var(--red)'}">
+              ${isUp ? '+' : ''}${m.livesChange} ❤️
+            </div>
+          </div>
+        `;
+      }).join('');
+    } else {
+      document.getElementById('daily-movers').innerHTML = '<div style="color:var(--muted);font-size:12px;padding:12px;text-align:center">No lives changes today</div>';
+    }
     
     // 6. You vs The Field
     const avgCorrect = standings.reduce((sum, p) => {
