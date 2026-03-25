@@ -533,6 +533,12 @@
       <!-- What's Next -->
       <div id="daily-next" style="color:var(--muted);font-size:13px;text-align:center;padding:16px;background:var(--bg);border-radius:8px;margin-bottom:20px;"></div>
       
+      <!-- Quick Actions -->
+      <div style="display:flex;gap:10px;justify-content:center;margin-bottom:20px;">
+        <button class="btn btn-secondary" id="daily-team-list-btn" style="flex:1;max-width:200px;">📋 Team List</button>
+        <button class="btn btn-secondary" id="daily-schedule-btn" style="flex:1;max-width:200px;">📅 Schedule</button>
+      </div>
+      
       <div id="daily-waiting-msg" style="text-align:center;color:var(--muted);font-size:12px;font-style:italic;">Waiting for host to continue...</div>
       
       <div id="daily-host-actions" style="display:none;">
@@ -2809,6 +2815,19 @@ document.getElementById('watch-my-stats-btn')?.addEventListener('click', async (
   const g = await loadGame(me.code);
   if (!g) return;
   showMyStatsModal(g);
+});
+
+// Daily summary button listeners
+document.getElementById('daily-team-list-btn')?.addEventListener('click', async () => {
+  const g = await loadGame(me.code);
+  if (!g) return;
+  showMyStatsModal(g);
+});
+
+document.getElementById('daily-schedule-btn')?.addEventListener('click', async () => {
+  const g = await loadGame(me.code);
+  if (!g) return;
+  showScheduleModal(g);
 });
 
 document.getElementById('history-back-btn').addEventListener('click', () => {
