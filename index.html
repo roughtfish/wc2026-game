@@ -1390,6 +1390,31 @@ async function fetchWithTimeout(url, opts={}, ms=8000){
   }
 }
 
+const TEAM_NAME_MIGRATIONS = {
+  'UEFA Path D': 'Czechia',
+  'UEFA Path A': 'Bosnia and Herzegovina',
+  'UEFA Path C': 'Turkey',
+  'UEFA Path B': 'Sweden',
+  'Bolivia/Iraq/Suriname': 'Iraq',
+  'Congo/Jamaica/New Caledonia': 'DR Congo',
+};
+
+function migrateTeamNames(g, code) {
+  if(!g.matches) return;
+  let changed = false;
+  g.matches.forEach(m => {
+    if(TEAM_NAME_MIGRATIONS[m.home]){ m.home = TEAM_NAME_MIGRATIONS[m.home]; changed = true; }
+    if(TEAM_NAME_MIGRATIONS[m.away]){ m.away = TEAM_NAME_MIGRATIONS[m.away]; changed = true; }
+  });
+  // Also migrate KO bracket TBD slots that may have stored old names
+  if(g.players) g.players.forEach(p => {
+    if(p.currentRival && TEAM_NAME_MIGRATIONS[p.currentRival])
+      p.currentRival = TEAM_NAME_MIGRATIONS[p.currentRival];
+  });
+  // Save back silently if anything changed
+  if(changed) saveGame(g).catch(() => {});
+}
+
 async function loadGame(code){
   const base = getFirebaseUrl();
   if(!base||!code) return null;
@@ -1408,6 +1433,8 @@ async function loadGame(code){
       state.players = Object.values(state.players);
     if(state.matches && !Array.isArray(state.matches))
       state.matches = Object.values(state.matches);
+    // Migrate old placeholder team names to confirmed qualifiers
+    migrateTeamNames(state, code);
     return state;
   }catch(e){ console.error('loadGame',e); return null; }
 }
