@@ -295,7 +295,7 @@
   .bulk-match-row.unpredicted{background:rgba(239,68,68,0.07);border-radius:7px;padding:8px 7px;margin:1px -7px;border-bottom:1px solid rgba(239,68,68,0.18)}
   .bulk-match-row.unpredicted .bulk-toggle{border-color:rgba(239,68,68,0.5)}
   .bulk-match-row.unpredicted .bulk-team{color:var(--text);font-weight:600}
-  .bulk-team{font-size:11px;font-weight:500;display:flex;align-items:center;gap:4px}
+  .bulk-team{font-size:11px;font-weight:500;display:flex;align-items:center;gap:4px;justify-content:flex-end;flex-direction:row-reverse}
   .bulk-team.away{justify-content:flex-end;flex-direction:row-reverse}
   .bulk-team-flag{font-size:16px;flex-shrink:0}
   .bulk-toggle{display:flex;border-radius:6px;overflow:hidden;border:1px solid var(--border);flex-shrink:0}
@@ -1895,7 +1895,7 @@ function renderBulkForm(g){
       const sc=scoreDraft[idx];
       const hasScore=!!sc;
       html+=`<div class="bulk-match-row${sel===undefined?' unpredicted':''}">
-        <div class="bulk-team"><span class="bulk-team-flag">${flag(m.home,20)}</span><span>${m.home}</span><span style="font-size:10px;color:${homeAtLimit?'var(--red)':homeCount>=MAX_PICKS-1?'var(--accent)':'var(--muted)'};margin-left:4px;font-weight:600">${homeCount}/${MAX_PICKS}</span></div>
+        <div class="bulk-team"><span style="font-size:10px;color:${homeAtLimit?'var(--red)':homeCount>=MAX_PICKS-1?'var(--accent)':'var(--muted)'};margin-right:4px;font-weight:600">${homeCount}/${MAX_PICKS}</span><span class="bulk-team-flag">${flag(m.home,20)}</span><span>${m.home}</span></div>
         <div class="bulk-toggle">
           <button data-idx="${idx}" data-val="home" class="${sel==='home'?'active-home':''}" title="${m.home} win${homeAtLimit?' — limit reached':''}" style="font-size:16px;padding:5px 9px;${homeAtLimit?'opacity:0.3;cursor:not-allowed;':''}" ${homeAtLimit?'disabled':''}>${flag(m.home,20)}</button>
           <button data-idx="${idx}" data-val="draw" class="${sel==='draw'?'active-draw':''}" title="Draw${drawAtLimit&&sel!=='draw'?' — draw limit reached':''}" style="font-size:14px;padding:5px 8px;${drawAtLimit&&sel!=='draw'?'opacity:0.3;cursor:not-allowed;':''}" ${drawAtLimit&&sel!=='draw'?'disabled':''}><span style="font-weight:900">=</span></button>
@@ -3736,7 +3736,7 @@ function renderKOBulkForm(g, round) {
     const awayAtLimit = awayCount >= MAX_PICKS && sel !== 'away';
     const bothBlocked = blockedMatches.has(idx);
     html += `<div class="bulk-match-row${bothBlocked ? '' : sel === undefined ? ' unpredicted' : ''}">
-      <div class="bulk-team"><span class="bulk-team-flag">${flag(m.home, 20)}</span><span>${m.home}</span><span style="font-size:10px;color:${homeAtLimit?'var(--red)':homeCount>=MAX_PICKS-1?'var(--accent)':'var(--muted)'};margin-left:4px;font-weight:600">${homeCount}/5</span></div>
+      <div class="bulk-team"><span style="font-size:10px;color:${homeAtLimit?'var(--red)':homeCount>=MAX_PICKS-1?'var(--accent)':'var(--muted)'};margin-right:4px;font-weight:600">${homeCount}/5</span><span class="bulk-team-flag">${flag(m.home, 20)}</span><span>${m.home}</span></div>
       <div class="bulk-toggle">
         <button data-idx="${idx}" data-val="home" class="${sel === 'home' ? 'active-home' : ''}" title="${m.home} win${homeAtLimit ? ' — limit reached' : ''}" style="font-size:16px;padding:5px 9px;${homeAtLimit || isLocked ? 'opacity:0.3;cursor:not-allowed;' : ''}" ${homeAtLimit || isLocked ? 'disabled' : ''}>${flag(m.home, 20)}</button>
         ${bothBlocked ? '<span style="font-size:10px;color:var(--muted);padding:0 6px">both at limit</span>' : ''}
