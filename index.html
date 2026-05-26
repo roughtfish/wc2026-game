@@ -895,14 +895,14 @@ function getMatchDateTime(matchIdx, match) {
     return gameDayR16[matchInRound] || '';
   }
   
-  if(match.round === 'Quarter-finals'){
+  if(match.round === 'Quarter-final'){
     const qfStartIdx = 96;
     const matchInRound = matchIdx - qfStartIdx;
     const gameDayQF = {0:'Day 27', 1:'Day 28', 2:'Day 29', 3:'Day 30'};
     return gameDayQF[matchInRound] || '';
   }
   
-  if(match.round === 'Semi-finals'){
+  if(match.round === 'Semi-final'){
     const sfStartIdx = 100;
     const matchInRound = matchIdx - sfStartIdx;
     return matchInRound === 0 ? 'Day 31' : 'Day 32';
@@ -1286,8 +1286,13 @@ function populateNextKORound(g, justFinishedMatchIdx){
   const thirdIdx=g.matches.findIndex(m=>m.round==='3rd Place Play-off');
 
   const r=g.currentResult;
-  const winner=r?.home>r?.away?g.matches[justFinishedMatchIdx].home:g.matches[justFinishedMatchIdx].away;
-  const loser=r?.home>r?.away?g.matches[justFinishedMatchIdx].away:g.matches[justFinishedMatchIdx].home;
+  const matchTeams=g.matches[justFinishedMatchIdx];
+  const winnerTeam = r?.penWinner === 'home' ? matchTeams.home
+    : r?.penWinner === 'away' ? matchTeams.away
+    : r?.home > r?.away ? matchTeams.home : matchTeams.away;
+  const loserTeam = winnerTeam === matchTeams.home ? matchTeams.away : matchTeams.home;
+  const winner = winnerTeam;
+  const loser = loserTeam;
 
   // Official FIFA 2026 bracket — R32 → R16
   // M73→R16[1]home, M74→R16[0]home, M75→R16[1]away, M76→R16[2]home
@@ -2230,6 +2235,11 @@ async function renderGameHost(g){
   
   const alive=g.players.filter(p=>!p.eliminated);
   if(g.currentMatchIdx>=g.matches.length){showFinalLeaderboard(g);return;}
+  // Skip 3rd Place Play-off if somehow landed on it
+  if(g.matches[g.currentMatchIdx]?.round==='3rd Place Play-off'){
+    g.currentMatchIdx++;
+    if(g.currentMatchIdx>=g.matches.length){showFinalLeaderboard(g);return;}
+  }
   const match=g.matches[g.currentMatchIdx];
   // Show "My Picks" button during KO rounds so host can always access round predictions
   const koPredsBtn=document.getElementById('open-ko-preds-btn');
@@ -2646,6 +2656,13 @@ async function renderReveal(g){
       f.currentMatchIdx++;
       if(f.currentMatchIdx>=f.matches.length){await saveGame(f);showFinalLeaderboard(f);return;}
       const nextMatch=f.matches[f.currentMatchIdx];
+
+      // Skip 3rd Place Play-off entirely — auto-advance past it
+      if(nextMatch && nextMatch.round==='3rd Place Play-off'){
+        f.currentMatchIdx++;
+        if(f.currentMatchIdx>=f.matches.length){await saveGame(f);showFinalLeaderboard(f);return;}
+      }
+
       const prevMatch=f.matches[f.currentMatchIdx-1];
       const isNewKORound=nextMatch&&!nextMatch.group&&prevMatch&&
         (!prevMatch.group)&&nextMatch.round!==prevMatch.round&&
