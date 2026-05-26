@@ -466,6 +466,10 @@
       <div class="field" id="test-players-field" style="display:none;margin-top:12px">
         <label>Number of simulated players (inc. you as host)</label>
         <input type="number" id="test-player-count" value="4" min="2" max="20">
+        <div id="skip-to-ko-wrap" style="margin-top:10px;display:none">
+          <button class="btn btn-secondary" id="skip-to-ko-btn" style="background:rgba(232,184,75,0.15);border-color:var(--accent);color:var(--accent);font-size:13px;letter-spacing:2px;padding:11px 14px">⚡ SKIP TO KNOCKOUT ROUNDS</button>
+          <div style="font-size:11px;color:var(--muted);margin-top:5px">Auto-simulates all 72 group matches and jumps straight to R32 predictions</div>
+        </div>
       </div>
       <div style="display:flex;gap:9px;margin-top:18px;">
         <button class="btn btn-secondary" id="back-to-landing" style="width:auto;padding:13px 18px;">← Back</button>
@@ -1688,6 +1692,7 @@ document.getElementById('mode-tabs').addEventListener('click',e=>{
     b.className='btn btn-sm mode-tab '+(b===btn?'btn-teal':'btn-secondary');
   });
   document.getElementById('test-players-field').style.display=selectedMode==='test'?'block':'none';
+  document.getElementById('skip-to-ko-wrap').style.display=selectedMode==='test'?'block':'none';
 });
 
 // ─── HOST: CREATE ─────────────────────────────────────────────────────────────
@@ -1729,6 +1734,76 @@ document.getElementById('create-game-btn').addEventListener("click",async()=>{
     }).catch(()=>{ prompt('Share this code with your players:',code); });
   });
   startPolling(pollHostLobby);
+});
+
+document.getElementById('skip-to-ko-btn').addEventListener('click', async () => {
+  const hostName = document.getElementById('host-name').value.trim();
+  if(!hostName){ alert('Enter your name first!'); return; }
+  const lives = parseInt(document.getElementById('host-lives').value) || 15;
+  const code = genCode();
+  me.name = hostName; me.role = 'host'; me.code = code; saveSession();
+  const testPlayerCount = Math.max(2, Math.min(20, parseInt(document.getElementById('test-player-count').value) || 4));
+  const testPwHash = await hashPassword('test');
+  const testPlayers = [{name:hostName,lives,correct:0,eliminated:false,isHost:true}];
+  for(let i = 2; i <= testPlayerCount; i++)
+    testPlayers.push({name:'Player '+i,lives,correct:0,eliminated:false,isHost:false,pwHash:testPwHash});
+
+  const g = {
+    code, hostName, lives, mode:'test',
+    status:'lobby',
+    players: testPlayers,
+    matches: buildMatches('test'),
+    predictions:{}, currentMatchIdx:0, currentResult:null, bulkSubmitted:{},
+  };
+
+  // Auto-simulate all 72 group stage results using FIFA ratings
+  autoFillPredictions(g);
+  if(!g.results) g.results = {};
+  const groupMs = g.matches.map((m,i)=>({m,i})).filter(({m})=>m.group);
+  groupMs.forEach(({m, i}) => {
+    const hr = fifaRating(m.home), ar = fifaRating(m.away);
+    const total = hr + ar;
+    const rand = Math.random();
+    let home, away;
+    if(rand < hr/total * 0.7) { home = 2; away = 0; }
+    else if(rand < (hr/total * 0.7 + ar/total * 0.7)) { home = 0; away = 2; }
+    else { home = 1; away = 1; }
+    g.results[i] = {home, away};
+    // Apply lives to players
+    const preds = g.predictions[i] || {};
+    const actual = home > away ? 'home' : away > home ? 'away' : 'draw';
+    g.players.forEach(p => {
+      if(p.eliminated) return;
+      if(preds[p.name] === actual) p.correct++;
+      else if(preds[p.name] != null) { p.lives = Math.max(0, p.lives-1); if(p.lives===0) p.eliminated=true; }
+      else { p.lives = Math.max(0, p.lives-2); if(p.lives===0) p.eliminated=true; }
+    });
+  });
+
+  // Set currentMatchIdx to first KO match
+  const r32Start = g.matches.findIndex(m => m.round === 'Round of 32');
+  g.currentMatchIdx = r32Start;
+
+  // Populate R32 bracket from group results
+  populateKnockoutBracket(g);
+
+  // Auto-fill R32 predictions and set to ko-bulk
+  autoFillKORound(g, 'Round of 32');
+  g.koBulkSubmitted = {};
+  g.players.forEach(p => { g.koBulkSubmitted[p.name] = true; });
+  g.status = 'ko-bulk:Round of 32';
+  g.koBulkSubmitted = {}; // reset so players can pick
+
+  // Cache round starts
+  getMatchDateTime._roundStarts = {};
+  g.matches.forEach((m, i) => {
+    if(m.round && !m.group && getMatchDateTime._roundStarts[m.round] === undefined)
+      getMatchDateTime._roundStarts[m.round] = i;
+  });
+
+  await saveGame(g);
+  stopPolling();
+  startKOBulk(g, 'Round of 32');
 });
 
 async function pollHostLobby(){
