@@ -1980,7 +1980,7 @@ function renderBulkForm(g){
         Object.keys(scoreDraft).forEach(k=>{
           if(g.matches[parseInt(k)]?.group===grp) delete scoreDraft[parseInt(k)];
         });
-        scoreDraft[idx]={home:1,away:0};
+        scoreDraft[idx]={home:0,away:0};
       }
       saveDraft({...bulkDraft,__scores:scoreDraft});
       renderBulkForm(g);
