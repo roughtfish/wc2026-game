@@ -5274,7 +5274,7 @@ document.getElementById('set-rival-from-summary')?.addEventListener('click', asy
     const currentMatchDate = getMatchDateTime(g.currentMatchIdx, currentMatch);
     const todayHasResults = Object.keys(g.results).some(idx => {
       const match = g.matches[parseInt(idx)];
-      return match && getMatchDateTime(parseInt(idx), match) === currentMatchDate;
+      return match && g.results[idx] != null && getMatchDateTime(parseInt(idx), match) === currentMatchDate;
     });
     if(todayHasResults){
       showToast('⚔️ Rivals lock once the day starts — change at next summary.', 'error');
@@ -5333,7 +5333,7 @@ async function saveRival() {
       todayHasResults = Object.keys(g.results).some(idx => {
         const matchIdx = parseInt(idx);
         const match = g.matches[matchIdx];
-        return match && getMatchDateTime(matchIdx, match) === currentMatchDate;
+        return match && g.results[idx] != null && getMatchDateTime(matchIdx, match) === currentMatchDate;
       });
     }
     
