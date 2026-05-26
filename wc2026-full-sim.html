@@ -694,17 +694,17 @@ function simulatePlayers(groupMatches, koMatches, numPlayers, startingLives, ski
     });
     
     matchDanger[matchKey] = (matchDanger[matchKey] || 0) + eliminationsThisMatch;
-    
-    // Track survivors after each round
-    if (koMatch.round !== currentRound) {
-      currentRound = koMatch.round;
+
+    // Snapshot survivors after last match of each round
+    const isLastOfRound = matchIdx === koMatches.length - 1 ||
+      koMatches[matchIdx + 1].round !== koMatch.round;
+    if(isLastOfRound) {
       const survivorCount = players.filter(p => p.lives > 0).length;
-      
-      if (koMatch.round === 'R32') roundSurvivors.afterR32 = survivorCount;
-      else if (koMatch.round === 'R16') roundSurvivors.afterR16 = survivorCount;
-      else if (koMatch.round === 'QF') roundSurvivors.afterQF = survivorCount;
-      else if (koMatch.round === 'SF') roundSurvivors.afterSF = survivorCount;
-      else if (koMatch.round === 'Final') roundSurvivors.afterFinal = survivorCount;
+      if(koMatch.round === 'R32') roundSurvivors.afterR32 = survivorCount;
+      else if(koMatch.round === 'R16') roundSurvivors.afterR16 = survivorCount;
+      else if(koMatch.round === 'QF') roundSurvivors.afterQF = survivorCount;
+      else if(koMatch.round === 'SF') roundSurvivors.afterSF = survivorCount;
+      else if(koMatch.round === 'Final') roundSurvivors.afterFinal = survivorCount;
     }
   });
   
