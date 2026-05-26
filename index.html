@@ -1906,7 +1906,7 @@ function renderBulkForm(g){
           const groupScoreKeys=Object.keys(scoreDraft).filter(k=>g.matches[parseInt(k)]?.group===m.group);
           const groupHasOtherScore=groupScoreKeys.length>0&&!scoreDraft[idx];
           return `<div class="score-predict-row">
-            <button class="score-predict-toggle${sc?' active':''}" data-score-idx="${idx}" ${groupHasOtherScore&&!sc?'disabled title="Already predicting a score in this group"':''}>${sc?'✓ Score: '+sc.home+'–'+sc.away:groupHasOtherScore?'Score used':'🎯 +1 ❤️ Predict score'}</button>
+            <button class="score-predict-toggle${sc?' active':''}" data-score-idx="${idx}" ${groupHasOtherScore&&!sc?'disabled title="Already predicting a score in this group"':''}>${sc?'✓ Score: '+sc.home+'–'+sc.away:groupHasOtherScore?'Score used':'🎯 +1 ❤️ Predict score'}</button>${sc?`<button class="score-clear-btn" data-score-idx="${idx}" title="Clear score prediction" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:16px;padding:0 2px;line-height:1">×</button>`:''}
             ${sc?`<div class="score-inputs">${flag(m.home,16)}<input type="number" class="score-input-mini" data-score-home="${idx}" value="${sc.home}" min="0" max="20">&ndash;<input type="number" class="score-input-mini" data-score-away="${idx}" value="${sc.away}" min="0" max="20">${flag(m.away,16)}<span class="score-bonus-badge">+1 ❤️</span></div>`:''}
           </div>`;
         })():''
@@ -1982,6 +1982,15 @@ function renderBulkForm(g){
         });
         scoreDraft[idx]={home:0,away:0};
       }
+      saveDraft({...bulkDraft,__scores:scoreDraft});
+      renderBulkForm(g);
+    });
+  });
+
+  area.querySelectorAll('.score-clear-btn').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const idx=parseInt(btn.dataset.scoreIdx);
+      delete scoreDraft[idx];
       saveDraft({...bulkDraft,__scores:scoreDraft});
       renderBulkForm(g);
     });
