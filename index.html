@@ -874,38 +874,38 @@ function getMatchDateTime(matchIdx, match) {
   }
   
   if(match.round === 'Round of 32'){
-    const r32StartIdx = 72;
-    const matchInRound = matchIdx - r32StartIdx;
+    const start = getMatchDateTime._roundStarts?.['Round of 32'] ?? 72;
+    const pos = matchIdx - start;
     const gameDayR32 = {
       0:'Day 19', 1:'Day 19', 2:'Day 19', 3:'Day 19',
       4:'Day 20', 5:'Day 20', 6:'Day 20', 7:'Day 20',
       8:'Day 21', 9:'Day 21', 10:'Day 21', 11:'Day 21',
       12:'Day 22', 13:'Day 22', 14:'Day 22', 15:'Day 22',
     };
-    return gameDayR32[matchInRound] || '';
+    return gameDayR32[pos] || '';
   }
   
   if(match.round === 'Round of 16'){
-    const r16StartIdx = 88;
-    const matchInRound = matchIdx - r16StartIdx;
+    const start = getMatchDateTime._roundStarts?.['Round of 16'] ?? 88;
+    const pos = matchIdx - start;
     const gameDayR16 = {
       0:'Day 23', 1:'Day 23', 2:'Day 24', 3:'Day 24',
       4:'Day 25', 5:'Day 25', 6:'Day 26', 7:'Day 26',
     };
-    return gameDayR16[matchInRound] || '';
+    return gameDayR16[pos] || '';
   }
   
   if(match.round === 'Quarter-final'){
-    const qfStartIdx = 96;
-    const matchInRound = matchIdx - qfStartIdx;
+    const start = getMatchDateTime._roundStarts?.['Quarter-final'] ?? 96;
+    const pos = matchIdx - start;
     const gameDayQF = {0:'Day 27', 1:'Day 28', 2:'Day 29', 3:'Day 30'};
-    return gameDayQF[matchInRound] || '';
+    return gameDayQF[pos] || '';
   }
   
   if(match.round === 'Semi-final'){
-    const sfStartIdx = 100;
-    const matchInRound = matchIdx - sfStartIdx;
-    return matchInRound === 0 ? 'Day 31' : 'Day 32';
+    const start = getMatchDateTime._roundStarts?.['Semi-final'] ?? 100;
+    const pos = matchIdx - start;
+    return pos === 0 ? 'Day 31' : 'Day 32';
   }
   
   if(match.round === 'Final') return 'Day 36';
@@ -1440,6 +1440,12 @@ async function loadGame(code){
       state.matches = Object.values(state.matches);
     // Migrate old placeholder team names to confirmed qualifiers
     migrateTeamNames(state, code);
+    // Cache KO round start indices for getMatchDateTime
+    getMatchDateTime._roundStarts = {};
+    state.matches.forEach((m, i) => {
+      if(m.round && !m.group && getMatchDateTime._roundStarts[m.round] === undefined)
+        getMatchDateTime._roundStarts[m.round] = i;
+    });
     return state;
   }catch(e){ console.error('loadGame',e); return null; }
 }
@@ -1705,6 +1711,12 @@ document.getElementById('create-game-btn').addEventListener("click",async()=>{
     predictions:{},currentMatchIdx:0,currentResult:null,bulkSubmitted:{},
   };
   if(selectedMode==='knockouts') populateKnockoutsOnly(g);
+  // Cache KO round start indices for getMatchDateTime
+  getMatchDateTime._roundStarts = {};
+  g.matches.forEach((m, i) => {
+    if(m.round && !m.group && getMatchDateTime._roundStarts[m.round] === undefined)
+      getMatchDateTime._roundStarts[m.round] = i;
+  });
   show('screen-host-lobby');
   document.getElementById('host-roster').innerHTML='<div style="color:var(--muted);font-size:13px;">Creating game…</div>';
   document.getElementById('lobby-code-display').textContent='…';
