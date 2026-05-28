@@ -1921,7 +1921,7 @@ async function pollPlayerLobby(){
   const g=await loadGame(me.code);if(!g)return;
   renderRoster(g,'player-lobby-roster');
   if(g.status==='bulk'){stopPolling();startBulk(g);}
-  else if(g.status&&g.status.startsWith('ko-bulk:')){stopPolling();startKOBulk(g,g.status.slice(8));}
+  else if(g.status&&g.status.startsWith('ko-bulk:')){const r=g.status.slice(8);if(r!=='3rd Place Play-off'){stopPolling();startKOBulk(g,r);}}
   else if(g.status==='playing'){stopPolling();watchGame(g);}
 }
 
@@ -1929,7 +1929,7 @@ async function pollPlayerLobby(){
 startPolling(async()=>{
   const f=await loadGame(me.code);if(!f)return;
   if(f.status==='bulk'){stopPolling();startBulk(f);}
-  else if(f.status&&f.status.startsWith('ko-bulk:')){stopPolling();if(f.koBulkSubmitted&&f.koBulkSubmitted[me.name]){show('screen-bulk-done');startPolling(pollBulkDone);}else startKOBulk(f,f.status.slice(8));}
+  else if(f.status&&f.status.startsWith('ko-bulk:')){const r=f.status.slice(8);if(r!=='3rd Place Play-off'){stopPolling();if(f.koBulkSubmitted&&f.koBulkSubmitted[me.name]){show('screen-bulk-done');startPolling(pollBulkDone);}else startKOBulk(f,r);}}
   else if(f.status==='playing'){stopPolling();if(me.role==='host')enterGame(f);else watchGame(f);}
 },3000);
 
@@ -2176,6 +2176,12 @@ async function pollBulkDone(){
       if(!fresh) return;
       const round = fresh.status.startsWith('ko-bulk:') ? fresh.status.slice(8) : 
                     fresh.status.startsWith('bulk:') ? 'Group Stage' : null;
+      // Skip 3rd Place Play-off
+      if(round === '3rd Place Play-off'){
+        show('screen-bulk-done');
+        startPolling(pollBulkDone);
+        return;
+      }
       if(round && round !== 'Group Stage'){
         stopPolling();
         show('screen-bulk');
@@ -2225,8 +2231,10 @@ async function enterGame(g){
       return;
     }
     if(f.status&&f.status.startsWith('ko-bulk:')){
+      const koRound = f.status.slice(8);
+      if(koRound === '3rd Place Play-off') return; // skip — host handles advancing
       stopPolling();
-      startKOBulk(f,f.status.slice(8));
+      startKOBulk(f, koRound);
       return;
     }
     // Don't re-render if host is mid result-entry (score inputs are visible)
@@ -2776,6 +2784,20 @@ async function renderReveal(g){
       }
 
       const prevMatch=f.matches[f.currentMatchIdx-1];
+      // Skip 3rd Place Play-off — advance to Final directly
+      if(nextMatch && nextMatch.round === '3rd Place Play-off'){
+        f.currentMatchIdx++;
+        if(f.currentMatchIdx >= f.matches.length){ await saveGame(f); showFinalLeaderboard(f); return; }
+        const finalMatch = f.matches[f.currentMatchIdx];
+        f.status = 'ko-bulk:' + finalMatch.round;
+        f.koBulkSubmitted = {};
+        f.currentResult = null;
+        await saveGame(f);
+        stopPolling();
+        startKOBulk(f, finalMatch.round);
+        return;
+      }
+
       const isNewKORound=nextMatch&&!nextMatch.group&&prevMatch&&
         (!prevMatch.group)&&nextMatch.round!==prevMatch.round&&
         nextMatch.home!=='TBD'&&nextMatch.away!=='TBD';
@@ -2905,9 +2927,11 @@ async function watchGame(g){
     }
     
     if(f.status&&f.status.startsWith('ko-bulk:')){
+      const r=f.status.slice(8);
+      if(r==='3rd Place Play-off'){return;} // host will advance past it
       stopPolling();
       if(f.koBulkSubmitted&&f.koBulkSubmitted[me.name]){show('screen-bulk-done');startPolling(pollBulkDone);}
-      else{startKOBulk(f,f.status.slice(8));}
+      else{startKOBulk(f,r);}
       return;
     }
     if(f.status==='done'){stopPolling();showWinner(f);return;}
@@ -4064,6 +4088,7 @@ document.getElementById('force-start-btn').addEventListener('click', async () =>
 
   if(isKOBulk){
     const round = fresh.status.slice(8);
+    if(round === '3rd Place Play-off'){ btn.textContent='⚡ Force Start'; btn.disabled=false; return; }
     if(!fresh.koBulkSubmitted) fresh.koBulkSubmitted={};
     // Find all match indices for this KO round
     const roundMatchIndices = fresh.matches.reduce((acc,m,i)=>{
@@ -4137,7 +4162,8 @@ document.getElementById('force-start-btn').addEventListener('click', async () =>
         else startBulk(g);
       } else if(g.status&&g.status.startsWith('ko-bulk:')){
         const round=g.status.slice(8);
-        if(g.koBulkSubmitted&&g.koBulkSubmitted[me.name]){show('screen-bulk-done');startPolling(pollBulkDone);}
+        if(round==='3rd Place Play-off'){if(me.role==='host')enterGame(g);else watchGame(g);}
+        else if(g.koBulkSubmitted&&g.koBulkSubmitted[me.name]){show('screen-bulk-done');startPolling(pollBulkDone);}
         else startKOBulk(g,round);
       } else if(g.status==='playing'||g.status.startsWith('reveal:')){
         if(me.role==='host')enterGame(g);else watchGame(g);
