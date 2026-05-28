@@ -2321,17 +2321,25 @@ async function renderGameHost(g){
   
   renderProgress(g,'progress-bar');
   
-  // Check if game should end - only count non-host players
+  if(!g.matches || g.matches.length === 0){ console.error('renderGameHost: matches missing'); return; }
+
   const hasAnyResults = g.results && Object.keys(g.results).some(k => !isNaN(k) && g.results[k] != null);
+
+  // Don't advance past end without real results
+  if(g.currentMatchIdx >= g.matches.length){
+    if(hasAnyResults) showFinalLeaderboard(g);
+    return;
+  }
+
+  // Check if game should end — only count non-host players
   const nonHostPlayers = g.players.filter(p => !p.isHost);
   const aliveNonHost = nonHostPlayers.filter(p => !p.eliminated);
   if(hasAnyResults && nonHostPlayers.length > 0 && aliveNonHost.length <= 1){
     showWinner(g);
     return;
   }
-  
+
   const alive=g.players.filter(p=>!p.eliminated);
-  if(g.currentMatchIdx>=g.matches.length){showFinalLeaderboard(g);return;}
   // Skip 3rd Place Play-off if somehow landed on it
   if(g.matches[g.currentMatchIdx]?.round==='3rd Place Play-off'){
     g.currentMatchIdx++;
