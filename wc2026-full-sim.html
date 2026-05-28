@@ -1351,6 +1351,7 @@ function renderSavedRuns() {
         <div>
           <div style="font-size:11px;color:var(--muted);margin-bottom:3px">${r.label} &nbsp;·&nbsp; ${new Date(r.ts).toLocaleString()}</div>
           <div style="font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:1px;color:var(--accent2)">${r.avgSurvivors} avg survivors &nbsp;<span style="font-size:14px;color:var(--muted)">(${((parseFloat(r.avgSurvivors) / r.settings.players) * 100).toFixed(1)}% survive)</span></div>
+          <div style="font-size:10px;color:red">DEBUG: avgSurvivors=${r.avgSurvivors} players=${r.settings.players} calc=${parseFloat(r.avgSurvivors)}/${r.settings.players}*100=${((parseFloat(r.avgSurvivors)/r.settings.players)*100).toFixed(1)}</div>
         </div>
         <button onclick="deleteRun(${i})" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;padding:0 4px" title="Delete">×</button>
       </div>
