@@ -1961,7 +1961,7 @@ function renderLeaderboard(g){
   });
 
   const el=document.getElementById('leaderboard');
-  const sortBtn = (key, label) => `<span data-lbsort="${key}" style="cursor:pointer;padding:3px 8px;border-radius:4px;font-size:10px;letter-spacing:1px;${lbSort===key?'background:var(--accent2);color:#0a0f1a;font-weight:700':'color:var(--muted)'}">${label}${lbSort===key?' ▼':''}</span>`;
+  const sortBtn = (key, label) => `<span onclick="lbSort='${key}';renderLeaderboard(currentGame)" style="cursor:pointer;padding:3px 8px;border-radius:4px;font-size:10px;letter-spacing:1px;${lbSort===key?'background:var(--accent2);color:#0a0f1a;font-weight:700':'color:var(--muted)'}">${label}${lbSort===key?' ▼':''}</span>`;
 
   const headerHTML = `<div style="display:flex;gap:6px;align-items:center;padding:8px 16px;border-bottom:1px solid var(--border);flex-wrap:wrap">
     <span style="font-size:10px;color:var(--muted);letter-spacing:1px;margin-right:2px">SORT:</span>
@@ -1990,14 +1990,6 @@ function renderLeaderboard(g){
     </div>`;
   }).join('');
   el.innerHTML = headerHTML + rowsHTML;
-  el.addEventListener('click', function handler(e) {
-    const sortEl = e.target.closest('[data-lbsort]');
-    if(sortEl) {
-      el.removeEventListener('click', handler);
-      lbSort = sortEl.dataset.lbsort;
-      if(currentGame) renderLeaderboard(currentGame);
-    }
-  });
   el.querySelectorAll('.lb-name-btn').forEach(btn=>{
     btn.addEventListener('click',()=>{
       const h2hMode = document.getElementById('h2h-mode-toggle')?.checked;
