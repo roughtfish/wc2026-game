@@ -875,7 +875,8 @@ async function runSimulation() {
   
   displayResults({ 
     avgSurvivors, 
-    survivalRate, 
+    survivalRate,
+    survivalRatePct: ((avgSurvivors / numPlayers) * 100).toFixed(1), 
     mostLikely, 
     avgFinalLives, 
     survivalCounts,
@@ -1381,7 +1382,7 @@ document.getElementById('save-run-btn').addEventListener('click', () => {
     ts: Date.now(),
     label: label || `Run ${runs.length + 1}`,
     avgSurvivors: window._lastRunData.avgSurvivors.toFixed(1),
-    survivalRate: ((window._lastRunData.avgSurvivors / window._lastRunSettings.players) * 100).toFixed(1),
+    survivalRate: window._lastRunData.survivalRatePct,
     settings: window._lastRunSettings,
   });
   saveSavedRuns(runs);
