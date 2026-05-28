@@ -566,7 +566,7 @@
           </div>
         </div>
         <div style="display:flex;gap:7px">
-        <button class="btn btn-secondary btn-sm" id="host-my-stats-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7;display:none">📋 Team List</button>
+        <button class="btn btn-secondary btn-sm" id="host-my-stats-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7;display:none">📋 Team Pick Qty</button>
         <button class="btn btn-secondary btn-sm" id="view-schedule-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7">📅 Schedule</button>
         <button class="btn btn-secondary btn-sm" id="complete-day-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7;display:none">📊 Complete Day</button>
         <button class="btn btn-secondary btn-sm" id="open-ko-preds-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7;display:none">🎯 My Picks</button>
@@ -609,7 +609,7 @@
         </div>
         <div style="display:flex;gap:6px">
           <button class="btn btn-teal btn-sm" id="watch-refresh-btn" style="font-size:11px;letter-spacing:1px;display:none">🔄 Refresh</button>
-          <button class="btn btn-secondary btn-sm" id="watch-my-stats-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7;display:none">📋 Team List</button>
+          <button class="btn btn-secondary btn-sm" id="watch-my-stats-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7;display:none">📋 Team Pick Qty</button>
           <button class="btn btn-secondary btn-sm" id="view-schedule-btn-watch" style="font-size:11px;letter-spacing:1px;opacity:0.7">📅 Schedule</button>
           <button class="btn btn-secondary btn-sm" id="open-watch-group-preds-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7;display:none">📋 My Group Picks</button>
           <button class="btn btn-secondary btn-sm" id="open-watch-ko-preds-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7;display:none">🎯 My KO Picks</button>
@@ -668,7 +668,7 @@
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
         <h2 style="margin:0;">📊 TODAY'S RESULTS</h2>
         <div style="display:flex;gap:6px;">
-          <button class="btn btn-secondary btn-sm" id="daily-team-list-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7">📋 Team List</button>
+          <button class="btn btn-secondary btn-sm" id="daily-team-list-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7">📋 Team Pick Qty</button>
           <button class="btn btn-secondary btn-sm" id="daily-schedule-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7">📅 Schedule</button>
           <button class="btn btn-secondary btn-sm" id="daily-summary-quit-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7;color:var(--red);border-color:rgba(239,68,68,0.3)">✕ Quit</button>
         </div>
@@ -3652,13 +3652,13 @@ function showMyStatsModal(g) {
   
   modal.innerHTML = `
     <div style="padding:20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
-      <h2 style="margin:0;font-size:18px;">📋 Team List</h2>
+      <h2 style="margin:0;font-size:18px;">📋 Team Pick Qty</h2>
       <button id="close-stats-btn" style="background:none;border:none;color:var(--text);font-size:24px;cursor:pointer;padding:0;width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:8px;transition:background 0.2s;" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background='none'">×</button>
     </div>
     <div style="padding:20px;overflow-y:auto;">
       <div style="background:var(--surface2);border-radius:8px;padding:14px;margin-bottom:16px;">
         <div style="font-size:12px;color:var(--muted);margin-bottom:6px;">YOUR PICK COUNTS</div>
-        <div style="font-size:13px;line-height:1.5;">Track how many times you've picked each team across <strong>all stages</strong> (group + knockout). During group stage, you can pick each team to win a maximum of <strong>${MAX_PICKS} times</strong>.</div>
+        <div style="font-size:13px;line-height:1.5;">Track how many times you've picked each team to win across the whole tournament. You can pick each team a maximum of <strong>${MAX_PICKS} times</strong> in total — across group stage and knockout combined.</div>
       </div>
       ${teamListHTML}
     </div>
