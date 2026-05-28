@@ -386,6 +386,7 @@
       </label>
     </div>
     <div class="leaderboard" id="leaderboard"></div>
+    <div style="font-size:11px;color:var(--muted);padding:8px 4px 16px;line-height:1.5">🏆 Most lives remaining wins · Ties broken by most correct predictions</div>
     <div class="section-title">STREAKS 🔥</div>
     <div id="streak-stats"></div>
     <div class="section-title">PERFECT DAYS ⭐</div>
@@ -1603,6 +1604,7 @@ function renderLivesChart(g){
 
 // ─── HISTORY FILTERS ─────────────────────────────────────────────────────────
 let currentFilter='all';
+let lbSort='lives'; // 'lives' | 'correct' | 'accuracy' | 'streak'
 document.addEventListener('click',e=>{
   const btn=e.target.closest('.filter-btn');
   if(!btn)return;
@@ -1933,27 +1935,44 @@ function calcStreaks(playerName, playedIdxs, results, predictions){
 }
 
 function renderLeaderboard(g){
-  const sorted=[...g.players].sort((a,b)=>{
-    if(a.eliminated&&!b.eliminated)return 1;
-    if(!a.eliminated&&b.eliminated)return-1;
-    return b.lives-a.lives||b.correct-a.correct;
-  });
   const maxLives=g.lives;
-  // Count played matches
   const playedIdxsLb=Object.keys(g.results||{}).map(Number).filter(n=>!isNaN(n)&&(g.results||{})[n]!=null);
   if(!g.predictions)g.predictions={};
-  const el=document.getElementById('leaderboard');
-  el.innerHTML=sorted.map((p,i)=>{
-    const rankClass=i===0&&!p.eliminated?'gold':i===1&&!p.eliminated?'silver':i===2&&!p.eliminated?'bronze':'';
-    const livePct=maxLives>0?Math.round(p.lives/maxLives*100):0;
-    const barCol=livePct>60?'var(--green)':livePct>30?'var(--accent)':'var(--red)';
-    const predictedLb=playedIdxsLb.filter(idx=>{const v=(g.predictions[idx]||{})[p.name];return v!=null;}).length;
+
+  // Pre-compute stats for each player
+  const playerStats = g.players.map(p => {
     const accuracy=playedIdxsLb.length>0?Math.round(p.correct/playedIdxsLb.length*100):0;
+    const streakLb=calcStreaks(p.name,playedIdxsLb.slice().sort((a,b)=>a-b),g.results||{},g.predictions||{});
     let scoreBonusLb=0;
     playedIdxsLb.forEach(idx=>{const r=(g.results||{})[idx];const sc=r&&(g.predictions[idx]||{})[p.name+'_score'];if(sc&&sc.home===r.home&&sc.away===r.away)scoreBonusLb++;});
     let penWinsLb=0;
-    playedIdxsLb.forEach(idx=>{const r=(g.results||{})[idx];if(!r||!r.penWinner)return;const v=(g.predictions[idx]||{})[p.name];const actual=r.penWinner;if(v===actual)penWinsLb++;});
-    const streakLb=calcStreaks(p.name,playedIdxsLb.sort((a,b)=>a-b),g.results||{},g.predictions||{});
+    playedIdxsLb.forEach(idx=>{const r=(g.results||{})[idx];if(!r||!r.penWinner)return;const v=(g.predictions[idx]||{})[p.name];if(v===r.penWinner)penWinsLb++;});
+    return { p, accuracy, streakLb, scoreBonusLb, penWinsLb };
+  });
+
+  const sorted = playerStats.slice().sort((a, b) => {
+    if(lbSort === 'correct') return b.p.correct - a.p.correct || b.p.lives - a.p.lives;
+    if(lbSort === 'accuracy') return b.accuracy - a.accuracy || b.p.correct - a.p.correct;
+    if(lbSort === 'streak') return b.streakLb.best - a.streakLb.best || b.p.correct - a.p.correct;
+    // default: lives (elimination-aware)
+    if(a.p.eliminated && !b.p.eliminated) return 1;
+    if(!a.p.eliminated && b.p.eliminated) return -1;
+    return b.p.lives - a.p.lives || b.p.correct - a.p.correct;
+  });
+
+  const el=document.getElementById('leaderboard');
+  const sortBtn = (key, label) => `<span data-lbsort="${key}" style="cursor:pointer;padding:3px 8px;border-radius:4px;font-size:10px;letter-spacing:1px;${lbSort===key?'background:var(--accent2);color:#0a0f1a;font-weight:700':'color:var(--muted)'}">${label}${lbSort===key?' ▼':''}</span>`;
+
+  el.innerHTML = `<div style="display:flex;gap:6px;align-items:center;padding:8px 16px;border-bottom:1px solid var(--border);flex-wrap:wrap">
+    <span style="font-size:10px;color:var(--muted);letter-spacing:1px;margin-right:2px">SORT:</span>
+    ${sortBtn('lives','LIVES')}
+    ${sortBtn('correct','CORRECT')}
+    ${sortBtn('accuracy','ACCURACY')}
+    ${sortBtn('streak','STREAK')}
+  </div>` + sorted.map(({p, accuracy, streakLb, scoreBonusLb, penWinsLb}, i) => {
+    const rankClass=i===0&&!p.eliminated?'gold':i===1&&!p.eliminated?'silver':i===2&&!p.eliminated?'bronze':'';
+    const livePct=maxLives>0?Math.round(p.lives/maxLives*100):0;
+    const barCol=livePct>60?'var(--green)':livePct>30?'var(--accent)':'var(--red)';
     return`<div class="lb-row${p.eliminated?' eliminated':''}">
       <div class="lb-rank ${rankClass}">${p.eliminated?'💀':i+1}</div>
       <div>
@@ -1968,6 +1987,9 @@ function renderLeaderboard(g){
       <div class="lb-pct lb-pct-tip" data-tip="Prediction accuracy (correct / matches played)">${accuracy}%</div>
     </div>`;
   }).join('');
+  el.querySelectorAll('[data-lbsort]').forEach(btn => {
+    btn.addEventListener('click', () => { lbSort = btn.dataset.lbsort; renderLeaderboard(g); });
+  });
   el.querySelectorAll('.lb-name-btn').forEach(btn=>{
     btn.addEventListener('click',()=>{
       const h2hMode = document.getElementById('h2h-mode-toggle')?.checked;
