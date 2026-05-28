@@ -962,35 +962,48 @@ async function displayResults(data) {
     `;
   }).join('');
   
-  // Optimal lives calculator - target specific survivor counts
-  const targetSurvivors = [1, 2, 3, 4, 5];
-  const optimalLivesHTML = targetSurvivors.map(target => {
-    // Estimate lives needed based on current results
-    const currentLives = parseInt(document.getElementById('starting-lives').value);
-    const currentAvgSurvivors = data.avgSurvivors;
-    
-    let estimatedLives;
-    if (currentAvgSurvivors < 0.1) {
-      // If almost everyone dies, we need way more lives
-      estimatedLives = Math.round(currentLives * 3 * target);
-    } else {
-      // Linear approximation: lives needed scales with desired survivors
-      estimatedLives = Math.round(currentLives * (target / currentAvgSurvivors));
-    }
-    
-    let label = target === 1 ? '1 winner (sole survivor)' : 
-                target === 2 ? '2 players in final' :
-                `${target} survivors`;
-    
-    let color = target === 1 ? 'var(--red)' :
-                target === 2 ? 'var(--accent)' :
-                'var(--accent2)';
-    
-    return `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border)">
-      <span>${label}</span>
-      <span style="color:${color};font-weight:600">~${estimatedLives} lives</span>
-    </div>`;
-  }).join('');
+  // Finalist summary — what the current settings actually produce at the Final
+  const avgFinalists = data.finalistCounts.reduce((sum, count, n) => sum + count * n, 0) / data.numSims;
+  const pctNoFinalists = ((data.finalistCounts[0] || 0) / data.numSims * 100).toFixed(0);
+  const pctOneFinalist = ((data.finalistCounts[1] || 0) / data.numSims * 100).toFixed(0);
+  const pctTwoPlus = (data.finalistCounts.slice(2).reduce((s,c)=>s+c,0) / data.numSims * 100).toFixed(0);
+
+  // Suggest lives adjustment to target ~2 finalists (most dramatic finish)
+  const currentLives = parseInt(document.getElementById('starting-lives').value);
+  let livesAdvice = '';
+  if(avgFinalists < 1) {
+    const suggestedIncrease = Math.ceil((1.5 - avgFinalists) / avgFinalists * currentLives / 5) * 5;
+    livesAdvice = `⬆️ Increase starting lives by ~${suggestedIncrease} to get more players to the Final`;
+  } else if(avgFinalists > 4) {
+    const suggestedDecrease = Math.ceil((avgFinalists - 2.5) / avgFinalists * currentLives / 5) * 5;
+    livesAdvice = `⬇️ Decrease starting lives by ~${suggestedDecrease} for a tighter finish`;
+  } else if(avgFinalists >= 1.5 && avgFinalists <= 3) {
+    livesAdvice = `✅ Starting lives look well-tuned for a competitive Final`;
+  } else {
+    livesAdvice = `⚖️ Consider fine-tuning lives for your ideal number of finalists`;
+  }
+
+  const finalistSummaryHTML = `
+    <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border)">
+        <span>Avg players reaching the Final</span>
+        <span style="color:var(--accent2);font-weight:600">${avgFinalists.toFixed(1)}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border)">
+        <span>Nobody reaches Final</span>
+        <span style="color:var(--red);font-weight:600">${pctNoFinalists}% of sims</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border)">
+        <span>1 finalist (sole survivor)</span>
+        <span style="color:var(--accent);font-weight:600">${pctOneFinalist}% of sims</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border)">
+        <span>2+ finalists (head-to-head finish)</span>
+        <span style="color:var(--accent2);font-weight:600">${pctTwoPlus}% of sims</span>
+      </div>
+    </div>
+    <div style="font-size:12px;color:var(--muted);background:var(--surface2);border-radius:8px;padding:10px 12px">${livesAdvice}</div>
+  `;
   
   // Skill sensitivity analysis
   const currentSkill = parseFloat(document.getElementById('skill-level').value);
@@ -1105,10 +1118,9 @@ async function displayResults(data) {
     ${livesHistHTML}
     <div style="font-size:10px;color:var(--muted);margin-top:12px;font-style:italic">Shows how many lives survivors typically have remaining at the end.</div>
     
-    <div style="font-size:12px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin:24px 0 16px">Optimal Starting Lives Calculator</div>
+    <div style="font-size:12px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin:24px 0 16px">Final Stage Summary</div>
     <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px">
-      ${optimalLivesHTML}
-      <div style="font-size:10px;color:var(--muted);margin-top:12px;font-style:italic">Based on current settings, these are estimated starting lives to achieve different outcomes. "1 winner" = single survivor, "2 players in final" = exciting head-to-head finish.</div>
+      ${finalistSummaryHTML}
     </div>
     
     <div style="font-size:12px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin:24px 0 16px">Skill Sensitivity Analysis</div>
