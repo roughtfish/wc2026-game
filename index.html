@@ -5204,17 +5204,17 @@ async function showDailySummary(g, matchIndices) {
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;text-align:center;margin-bottom:12px">
           <div>
             <div style="font-size:11px;color:var(--muted);margin-bottom:4px">Remaining</div>
-            <div style="font-family:'Bebas Neue',sans-serif;font-size:24px;color:var(--accent2)">${remainingMatches}</div>
+            <div style="font-family:'Bebas Neue',sans-serif;font-size:24px;color:var(--accent2)" title="Total matches left to play in the tournament">${remainingMatches}</div>
             <div style="font-size:10px;color:var(--muted)">matches</div>
           </div>
           <div>
             <div style="font-size:11px;color:var(--muted);margin-bottom:4px">Danger Zone</div>
-            <div style="font-family:'Bebas Neue',sans-serif;font-size:24px;color:var(--red)">${dangerZone}</div>
+            <div style="font-family:'Bebas Neue',sans-serif;font-size:24px;color:var(--red)" title="Players with 2 or fewer lives remaining — one bad day could eliminate them">${dangerZone}</div>
             <div style="font-size:10px;color:var(--muted)">players</div>
           </div>
           <div>
             <div style="font-size:11px;color:var(--muted);margin-bottom:4px">Threshold</div>
-            <div style="font-family:'Bebas Neue',sans-serif;font-size:24px;color:var(--muted)">${eliminationThreshold} ❤️</div>
+            <div style="font-family:'Bebas Neue',sans-serif;font-size:24px;color:var(--muted)" title="Lowest lives among surviving players — the floor before elimination">${eliminationThreshold} ❤️</div>
           </div>
         </div>
         ${player.lives <= 2 ? '<div style="background:rgba(239,68,68,0.1);border:2px solid var(--red);border-radius:6px;padding:10px;text-align:center;font-size:12px;color:var(--red);font-weight:600">⚠️ YOU ARE IN THE DANGER ZONE!</div>' : ''}
