@@ -1376,7 +1376,12 @@ function deleteRun(idx) {
 document.getElementById('save-run-btn').addEventListener('click', () => {
   if(!window._lastRunData) return;
   const label = prompt('Name this run (optional):', `Run ${getSavedRuns().length + 1}`) ?? '';
-  if(label === null) return; // cancelled
+  if(label === null) return;
+  console.log('DEBUG save:', {
+    avgSurvivors: window._lastRunData.avgSurvivors,
+    survivalRatePct: window._lastRunData.survivalRatePct,
+    players: window._lastRunSettings.players
+  }); // cancelled
   const runs = getSavedRuns();
   runs.unshift({
     ts: Date.now(),
