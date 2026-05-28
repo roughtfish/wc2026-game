@@ -2343,6 +2343,7 @@ async function renderGameHost(g){
 
   // Check if game should end — only count non-host players
   const alive = g.players.filter(p => !p.eliminated);
+  console.log('[renderGameHost] alive:', alive.length, 'hasAnyResults:', hasAnyResults, 'currentMatchIdx:', g.currentMatchIdx, 'matches:', g.matches?.length);
   if(hasAnyResults && alive.length <= 1){
     showWinner(g);
     return;
@@ -5267,14 +5268,14 @@ async function hostContinueFromSummary() {
   // Check if any non-host players are still alive (host can continue even if eliminated)
   const hasAnyResults = g.results && Object.keys(g.results).some(k => !isNaN(k) && g.results[k] != null);
   const alive = g.players.filter(p => !p.eliminated);
+  console.log('[hostContinue] alive:', alive.length, 'hasAnyResults:', hasAnyResults, 'currentMatchIdx:', g.currentMatchIdx, 'matches:', g.matches?.length);
   if(hasAnyResults && alive.length <= 1){
     await saveGame(g);
     showWinner(g);
     return;
   }
-  
+
   // Define next and previous matches
-  const alive = g.players.filter(p => !p.eliminated);
   const nextMatch = g.matches[g.currentMatchIdx];
   const prevMatch = g.matches[g.currentMatchIdx - 1];
   
