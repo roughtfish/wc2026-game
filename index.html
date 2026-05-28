@@ -598,6 +598,10 @@
           <div class="scoreboard-title" style="margin:0">STANDINGS</div>
           <div id="watch-current-rival" style="display:none;font-size:11px;color:var(--muted);">
             Rival: <span style="color:var(--accent2);font-weight:600;" id="watch-rival-name"></span>
+            <button id="watch-set-rival-btn" style="background:none;border:none;color:var(--accent2);cursor:pointer;font-size:11px;padding:0 0 0 6px;text-decoration:underline">change</button>
+          </div>
+          <div id="watch-no-rival" style="display:none;font-size:11px;">
+            <button id="watch-set-rival-no-rival-btn" class="btn btn-teal btn-sm" style="font-size:11px;letter-spacing:1px;padding:4px 10px">⚔️ Set Rival</button>
           </div>
         </div>
         <div style="display:flex;gap:6px">
@@ -2927,15 +2931,18 @@ async function renderWatchScreen(g){
     refreshBtn.style.display = isWaiting ? 'inline-block' : 'none';
   }
   
-  // Update current rival display
+  // Update current rival display on watch screen
   const rivalDisplay = document.getElementById('watch-current-rival');
   const rivalName = document.getElementById('watch-rival-name');
-  if(rivalDisplay && rivalName && myPlayer) {
+  const noRivalDisplay = document.getElementById('watch-no-rival');
+  if(myPlayer) {
     if(myPlayer.currentRival) {
-      rivalDisplay.style.display = 'block';
-      rivalName.textContent = myPlayer.currentRival;
+      if(rivalDisplay) rivalDisplay.style.display = 'block';
+      if(rivalName) rivalName.textContent = myPlayer.currentRival;
+      if(noRivalDisplay) noRivalDisplay.style.display = 'none';
     } else {
-      rivalDisplay.style.display = 'none';
+      if(rivalDisplay) rivalDisplay.style.display = 'none';
+      if(noRivalDisplay) noRivalDisplay.style.display = 'block';
     }
   }
   
@@ -3237,6 +3244,13 @@ document.getElementById('watch-quit-btn').addEventListener('click',()=>{
   me={};
   show('screen-landing');
 });
+
+// Watch screen rival buttons — reuse the rival modal
+function openRivalModalFromWatch() {
+  document.getElementById('set-rival-from-summary')?.click();
+}
+document.getElementById('watch-set-rival-btn')?.addEventListener('click', openRivalModalFromWatch);
+document.getElementById('watch-set-rival-no-rival-btn')?.addEventListener('click', openRivalModalFromWatch);
 document.getElementById('undo-result-btn').addEventListener('click', async () => {
   const g = await loadGame(me.code);
   if (!g) return;
