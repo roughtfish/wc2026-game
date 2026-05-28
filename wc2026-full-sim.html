@@ -718,7 +718,10 @@ function simulatePlayers(groupMatches, koMatches, numPlayers, startingLives, ski
       else if(koMatch.round === 'R16') roundSurvivors.afterR16 = survivorCount;
       else if(koMatch.round === 'QF') roundSurvivors.afterQF = survivorCount;
       else if(koMatch.round === 'SF') roundSurvivors.afterSF = survivorCount;
-      else if(koMatch.round === 'Final') roundSurvivors.afterFinal = survivorCount;
+      else if(koMatch.round === 'Final') {
+        roundSurvivors.afterFinal = survivorCount;
+        roundSurvivors.finalistLives = players.filter(p => p.lives > 0).map(p => p.lives);
+      }
     }
   });
   
@@ -761,7 +764,8 @@ async function runSimulation() {
   const upsetCounts = []; // Track upsets per sim
   const scoreBonusImpact = { withBonus: [], withoutBonus: [] };
   const livesFromBonuses = [];
-  let totalBlockedPenalties = 0; // lives lost to both-teams-at-limit across all sims
+  let totalBlockedPenalties = 0;
+  const finalistLivesAll = [];
   
   for (let sim = 0; sim < numSims; sim++) {
     const { groupResults, groupMatches, thirdPlaceTeams, momentum } = simulateGroupStage();
@@ -820,13 +824,23 @@ async function runSimulation() {
     });
     
     // Track survivors by round (simplified - track final count)
-    survivorsByRound.afterFinal.push(survivors.length);
+    survivorsByRound.afterFinal.push(roundSurvivors.afterFinal);
+    if(roundSurvivors.finalistLives) {
+      roundSurvivors.finalistLives.forEach(l => finalistLivesAll.push(l));
+    }
   }
   
   const avgSurvivors = totalSurvivors / numSims;
   const avgFinalLives = finalLivesDistribution.length > 0 ? totalFinalLives / finalLivesDistribution.length : 0;
   const survivalRate = (totalSurvivors / (numSims * numPlayers)) * 100;
   const mostLikely = survivalCounts.indexOf(Math.max(...survivalCounts));
+
+  // Build finalist counts from afterFinal snapshots
+  const finalistCounts = new Array(numPlayers + 1).fill(0);
+  survivorsByRound.afterFinal.forEach(n => { if(n <= numPlayers) finalistCounts[n]++; });
+  const avgFinalistLives = finalistLivesAll.length > 0
+    ? (finalistLivesAll.reduce((a, b) => a + b, 0) / finalistLivesAll.length).toFixed(1)
+    : '—';
   
   // Calculate data insights
   // 1. Upset threshold - find correlation between upsets and wipeouts
@@ -864,7 +878,9 @@ async function runSimulation() {
     survivalRate, 
     mostLikely, 
     avgFinalLives, 
-    survivalCounts, 
+    survivalCounts,
+    finalistCounts,
+    avgFinalistLives, 
     numPlayers, 
     numSims,
     finalLivesDistribution,
@@ -925,22 +941,20 @@ async function displayResults(data) {
     `;
   }).join('');
   
-  // Survivor distribution - render in order from 0 to max
-  const maxCount = Math.max(...data.survivalCounts);
-  const survivalDistHTML = data.survivalCounts.map((count, survivors) => {
+  // Finalist distribution - players alive going into the Final
+  const maxFinalistCount = Math.max(...data.finalistCounts);
+  const finalistDistHTML = data.finalistCounts.map((count, finalists) => {
     const pct = (count / data.numSims) * 100;
-    if (pct < 0.5) return ''; // Skip entries with <0.5% probability
-    
-    const label = survivors === 0 ? 'Total wipeout' : `${survivors} player${survivors === 1 ? '' : 's'}`;
-    const color = survivors === 0 ? 'var(--red)' : 'var(--accent2)';
-    const fontWeight = survivors === 0 ? 'font-weight:700' : '';
-    const textColor = survivors === 0 ? 'color:var(--red)' : '';
-    
+    if (pct < 0.5) return '';
+    const label = finalists === 0 ? 'None reach Final' : `${finalists} finalist${finalists === 1 ? '' : 's'}`;
+    const color = finalists === 0 ? 'var(--red)' : 'var(--accent2)';
+    const fontWeight = finalists === 0 ? 'font-weight:700' : '';
+    const textColor = finalists === 0 ? 'color:var(--red)' : '';
     return `
       <div class="bar-row">
         <div class="bar-label" style="${textColor};${fontWeight}">${label}</div>
         <div class="bar-track">
-          <div class="bar-fill" style="width:${(count / maxCount) * 100}%;background:${color}"></div>
+          <div class="bar-fill" style="width:${(count / maxFinalistCount) * 100}%;background:${color}"></div>
         </div>
         <div class="bar-pct" style="${textColor}">${pct.toFixed(1)}%</div>
       </div>
@@ -1081,8 +1095,9 @@ async function displayResults(data) {
   }).join('') : '<div style="color:var(--muted);font-style:italic">No match data available</div>';
   
   document.getElementById('chart').innerHTML = `
-    <div style="font-size:12px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:16px">Survivor Distribution</div>
-    ${survivalDistHTML}
+    <div style="font-size:12px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:4px">Finalists (alive at start of Final)</div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:12px">Avg lives of finalists: <span style="color:var(--accent2);font-weight:600">${data.avgFinalistLives}</span></div>
+    ${finalistDistHTML}
     <div style="font-size:10px;color:var(--muted);margin-top:12px;font-style:italic">Each bar shows the probability that exactly X players survive to the final. The tallest bar is the most likely outcome.</div>
     
     <div style="font-size:12px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin:24px 0 16px">Lives Distribution (Survivors Only)</div>
