@@ -1782,8 +1782,8 @@ document.getElementById('skip-to-ko-btn').addEventListener('click', async () => 
     g.players.forEach(p => {
       if(p.eliminated) return;
       if(preds[p.name] === actual) p.correct++;
-      else if(preds[p.name] != null) { p.lives = Math.max(0, p.lives-1); if(p.lives===0) p.eliminated=true; }
-      else { p.lives = Math.max(0, p.lives-2); if(p.lives===0) p.eliminated=true; }
+      else if(preds[p.name] != null) { p.lives = Math.max(1, p.lives-1); } // floor at 1 — can't eliminate in sim
+      else { p.lives = Math.max(1, p.lives-2); }
     });
   });
 
@@ -2322,10 +2322,10 @@ async function renderGameHost(g){
   renderProgress(g,'progress-bar');
   
   // Check if game should end - only count non-host players
-  const hasAnyResults = g.results && Object.keys(g.results).some(k => g.results[k] != null);
-  const aliveNonHost = g.players.filter(p => !p.eliminated && !p.isHost);
-  if(hasAnyResults && aliveNonHost.length <= 1 && g.players.some(p => !p.isHost)){
-    // Only end game if there are non-host players and only 1 or fewer are alive
+  const hasAnyResults = g.results && Object.keys(g.results).some(k => !isNaN(k) && g.results[k] != null);
+  const nonHostPlayers = g.players.filter(p => !p.isHost);
+  const aliveNonHost = nonHostPlayers.filter(p => !p.eliminated);
+  if(hasAnyResults && nonHostPlayers.length > 0 && aliveNonHost.length <= 1){
     showWinner(g);
     return;
   }
@@ -3020,7 +3020,8 @@ async function renderWatchScreen(g){
     }
   }
   const alive=g.players.filter(p=>!p.eliminated);
-  if(g.status==='done'||alive.length<=1||g.currentMatchIdx>=g.matches.length){stopPolling();showWinner(g);return;}
+  const hasAnyResultsW = g.results && Object.keys(g.results).some(k => !isNaN(k) && g.results[k] != null);
+  if(g.status==='done'||(hasAnyResultsW && alive.length<=1)||g.currentMatchIdx>=g.matches.length){stopPolling();showWinner(g);return;}
   const area=document.getElementById('watch-area');
   const isReveal=g.status&&g.status.startsWith('reveal:');
   const match=g.matches[g.currentMatchIdx];
