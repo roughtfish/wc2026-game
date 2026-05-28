@@ -1393,16 +1393,26 @@ function checkPickLimit(fresh, draft) {
 
 function getFirebaseUrl(){ return FIREBASE_URL; }
 
-async function fetchWithTimeout(url, opts={}, ms=8000){
-  const controller = new AbortController();
-  const timer = setTimeout(()=>controller.abort(), ms);
-  try{
-    const r = await fetch(url, {...opts, signal:controller.signal});
-    clearTimeout(timer);
-    return r;
-  }catch(e){
-    clearTimeout(timer);
-    throw e;
+async function fetchWithTimeout(url, opts={}, ms=8000, retries=2){
+  for(let attempt=0; attempt<=retries; attempt++){
+    const controller = new AbortController();
+    const timer = setTimeout(()=>controller.abort(), ms);
+    try{
+      const r = await fetch(url, {...opts, signal:controller.signal});
+      clearTimeout(timer);
+      if(r.status === 401 && attempt < retries){
+        await new Promise(res=>setTimeout(res, 500 * (attempt+1))); // back off
+        continue;
+      }
+      return r;
+    }catch(e){
+      clearTimeout(timer);
+      if(attempt < retries){
+        await new Promise(res=>setTimeout(res, 500 * (attempt+1)));
+        continue;
+      }
+      throw e;
+    }
   }
 }
 
