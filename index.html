@@ -1932,7 +1932,7 @@ async function startBulk(g){
   const bulkQuitBtn=document.getElementById('bulk-quit-btn');
   if(bulkQuitBtn) bulkQuitBtn.style.display='inline-block';
   const bulkAutoFillBtn=document.getElementById('bulk-autofill-btn');
-  if(bulkAutoFillBtn) bulkAutoFillBtn.style.display=me.role==='host'?'inline-block':'none';
+  if(bulkAutoFillBtn) bulkAutoFillBtn.style.display='inline-block';
   const _ba=document.getElementById('bulk-area'); if(_ba) _ba._watchCommit=null;
   show('screen-bulk');
   // Silently restore any partial draft saved previously
