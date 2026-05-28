@@ -1995,7 +1995,7 @@ function renderLeaderboard(g){
     if(sortEl) {
       el.removeEventListener('click', handler);
       lbSort = sortEl.dataset.lbsort;
-      renderLeaderboard(g);
+      if(currentGame) renderLeaderboard(currentGame);
     }
   });
   el.querySelectorAll('.lb-name-btn').forEach(btn=>{
