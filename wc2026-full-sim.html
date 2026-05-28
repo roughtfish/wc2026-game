@@ -1350,7 +1350,7 @@ function renderSavedRuns() {
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
         <div>
           <div style="font-size:11px;color:var(--muted);margin-bottom:3px">${r.label} &nbsp;·&nbsp; ${new Date(r.ts).toLocaleString()}</div>
-          <div style="font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:1px;color:var(--accent2)">${r.avgSurvivors} avg survivors &nbsp;<span style="font-size:14px;color:var(--muted)">(${r.survivalRate}% survive)</span></div>
+          <div style="font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:1px;color:var(--accent2)">${r.avgSurvivors} avg survivors &nbsp;<span style="font-size:14px;color:var(--muted)">(${((parseFloat(r.avgSurvivors) / r.settings.players) * 100).toFixed(1)}% survive)</span></div>
         </div>
         <button onclick="deleteRun(${i})" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;padding:0 4px" title="Delete">×</button>
       </div>
@@ -1376,12 +1376,7 @@ function deleteRun(idx) {
 document.getElementById('save-run-btn').addEventListener('click', () => {
   if(!window._lastRunData) return;
   const label = prompt('Name this run (optional):', `Run ${getSavedRuns().length + 1}`) ?? '';
-  if(label === null) return;
-  console.log('DEBUG save:', {
-    avgSurvivors: window._lastRunData.avgSurvivors,
-    survivalRatePct: window._lastRunData.survivalRatePct,
-    players: window._lastRunSettings.players
-  }); // cancelled
+  if(label === null) return; // cancelled
   const runs = getSavedRuns();
   runs.unshift({
     ts: Date.now(),
