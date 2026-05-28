@@ -2342,14 +2342,11 @@ async function renderGameHost(g){
   }
 
   // Check if game should end — only count non-host players
-  const nonHostPlayers = g.players.filter(p => !p.isHost);
-  const aliveNonHost = nonHostPlayers.filter(p => !p.eliminated);
-  if(hasAnyResults && nonHostPlayers.length > 0 && aliveNonHost.length <= 1){
+  const alive = g.players.filter(p => !p.eliminated);
+  if(hasAnyResults && alive.length <= 1){
     showWinner(g);
     return;
   }
-
-  const alive=g.players.filter(p=>!p.eliminated);
   // Skip 3rd Place Play-off if somehow landed on it
   if(g.matches[g.currentMatchIdx]?.round==='3rd Place Play-off'){
     g.currentMatchIdx++;
@@ -2753,7 +2750,7 @@ async function renderReveal(g){
     <div>${(Array.isArray(g.players)?g.players:Object.values(g.players||{})).map(p=>{const v=preds[p.name];const ok=v===actual;const sc=preds[p.name+'_score'];const scoreOk=sc&&sc.home===r.home&&sc.away===r.away;return`<div class="pred-recap-item"><span class="pred-name">${p.name}</span><span class="pred-choice">${v==='home'?flag(match.home,16)+' '+match.home:v==='away'?flag(match.away,16)+' '+match.away:'<span style="font-weight:900">=</span> Draw'}${sc?` <span style="font-size:10px;color:var(--muted)">(${sc.home}–${sc.away}${scoreOk?' ❤️+1':''})</span>`:''}</span><span>${ok?'✅':'❌'}</span></div>`;}).join('')}</div>
     <div style="display:flex;gap:9px;margin-top:12px;">
       <button class="btn-next" id="correct-result-btn" style="flex:0 0 auto;width:auto;padding:12px 16px;font-size:13px;color:var(--muted);border-color:rgba(255,255,255,0.1)">✎ Edit Result</button>
-      ${!isLastMatchOfDay ? `<button class="btn-next" id="next-match-btn" style="flex:1">${(nonHostPlayers.length>1&&aliveNonHost.length<=1)||(nonHostPlayers.length<=1&&aliveNonHost.length===0)?'SEE RESULTS 🏆':(()=>{
+      ${!isLastMatchOfDay ? `<button class="btn-next" id="next-match-btn" style="flex:1">${alive.length<=1?'SEE RESULTS 🏆':(()=>{
         const nx=g.matches[g.currentMatchIdx+1];
         const cur=g.matches[g.currentMatchIdx];
         const isNewRound=nx&&!nx.group&&cur&&!cur.group&&nx.round!==cur.round&&nx.home!=='TBD';
@@ -2766,10 +2763,8 @@ async function renderReveal(g){
   if(nextMatchBtn){
     nextMatchBtn.addEventListener("click",async()=>{
       const f=await loadGame(me.code);
-      const alNonHost=f.players.filter(p=>!p.eliminated&&!p.isHost);
-      const totalNonHost=f.players.filter(p=>!p.isHost).length;
-      if(totalNonHost>1 && alNonHost.length<=1){showWinner(f);return;}
-      if(totalNonHost<=1 && alNonHost.length===0){showWinner(f);return;}
+      const al=f.players.filter(p=>!p.eliminated);
+      if(al.length<=1){showWinner(f);return;}
       f.currentMatchIdx++;
       if(f.currentMatchIdx>=f.matches.length){await saveGame(f);showFinalLeaderboard(f);return;}
       const nextMatch=f.matches[f.currentMatchIdx];
@@ -5270,9 +5265,9 @@ async function hostContinueFromSummary() {
   }
   
   // Check if any non-host players are still alive (host can continue even if eliminated)
-  const nonHostPlayers = g.players.filter(p => !p.isHost);
-  const aliveNonHost = g.players.filter(p => !p.eliminated && !p.isHost);
-  if(nonHostPlayers.length > 1 && aliveNonHost.length <= 1){
+  const hasAnyResults = g.results && Object.keys(g.results).some(k => !isNaN(k) && g.results[k] != null);
+  const alive = g.players.filter(p => !p.eliminated);
+  if(hasAnyResults && alive.length <= 1){
     await saveGame(g);
     showWinner(g);
     return;
