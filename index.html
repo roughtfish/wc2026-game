@@ -5173,7 +5173,32 @@ async function showDailySummary(g, matchIndices) {
     // 7. Tomorrow's Stakes
     const dangerZone = standings.filter(p => p.lives <= 2).length;
     const eliminationThreshold = Math.min(...standings.filter(p => !p.eliminated).map(p => p.lives));
-    
+
+    // Find tomorrow's matches — next day label after today
+    const currentMatchDate = getMatchDateTime(g.currentMatchIdx, currentMatch);
+    const tomorrowMatches = [];
+    let tomorrowDayLabel = '';
+    for(let i = g.currentMatchIdx; i < g.matches.length; i++){
+      const m = g.matches[i];
+      const dayLabel = getMatchDateTime(i, m);
+      if(!dayLabel) continue;
+      if(dayLabel === currentMatchDate) continue;
+      if(!tomorrowDayLabel) tomorrowDayLabel = dayLabel;
+      if(dayLabel === tomorrowDayLabel && !g.results?.[i]) tomorrowMatches.push({m, i});
+      else if(dayLabel !== tomorrowDayLabel) break;
+    }
+
+    const tomorrowMatchesHTML = tomorrowMatches.length > 0 ? `
+      <div style="margin-top:12px;border-top:1px solid var(--border);padding-top:12px">
+        <div style="font-size:11px;color:var(--muted);letter-spacing:1px;margin-bottom:8px">${tomorrowDayLabel ? tomorrowDayLabel.toUpperCase() + ' FIXTURES' : 'NEXT UP'}</div>
+        ${tomorrowMatches.map(({m}) => `
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:5px 0;border-bottom:1px solid rgba(255,255,255,0.05);font-size:12px">
+            <div style="display:flex;align-items:center;gap:6px">${flag(m.home,16)}<span>${m.home}</span></div>
+            <span style="color:var(--muted);font-size:10px">${m.group ? 'Group '+m.group : (m.round||'')}</span>
+            <div style="display:flex;align-items:center;gap:6px"><span>${m.away}</span>${flag(m.away,16)}</div>
+          </div>`).join('')}
+      </div>` : '';
+
     document.getElementById('daily-tomorrow-stakes').innerHTML = `
       <div style="background:var(--surface);border-radius:8px;padding:16px">
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;text-align:center;margin-bottom:12px">
@@ -5193,6 +5218,7 @@ async function showDailySummary(g, matchIndices) {
           </div>
         </div>
         ${player.lives <= 2 ? '<div style="background:rgba(239,68,68,0.1);border:2px solid var(--red);border-radius:6px;padding:10px;text-align:center;font-size:12px;color:var(--red);font-weight:600">⚠️ YOU ARE IN THE DANGER ZONE!</div>' : ''}
+        ${tomorrowMatchesHTML}
       </div>
     `;
   } catch (err) {
