@@ -1605,6 +1605,7 @@ function renderLivesChart(g){
 // ─── HISTORY FILTERS ─────────────────────────────────────────────────────────
 let currentFilter='all';
 let lbSort='lives'; // 'lives' | 'correct' | 'accuracy' | 'streak'
+window.setLbSort = function(key) { lbSort = key; if(currentGame) renderLeaderboard(currentGame); };
 document.addEventListener('click',e=>{
   const btn=e.target.closest('.filter-btn');
   if(!btn)return;
@@ -1961,7 +1962,7 @@ function renderLeaderboard(g){
   });
 
   const el=document.getElementById('leaderboard');
-  const sortBtn = (key, label) => `<span onclick="lbSort='${key}';renderLeaderboard(currentGame)" style="cursor:pointer;padding:3px 8px;border-radius:4px;font-size:10px;letter-spacing:1px;${lbSort===key?'background:var(--accent2);color:#0a0f1a;font-weight:700':'color:var(--muted)'}">${label}${lbSort===key?' ▼':''}</span>`;
+  const sortBtn = (key, label) => `<span onclick="window.setLbSort('${key}')" style="cursor:pointer;padding:3px 8px;border-radius:4px;font-size:10px;letter-spacing:1px;${lbSort===key?'background:var(--accent2);color:#0a0f1a;font-weight:700':'color:var(--muted)'}">${label}${lbSort===key?' ▼':''}</span>`;
 
   const headerHTML = `<div style="display:flex;gap:6px;align-items:center;padding:8px 16px;border-bottom:1px solid var(--border);flex-wrap:wrap">
     <span style="font-size:10px;color:var(--muted);letter-spacing:1px;margin-right:2px">SORT:</span>
