@@ -1963,13 +1963,15 @@ function renderLeaderboard(g){
   const el=document.getElementById('leaderboard');
   const sortBtn = (key, label) => `<span data-lbsort="${key}" style="cursor:pointer;padding:3px 8px;border-radius:4px;font-size:10px;letter-spacing:1px;${lbSort===key?'background:var(--accent2);color:#0a0f1a;font-weight:700':'color:var(--muted)'}">${label}${lbSort===key?' ▼':''}</span>`;
 
-  el.innerHTML = `<div style="display:flex;gap:6px;align-items:center;padding:8px 16px;border-bottom:1px solid var(--border);flex-wrap:wrap">
+  const headerHTML = `<div style="display:flex;gap:6px;align-items:center;padding:8px 16px;border-bottom:1px solid var(--border);flex-wrap:wrap">
     <span style="font-size:10px;color:var(--muted);letter-spacing:1px;margin-right:2px">SORT:</span>
     ${sortBtn('lives','LIVES')}
     ${sortBtn('correct','CORRECT')}
     ${sortBtn('accuracy','ACCURACY')}
     ${sortBtn('streak','STREAK')}
-  </div>` + sorted.map(({p, accuracy, streakLb, scoreBonusLb, penWinsLb}, i) => {
+  </div>`;
+
+  const rowsHTML = sorted.map(({p, accuracy, streakLb, scoreBonusLb, penWinsLb}, i) => {
     const rankClass=i===0&&!p.eliminated?'gold':i===1&&!p.eliminated?'silver':i===2&&!p.eliminated?'bronze':'';
     const livePct=maxLives>0?Math.round(p.lives/maxLives*100):0;
     const barCol=livePct>60?'var(--green)':livePct>30?'var(--accent)':'var(--red)';
@@ -1987,6 +1989,7 @@ function renderLeaderboard(g){
       <div class="lb-pct lb-pct-tip" data-tip="Prediction accuracy (correct / matches played)">${accuracy}%</div>
     </div>`;
   }).join('');
+  el.innerHTML = headerHTML + rowsHTML;
   el.querySelectorAll('[data-lbsort]').forEach(btn => {
     btn.addEventListener('click', () => { lbSort = btn.dataset.lbsort; renderLeaderboard(g); });
   });
