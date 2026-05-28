@@ -2322,8 +2322,9 @@ async function renderGameHost(g){
   renderProgress(g,'progress-bar');
   
   // Check if game should end - only count non-host players
+  const hasAnyResults = g.results && Object.keys(g.results).some(k => g.results[k] != null);
   const aliveNonHost = g.players.filter(p => !p.eliminated && !p.isHost);
-  if(aliveNonHost.length <= 1 && g.players.some(p => !p.isHost)){
+  if(hasAnyResults && aliveNonHost.length <= 1 && g.players.some(p => !p.isHost)){
     // Only end game if there are non-host players and only 1 or fewer are alive
     showWinner(g);
     return;
@@ -3227,7 +3228,9 @@ document.getElementById('bulk-autofill-btn').addEventListener('click', async () 
     else if(ac >= MAX_PICKS) { pick = 'home'; }
     else {
       const hr = fifaRating(m.home), ar = fifaRating(m.away);
-      pick = hr >= ar ? 'home' : 'away';
+      // 65% chance of picking the favourite, 35% upset — keeps things interesting
+      const pickFavourite = Math.random() < 0.65;
+      pick = pickFavourite ? (hr >= ar ? 'home' : 'away') : (hr >= ar ? 'away' : 'home');
     }
     bulkDraft[i] = pick;
     if(pick === 'home') teamPickCounts[m.home] = (teamPickCounts[m.home] || 0) + 1;
