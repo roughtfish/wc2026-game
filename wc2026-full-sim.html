@@ -1381,7 +1381,7 @@ document.getElementById('save-run-btn').addEventListener('click', () => {
     ts: Date.now(),
     label: label || `Run ${runs.length + 1}`,
     avgSurvivors: window._lastRunData.avgSurvivors.toFixed(1),
-    survivalRate: (window._lastRunData.survivalRate * 100).toFixed(0),
+    survivalRate: parseFloat(window._lastRunData.survivalRate).toFixed(1),
     settings: window._lastRunSettings,
   });
   saveSavedRuns(runs);
