@@ -972,14 +972,17 @@ async function displayResults(data) {
   // Suggest lives adjustment to target ~2 finalists (most dramatic finish)
   const finalistCurrentLives = parseInt(document.getElementById('starting-lives').value);
   let livesAdvice = '';
-  if(avgFinalists < 1) {
-    const suggestedIncrease = Math.ceil((1.5 - avgFinalists) / Math.max(avgFinalists, 0.1) * finalistCurrentLives / 5) * 5;
-    livesAdvice = `⬆️ Increase starting lives by ~${suggestedIncrease} to get more players to the Final`;
-  } else if(avgFinalists > 4) {
-    const suggestedDecrease = Math.ceil((avgFinalists - 2.5) / avgFinalists * finalistCurrentLives / 5) * 5;
-    livesAdvice = `⬇️ Decrease starting lives by ~${suggestedDecrease} for a tighter finish`;
-  } else if(avgFinalists >= 1.5 && avgFinalists <= 3) {
-    livesAdvice = `✅ Starting lives look well-tuned for a competitive Final`;
+  if(avgFinalists < 0.5) {
+    const suggestedIncrease = Math.ceil(currentLives * 0.3 / 5) * 5;
+    livesAdvice = `⬆️ Very few players reach the Final — try increasing lives by ~${suggestedIncrease}`;
+  } else if(avgFinalists < 1.5) {
+    const suggestedIncrease = Math.ceil(currentLives * 0.15 / 5) * 5;
+    livesAdvice = `⬆️ Consider increasing lives by ~${suggestedIncrease} for a more competitive Final`;
+  } else if(avgFinalists > 6) {
+    const suggestedDecrease = Math.ceil(currentLives * 0.15 / 5) * 5;
+    livesAdvice = `⬇️ A lot of players reach the Final — try decreasing lives by ~${suggestedDecrease} for more attrition`;
+  } else if(avgFinalists >= 1.5 && avgFinalists <= 6) {
+    livesAdvice = `✅ Starting lives look well-tuned — ${avgFinalists.toFixed(1)} avg finalists makes for a competitive Final`;
   } else {
     livesAdvice = `⚖️ Consider fine-tuning lives for your ideal number of finalists`;
   }
