@@ -969,13 +969,13 @@ async function displayResults(data) {
   const pctTwoPlus = (data.finalistCounts.slice(2).reduce((s,c)=>s+c,0) / data.numSims * 100).toFixed(0);
 
   // Suggest lives adjustment to target ~2 finalists (most dramatic finish)
-  const currentLives = parseInt(document.getElementById('starting-lives').value);
+  const finalistCurrentLives = parseInt(document.getElementById('starting-lives').value);
   let livesAdvice = '';
   if(avgFinalists < 1) {
-    const suggestedIncrease = Math.ceil((1.5 - avgFinalists) / avgFinalists * currentLives / 5) * 5;
+    const suggestedIncrease = Math.ceil((1.5 - avgFinalists) / Math.max(avgFinalists, 0.1) * finalistCurrentLives / 5) * 5;
     livesAdvice = `⬆️ Increase starting lives by ~${suggestedIncrease} to get more players to the Final`;
   } else if(avgFinalists > 4) {
-    const suggestedDecrease = Math.ceil((avgFinalists - 2.5) / avgFinalists * currentLives / 5) * 5;
+    const suggestedDecrease = Math.ceil((avgFinalists - 2.5) / avgFinalists * finalistCurrentLives / 5) * 5;
     livesAdvice = `⬇️ Decrease starting lives by ~${suggestedDecrease} for a tighter finish`;
   } else if(avgFinalists >= 1.5 && avgFinalists <= 3) {
     livesAdvice = `✅ Starting lives look well-tuned for a competitive Final`;
