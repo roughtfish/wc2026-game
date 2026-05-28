@@ -1756,10 +1756,10 @@ document.getElementById('skip-to-ko-btn').addEventListener('click', async () => 
     testPlayers.push({name:'Player '+i,lives,correct:0,eliminated:false,isHost:false,pwHash:testPwHash});
 
   const g = {
-    code, hostName, lives, mode:'test',
+    code, hostName, lives, mode:'full',
     status:'lobby',
     players: testPlayers,
-    matches: buildMatches('test'),
+    matches: buildMatches('full'),
     predictions:{}, currentMatchIdx:0, currentResult:null, bulkSubmitted:{},
   };
 
