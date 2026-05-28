@@ -1990,8 +1990,13 @@ function renderLeaderboard(g){
     </div>`;
   }).join('');
   el.innerHTML = headerHTML + rowsHTML;
-  el.querySelectorAll('[data-lbsort]').forEach(btn => {
-    btn.addEventListener('click', () => { lbSort = btn.dataset.lbsort; renderLeaderboard(g); });
+  el.addEventListener('click', function handler(e) {
+    const sortEl = e.target.closest('[data-lbsort]');
+    if(sortEl) {
+      el.removeEventListener('click', handler);
+      lbSort = sortEl.dataset.lbsort;
+      renderLeaderboard(g);
+    }
   });
   el.querySelectorAll('.lb-name-btn').forEach(btn=>{
     btn.addEventListener('click',()=>{
