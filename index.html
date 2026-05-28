@@ -530,7 +530,10 @@
           <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:3px;" id="bulk-round-label">Predicting all group stage matches</div>
           <div id="bulk-player-name" style="font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:2px;color:var(--accent);"></div>
         </div>
-        <button id="bulk-quit-btn" style="display:none;flex-shrink:0;margin-top:2px" class="btn btn-secondary btn-sm" style="font-size:11px;letter-spacing:1px;color:var(--red);border-color:rgba(239,68,68,0.3)">✕ Quit</button>
+        <div style="display:flex;gap:6px;flex-shrink:0;margin-top:2px">
+          <button id="bulk-autofill-btn" style="display:none" class="btn btn-secondary btn-sm" style="font-size:11px;letter-spacing:1px;color:var(--accent);border-color:rgba(45,212,191,0.3)">⚡ Auto-fill</button>
+          <button id="bulk-quit-btn" style="display:none" class="btn btn-secondary btn-sm" style="font-size:11px;letter-spacing:1px;color:var(--red);border-color:rgba(239,68,68,0.3)">✕ Quit</button>
+        </div>
       </div>
     </div>
     <div id="bulk-area"></div>
@@ -1928,6 +1931,8 @@ async function startBulk(g){
   document.getElementById('bulk-player-name').textContent=me.name+(me.role==='host'?' (Host)':'');
   const bulkQuitBtn=document.getElementById('bulk-quit-btn');
   if(bulkQuitBtn) bulkQuitBtn.style.display='inline-block';
+  const bulkAutoFillBtn=document.getElementById('bulk-autofill-btn');
+  if(bulkAutoFillBtn) bulkAutoFillBtn.style.display=me.role==='host'?'inline-block':'none';
   const _ba=document.getElementById('bulk-area'); if(_ba) _ba._watchCommit=null;
   show('screen-bulk');
   // Silently restore any partial draft saved previously
@@ -3197,6 +3202,41 @@ document.getElementById('play-again-btn').addEventListener('click',()=>{
 
 // ─── HISTORY CORRECTION ──────────────────────────────────────────────────────
 let historyReturnFn = null; // function to call when returning from history screen
+
+document.getElementById('bulk-autofill-btn').addEventListener('click', async () => {
+  const g = await loadGame(me.code);
+  if(!g) return;
+  const allTeams = [...new Set(GROUP_MATCHES.flatMap(m => [m.home, m.away]))];
+  const teamPickCounts = {};
+  // Count existing submitted picks
+  g.matches.forEach((m, i) => {
+    if(!m.group) return;
+    const pred = (g.predictions[i] || {})[me.name];
+    if(pred === 'home') teamPickCounts[m.home] = (teamPickCounts[m.home] || 0) + 1;
+    else if(pred === 'away') teamPickCounts[m.away] = (teamPickCounts[m.away] || 0) + 1;
+  });
+  g.matches.forEach((m, i) => {
+    if(!m.group) return;
+    if(bulkDraft[i] != null) return; // already picked in draft
+    if((g.predictions[i] || {})[me.name] != null) return; // already submitted
+    const hc = teamPickCounts[m.home] || 0;
+    const ac = teamPickCounts[m.away] || 0;
+    if(hc >= MAX_PICKS && ac >= MAX_PICKS) return; // both at limit
+    let pick;
+    if(hc >= MAX_PICKS) { pick = 'away'; }
+    else if(ac >= MAX_PICKS) { pick = 'home'; }
+    else {
+      const hr = fifaRating(m.home), ar = fifaRating(m.away);
+      pick = hr >= ar ? 'home' : 'away';
+    }
+    bulkDraft[i] = pick;
+    if(pick === 'home') teamPickCounts[m.home] = (teamPickCounts[m.home] || 0) + 1;
+    else teamPickCounts[m.away] = (teamPickCounts[m.away] || 0) + 1;
+  });
+  saveDraft({...bulkDraft, __scores: scoreDraft});
+  renderBulkForm(g);
+  showToast('⚡ Auto-filled with FIFA ratings');
+});
 
 document.getElementById('bulk-quit-btn').addEventListener('click',()=>{
   if(!confirm('Quit game and return to main menu? The game will remain saved and players can still rejoin.')) return;
