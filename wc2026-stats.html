@@ -1605,7 +1605,12 @@ function renderLivesChart(g){
 // ─── HISTORY FILTERS ─────────────────────────────────────────────────────────
 let currentFilter='all';
 let lbSort='lives'; // 'lives' | 'correct' | 'accuracy' | 'streak'
-window.setLbSort = function(key) { console.log('setLbSort called:', key, 'currentGame:', !!currentGame); lbSort = key; if(currentGame) renderLeaderboard(currentGame); };
+window.setLbSort = function(key) { 
+  console.log('setLbSort called:', key, 'currentGame:', !!currentGame); 
+  lbSort = key; 
+  try { if(currentGame) renderLeaderboard(currentGame); }
+  catch(e) { console.error('renderLeaderboard error:', e); }
+};
 document.addEventListener('click',e=>{
   const btn=e.target.closest('.filter-btn');
   if(!btn)return;
@@ -1935,7 +1940,7 @@ function calcStreaks(playerName, playedIdxs, results, predictions){
   return{best,current};
 }
 
-function renderLeaderboard(g){
+function renderLeaderboard(g){ console.log("renderLeaderboard called, lbSort:", lbSort);
   const maxLives=g.lives;
   const playedIdxsLb=Object.keys(g.results||{}).map(Number).filter(n=>!isNaN(n)&&(g.results||{})[n]!=null);
   if(!g.predictions)g.predictions={};
