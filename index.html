@@ -572,6 +572,10 @@
         <button class="btn btn-secondary btn-sm" id="open-ko-preds-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7;display:none">🎯 My Picks</button>
         <button class="btn btn-secondary btn-sm" id="undo-result-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7;display:none">↩ Undo</button>
         <button class="btn btn-secondary btn-sm" id="open-history-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7">✎ Edit Result</button>
+        <button class="btn btn-secondary btn-sm" id="backup-game-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Download full game backup (JSON) — restore later if anything goes wrong">💾 Backup</button>
+        <button class="btn btn-secondary btn-sm" id="restore-game-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Restore a game from a backup JSON file">📂 Restore</button>
+        <button class="btn btn-secondary btn-sm" id="export-csv-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Export all player picks to a CSV spreadsheet">📊 Export CSV</button>
+        <input type="file" id="restore-file-input" accept=".json,application/json" style="display:none">
         <button class="btn btn-secondary btn-sm" id="quit-game-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7;color:var(--red);border-color:rgba(239,68,68,0.3)">✕ Quit</button>
       </div>
       </div>
@@ -3294,6 +3298,91 @@ document.getElementById('quit-game-btn').addEventListener('click',()=>{
   try{sessionStorage.removeItem('kf_me');}catch(e){}
   me={};
   show('screen-landing');
+});
+
+// ─── BACKUP / RESTORE / EXPORT ────────────────────────────────────────────────
+document.getElementById('backup-game-btn').addEventListener('click', async () => {
+  const g = await loadGame(me.code);
+  if(!g){ alert('Could not load game to back up.'); return; }
+  const json = JSON.stringify(g, null, 2);
+  const blob = new Blob([json], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `kamikaze-${me.code}-${new Date().toISOString().slice(0,16).replace(/[:T]/g,'-')}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('💾 Backup downloaded');
+});
+
+document.getElementById('restore-game-btn').addEventListener('click', () => {
+  document.getElementById('restore-file-input').click();
+});
+
+document.getElementById('restore-file-input').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if(!file) return;
+  try{
+    const text = await file.text();
+    const restored = JSON.parse(text);
+    if(!restored.code || !restored.players || !restored.matches){
+      alert('This file doesn\'t look like a valid game backup.');
+      return;
+    }
+    if(!confirm(`Restore game "${restored.code}"? This will OVERWRITE the current state of game ${me.code} in the database with the backup. This cannot be undone.`)) {
+      e.target.value = '';
+      return;
+    }
+    // Force the restored game to use the current game code so it writes back to the right place
+    restored.code = me.code;
+    await saveGame(restored);
+    e.target.value = '';
+    showToast('📂 Game restored — reloading…');
+    setTimeout(async () => {
+      const g = await loadGame(me.code);
+      if(g) enterGame(g);
+    }, 800);
+  }catch(err){
+    alert('Failed to read backup file: ' + err.message);
+    e.target.value = '';
+  }
+});
+
+document.getElementById('export-csv-btn').addEventListener('click', async () => {
+  const g = await loadGame(me.code);
+  if(!g){ alert('Could not load game to export.'); return; }
+  // Build CSV: rows = matches, columns = match info + one per player
+  const players = g.players.map(p => p.name);
+  const header = ['Match #','Stage','Home','Away','Result', ...players, ...players.map(p => p+' (score)')];
+  const rows = [header];
+  g.matches.forEach((m, i) => {
+    const r = (g.results||{})[i];
+    const resultStr = r ? `${r.home}-${r.away}${r.penWinner ? ' (pen: '+r.penWinner+')' : ''}` : '';
+    const preds = g.predictions[i] || {};
+    const row = [
+      i+1,
+      m.group ? 'Group '+m.group : (m.round||'KO'),
+      m.home,
+      m.away,
+      resultStr,
+      ...players.map(name => preds[name] || ''),
+      ...players.map(name => { const s = preds[name+'_score']; return s ? `${s.home}-${s.away}` : ''; })
+    ];
+    rows.push(row);
+  });
+  // Escape CSV cells
+  const csv = rows.map(row => row.map(cell => {
+    const s = String(cell);
+    return /[",\n]/.test(s) ? '"' + s.replace(/"/g,'""') + '"' : s;
+  }).join(',')).join('\n');
+  const blob = new Blob([csv], {type:'text/csv'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `kamikaze-${me.code}-picks.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('📊 CSV exported');
 });
 document.getElementById('watch-refresh-btn').addEventListener('click', async () => {
   const btn = document.getElementById('watch-refresh-btn');
