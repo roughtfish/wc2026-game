@@ -2158,14 +2158,19 @@ function renderBulkForm(g){
 
   // Score number inputs
   area.querySelectorAll('.score-input-mini').forEach(input=>{
-    input.addEventListener('change',()=>{
+    const apply=()=>{
       const isHome=input.dataset.scoreHome!==undefined;
       const idx=parseInt(isHome?input.dataset.scoreHome:input.dataset.scoreAway);
       if(!scoreDraft[idx])scoreDraft[idx]={home:0,away:0};
       const val=Math.max(0,Math.min(20,parseInt(input.value)||0));
       if(isHome)scoreDraft[idx].home=val; else scoreDraft[idx].away=val;
       saveDraft({...bulkDraft,__scores:scoreDraft});
-    });
+      // Live-update the SCORE badge text for this match without full re-render
+      const toggleBtn=area.querySelector(`.score-predict-toggle[data-score-idx="${idx}"]`);
+      if(toggleBtn){toggleBtn.textContent='✓ Score: '+scoreDraft[idx].home+'–'+scoreDraft[idx].away;}
+    };
+    input.addEventListener('input',apply);
+    input.addEventListener('change',apply);
   });
 }
 
