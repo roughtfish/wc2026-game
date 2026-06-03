@@ -575,6 +575,7 @@
         <button class="btn btn-secondary btn-sm" id="backup-game-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Download full game backup (JSON) — restore later if anything goes wrong">💾 Backup</button>
         <button class="btn btn-secondary btn-sm" id="restore-game-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Restore a game from a backup JSON file">📂 Restore</button>
         <button class="btn btn-secondary btn-sm" id="export-csv-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Export all player picks to a CSV spreadsheet">📊 Export CSV</button>
+        <button class="btn btn-secondary btn-sm" id="local-backups-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="View and restore automatic local backups (last 10)">⏱ Local Backups</button>
         <input type="file" id="restore-file-input" accept=".json,application/json" style="display:none">
         <button class="btn btn-secondary btn-sm" id="quit-game-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7;color:var(--red);border-color:rgba(239,68,68,0.3)">✕ Quit</button>
       </div>
@@ -628,6 +629,17 @@
 
   <!-- Rival Selection Modal -->
   <div id="toast-container"></div>
+
+  <div id="local-backups-modal" class="modal" style="display:none">
+    <div class="modal-content" style="max-width:480px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <h2 style="margin:0;font-size:18px">⏱ Local Backups</h2>
+        <button id="close-local-backups-btn" style="background:none;border:none;color:var(--muted);font-size:24px;cursor:pointer;padding:0;line-height:1">&times;</button>
+      </div>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:16px">Automatic snapshots saved on this device after each result and day. Restoring overwrites the current game in the database.</p>
+      <div id="local-backups-list"></div>
+    </div>
+  </div>
 
   <div id="rival-modal" class="modal" style="display:none">
     <div class="modal-content" style="max-width:380px">
@@ -1473,6 +1485,32 @@ async function loadGame(code){
     });
     return state;
   }catch(e){ console.error('loadGame',e); return null; }
+}
+
+// ─── ROLLING LOCAL BACKUPS ────────────────────────────────────────────────────
+const MAX_LOCAL_BACKUPS = 10;
+function localBackupKey(code){ return `kf-backups-${code}`; }
+
+function saveLocalBackup(g, note){
+  try{
+    const key = localBackupKey(g.code);
+    let backups = [];
+    try{ backups = JSON.parse(localStorage.getItem(key) || '[]'); }catch(e){ backups = []; }
+    backups.unshift({
+      ts: Date.now(),
+      note: note || '',
+      matchIdx: g.currentMatchIdx,
+      status: g.status,
+      state: JSON.stringify(g)
+    });
+    if(backups.length > MAX_LOCAL_BACKUPS) backups = backups.slice(0, MAX_LOCAL_BACKUPS);
+    localStorage.setItem(key, JSON.stringify(backups));
+  }catch(e){ console.warn('saveLocalBackup failed', e); }
+}
+
+function getLocalBackups(code){
+  try{ return JSON.parse(localStorage.getItem(localBackupKey(code)) || '[]'); }
+  catch(e){ return []; }
 }
 
 async function saveGame(g){
@@ -2672,6 +2710,7 @@ function renderResultEntry(g,match,area){
       }
       f.status='reveal:'+f.currentMatchIdx;
       await saveGame(f);
+      saveLocalBackup(f, `Result entered: ${f.matches[f.currentMatchIdx].home} ${h}-${a} ${f.matches[f.currentMatchIdx].away}`);
       renderReveal(f);
     }catch(e){
       console.error('submit-result failed',e);
@@ -3384,6 +3423,53 @@ document.getElementById('export-csv-btn').addEventListener('click', async () => 
   URL.revokeObjectURL(url);
   showToast('📊 CSV exported');
 });
+
+// ─── LOCAL BACKUPS MODAL ──────────────────────────────────────────────────────
+document.getElementById('local-backups-btn').addEventListener('click', () => {
+  renderLocalBackupsList();
+  document.getElementById('local-backups-modal').style.display = 'flex';
+});
+document.getElementById('close-local-backups-btn').addEventListener('click', () => {
+  document.getElementById('local-backups-modal').style.display = 'none';
+});
+
+function renderLocalBackupsList(){
+  const backups = getLocalBackups(me.code);
+  const list = document.getElementById('local-backups-list');
+  if(backups.length === 0){
+    list.innerHTML = '<div style="color:var(--muted);font-size:13px;text-align:center;padding:20px">No local backups yet. They\'re created automatically as you enter results.</div>';
+    return;
+  }
+  list.innerHTML = backups.map((b, i) => `
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;gap:10px">
+      <div style="min-width:0">
+        <div style="font-size:12px;color:var(--text);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${b.note || 'Snapshot'}</div>
+        <div style="font-size:10px;color:var(--muted)">${new Date(b.ts).toLocaleString()} · ${b.status || ''}</div>
+      </div>
+      <button class="btn btn-secondary btn-sm" style="font-size:10px;letter-spacing:1px;flex-shrink:0" onclick="window.restoreLocalBackup(${i})">Restore</button>
+    </div>
+  `).join('');
+}
+
+window.restoreLocalBackup = async function(idx){
+  const backups = getLocalBackups(me.code);
+  const b = backups[idx];
+  if(!b) return;
+  if(!confirm(`Restore this backup?\n\n"${b.note}"\n${new Date(b.ts).toLocaleString()}\n\nThis will overwrite the current game state in the database.`)) return;
+  try{
+    const restored = JSON.parse(b.state);
+    restored.code = me.code;
+    await saveGame(restored);
+    document.getElementById('local-backups-modal').style.display = 'none';
+    showToast('⏱ Backup restored — reloading…');
+    setTimeout(async () => {
+      const g = await loadGame(me.code);
+      if(g) enterGame(g);
+    }, 800);
+  }catch(err){
+    alert('Failed to restore backup: ' + err.message);
+  }
+};
 document.getElementById('watch-refresh-btn').addEventListener('click', async () => {
   const btn = document.getElementById('watch-refresh-btn');
   const originalText = btn.textContent;
@@ -5504,6 +5590,7 @@ async function hostContinueFromSummary() {
   }
   
   await saveGame(g);
+  saveLocalBackup(g, 'Day completed — advanced to next day');
   
   // Clear today's matches array for the next day
   todaysMatches = [];
