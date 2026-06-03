@@ -303,9 +303,13 @@
   .bulk-toggle{display:flex;border-radius:6px;overflow:hidden;border:1px solid var(--border);flex-shrink:0}
   .bulk-toggle button{background:var(--surface2);border:none;color:var(--muted);padding:5px 8px;font-size:10px;font-weight:600;cursor:pointer;transition:all 0.12s;font-family:inherit;border-right:1px solid var(--border)}
   .bulk-toggle button:last-child{border-right:none}
-  .bulk-toggle button.active-home{background:var(--accent);color:#0a0f1a;box-shadow:0 0 0 2px var(--accent),0 0 10px rgba(232,184,75,0.5);position:relative;z-index:1}
-  .bulk-toggle button.active-draw{background:#cbd5e1;color:#0a0f1a;box-shadow:0 0 0 2px #cbd5e1,0 0 10px rgba(203,213,225,0.4);position:relative;z-index:1}
-  .bulk-toggle button.active-away{background:var(--accent2);color:#0a0f1a;box-shadow:0 0 0 2px var(--accent2),0 0 10px rgba(45,212,191,0.5);position:relative;z-index:1}
+  .bulk-toggle.has-pick button{opacity:0.3;filter:grayscale(0.6)}
+  .bulk-toggle.has-pick button.active-home,
+  .bulk-toggle.has-pick button.active-draw,
+  .bulk-toggle.has-pick button.active-away{opacity:1;filter:none}
+  .bulk-toggle button.active-home{background:var(--accent);box-shadow:inset 0 0 0 3px #fff,0 0 0 3px var(--accent),0 0 14px rgba(232,184,75,0.7);position:relative;z-index:1;transform:scale(1.12)}
+  .bulk-toggle button.active-draw{background:#e2e8f0;color:#0a0f1a;font-weight:900;box-shadow:inset 0 0 0 3px #fff,0 0 0 3px #e2e8f0,0 0 14px rgba(226,232,240,0.6);position:relative;z-index:1;transform:scale(1.12)}
+  .bulk-toggle button.active-away{background:var(--accent2);box-shadow:inset 0 0 0 3px #fff,0 0 0 3px var(--accent2),0 0 14px rgba(45,212,191,0.7);position:relative;z-index:1;transform:scale(1.12)}
   .sticky-submit{position:sticky;bottom:0;background:var(--bg);padding:12px 0 5px;margin-top:12px;border-top:1px solid var(--border)}
   .bulk-progress-info{display:flex;align-items:center;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:12px}
   .presence-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--green);margin-right:4px;vertical-align:middle;animation:pulse-dot 2s ease-in-out infinite}
@@ -2051,7 +2055,7 @@ function renderBulkForm(g){
       const hasScore=!!sc;
       html+=`<div class="bulk-match-row${sel===undefined?' unpredicted':''}">
         <div class="bulk-team${sel==='home'?' picked-side':''}"><span style="font-size:10px;color:${homeAtLimit?'var(--red)':homeCount>=MAX_PICKS-1?'var(--accent)':'var(--muted)'};margin-right:4px;font-weight:600">${homeCount}/${MAX_PICKS}</span><span class="bulk-team-flag">${flag(m.home,20)}</span><span>${m.home}</span></div>
-        <div class="bulk-toggle">
+        <div class="bulk-toggle${sel!==undefined?' has-pick':''}">
           <button data-idx="${idx}" data-val="home" class="${sel==='home'?'active-home':''}" title="${m.home} win${homeAtLimit?' — limit reached':''}" style="font-size:16px;padding:5px 9px;${homeAtLimit?'opacity:0.3;cursor:not-allowed;':''}" ${homeAtLimit?'disabled':''}>${flag(m.home,20)}</button>
           <button data-idx="${idx}" data-val="draw" class="${sel==='draw'?'active-draw':''}" title="Draw${drawAtLimit&&sel!=='draw'?' — draw limit reached':''}" style="font-size:14px;padding:5px 8px;${drawAtLimit&&sel!=='draw'?'opacity:0.3;cursor:not-allowed;':''}" ${drawAtLimit&&sel!=='draw'?'disabled':''}><span style="font-weight:900">=</span></button>
           <button data-idx="${idx}" data-val="away" class="${sel==='away'?'active-away':''}" title="${m.a} win${awayAtLimit?' — limit reached':''}" style="font-size:16px;padding:5px 9px;${awayAtLimit?'opacity:0.3;cursor:not-allowed;':''}" ${awayAtLimit?'disabled':''}>${flag(m.away,20)}</button>
@@ -4124,7 +4128,7 @@ function renderKOBulkForm(g, round) {
     const bothBlocked = blockedMatches.has(idx);
     html += `<div class="bulk-match-row${bothBlocked ? '' : sel === undefined ? ' unpredicted' : ''}">
       <div class="bulk-team${sel === 'home' ? ' picked-side' : ''}"><span style="font-size:10px;color:${homeAtLimit?'var(--red)':homeCount>=MAX_PICKS-1?'var(--accent)':'var(--muted)'};margin-right:4px;font-weight:600">${homeCount}/5</span><span class="bulk-team-flag">${flag(m.home, 20)}</span><span>${m.home}</span></div>
-      <div class="bulk-toggle">
+      <div class="bulk-toggle${sel !== undefined ? ' has-pick' : ''}">
         <button data-idx="${idx}" data-val="home" class="${sel === 'home' ? 'active-home' : ''}" title="${m.home} win${homeAtLimit ? ' — limit reached' : ''}" style="font-size:16px;padding:5px 9px;${homeAtLimit || isLocked ? 'opacity:0.3;cursor:not-allowed;' : ''}" ${homeAtLimit || isLocked ? 'disabled' : ''}>${flag(m.home, 20)}</button>
         ${bothBlocked ? '<span style="font-size:10px;color:var(--muted);padding:0 6px">both at limit</span>' : ''}
         <button data-idx="${idx}" data-val="away" class="${sel === 'away' ? 'active-away' : ''}" title="${m.away} win${awayAtLimit ? ' — limit reached' : ''}" style="font-size:16px;padding:5px 9px;${awayAtLimit || isLocked ? 'opacity:0.3;cursor:not-allowed;' : ''}" ${awayAtLimit || isLocked ? 'disabled' : ''}>${flag(m.away, 20)}</button>
