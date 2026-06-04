@@ -1722,6 +1722,10 @@ let h2hSelectedPlayers = [];
 
 function closeH2HModal(){
   document.getElementById('h2h-modal').style.display='none';
+  // Turn off H2H mode and clear the selection when the comparison is closed
+  const toggle = document.getElementById('h2h-mode-toggle');
+  if(toggle) toggle.checked = false;
+  clearH2HSelection();
 }
 
 document.addEventListener('keydown',e=>{
