@@ -515,6 +515,8 @@
       <button class="btn btn-secondary" id="copy-code-btn" style="margin-bottom:16px;">📋 Copy code</button>
       <h3>PLAYERS JOINED</h3>
       <div class="player-roster" id="host-roster"></div>
+      <button class="btn btn-secondary" id="host-make-picks-btn" style="margin-top:14px;">✏️ Make My Predictions Now</button>
+      <p style="font-size:11px;color:var(--muted);margin-top:6px;margin-bottom:0;">Get your own picks in early — you can still change them, and you choose when to start the game for everyone.</p>
       <button class="btn btn-primary" id="start-game-btn" style="margin-top:18px;" disabled>WAITING FOR PLAYERS…</button>
     </div>
   </div>
@@ -1884,7 +1886,19 @@ async function pollHostLobby(){
   const n=g.players.length;
   btn.disabled=n<2;
   btn.textContent=n>=2?`START WITH ${n} PLAYER${n>1?'S':''}`:' WAITING FOR PLAYERS…';
+  const picksBtn=document.getElementById('host-make-picks-btn');
+  if(picksBtn){
+    const submitted=g.bulkSubmitted&&g.bulkSubmitted[me.name];
+    picksBtn.textContent=submitted?'✏️ Edit My Predictions':'✏️ Make My Predictions Now';
+  }
 }
+
+document.getElementById('host-make-picks-btn').addEventListener('click', async () => {
+  const g = await loadGame(me.code);
+  if(!g){ alert('Could not load game.'); return; }
+  stopPolling();
+  startBulk(g);
+});
 
 document.getElementById('start-game-btn').addEventListener("click",async()=>{
   const g=await loadGame(me.code);if(!g)return;
@@ -1900,7 +1914,9 @@ document.getElementById('start-game-btn').addEventListener("click",async()=>{
     g.status='bulk';
     await saveGame(g);
     stopPolling();
-    startBulk(g);
+    // If the host already pre-submitted their picks, skip them to the waiting screen
+    if(g.bulkSubmitted&&g.bulkSubmitted[me.name]){show('screen-bulk-done');startPolling(pollBulkDone);}
+    else startBulk(g);
   } else {
     // KO-only mode: go straight to R32 predictions
     g.status='ko-bulk:Round of 32';
@@ -2236,10 +2252,16 @@ async function commitBulk(g){
     clearDraft(); // no longer needed
     if(fresh.status==='playing'){stopPolling();if(me.role==='host')enterGame(fresh);else watchGame(fresh);}
     else if(!hostHasStarted){
-      // Pre-submitted during lobby — return to lobby to keep waiting
-      show('screen-player-lobby');
-      startPolling(pollPlayerLobby);
-      showToast('✓ Predictions saved — you can change them until the host starts');
+      // Pre-submitted during lobby — return to the correct lobby to keep waiting
+      if(me.role==='host'){
+        document.getElementById('lobby-code-display').textContent=fresh.code;
+        show('screen-host-lobby');
+        startPolling(pollHostLobby);
+      } else {
+        show('screen-player-lobby');
+        startPolling(pollPlayerLobby);
+      }
+      showToast('✓ Predictions saved — you can change them until the game starts');
     }
     else{show('screen-bulk-done');startPolling(pollBulkDone);}
   }catch(e){
