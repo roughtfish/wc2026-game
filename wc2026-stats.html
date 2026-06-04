@@ -1605,12 +1605,7 @@ function renderLivesChart(g){
 // ─── HISTORY FILTERS ─────────────────────────────────────────────────────────
 let currentFilter='all';
 let lbSort='lives'; // 'lives' | 'correct' | 'accuracy' | 'streak'
-window.setLbSort = function(key) { 
-  console.log('setLbSort called:', key, 'currentGame:', !!currentGame); 
-  lbSort = key; 
-  try { if(currentGame) renderLeaderboard(currentGame); }
-  catch(e) { console.error('renderLeaderboard error:', e); }
-};
+window.setLbSort = function(key) { lbSort = key; if(currentGame) renderLeaderboard(currentGame); };
 document.addEventListener('click',e=>{
   const btn=e.target.closest('.filter-btn');
   if(!btn)return;
@@ -1743,6 +1738,9 @@ document.addEventListener('DOMContentLoaded', () => {
     toggle.addEventListener('change', () => {
       if(!toggle.checked){
         clearH2HSelection();
+      } else {
+        // Prompt the user to pick players when they enable H2H mode
+        updateH2HBanner();
       }
     });
   }
@@ -1785,13 +1783,22 @@ function toggleH2HSelection(playerName){
 
 function updateH2HBanner(){
   const banner = document.getElementById('h2h-banner');
+  const toggle = document.getElementById('h2h-mode-toggle');
+  const modeOn = toggle && toggle.checked;
   if(h2hSelectedPlayers.length === 0){
-    banner.style.display = 'none';
+    if(modeOn){
+      // Mode is on but nothing picked yet — tell the user what to do
+      banner.style.display = 'flex';
+      banner.className = 'h2h-banner';
+      banner.innerHTML = `<span class="h2h-banner-text">📊 Head-to-head mode on — tap two players in the table below to compare them</span>`;
+    } else {
+      banner.style.display = 'none';
+    }
   } else if(h2hSelectedPlayers.length === 1){
     banner.style.display = 'flex';
     banner.className = 'h2h-banner';
     banner.innerHTML = `
-      <span class="h2h-banner-text">📊 ${h2hSelectedPlayers[0]} selected — click another player to compare</span>
+      <span class="h2h-banner-text">📊 ${h2hSelectedPlayers[0]} selected — tap one more player to compare</span>
       <button class="h2h-banner-btn" onclick="clearH2HSelection()">Clear</button>
     `;
   }
@@ -1940,7 +1947,7 @@ function calcStreaks(playerName, playedIdxs, results, predictions){
   return{best,current};
 }
 
-function renderLeaderboard(g){ console.log("renderLeaderboard called, lbSort:", lbSort);
+function renderLeaderboard(g){
   const maxLives=g.lives;
   const playedIdxsLb=Object.keys(g.results||{}).map(Number).filter(n=>!isNaN(n)&&(g.results||{})[n]!=null);
   if(!g.predictions)g.predictions={};
