@@ -579,6 +579,7 @@
         <button class="btn btn-secondary btn-sm" id="open-ko-preds-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7;display:none">🎯 My Picks</button>
         <button class="btn btn-secondary btn-sm" id="undo-result-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7;display:none">↩ Undo</button>
         <button class="btn btn-secondary btn-sm" id="open-history-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7">✎ Edit Result</button>
+        <button class="btn btn-secondary btn-sm" id="adjust-lives-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Add or remove lives from all active players">❤️ Adjust Lives</button>
         <button class="btn btn-secondary btn-sm" id="backup-game-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Download full game backup (JSON) — restore later if anything goes wrong">💾 Backup</button>
         <button class="btn btn-secondary btn-sm" id="restore-game-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Restore a game from a backup JSON file">📂 Restore</button>
         <button class="btn btn-secondary btn-sm" id="export-csv-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Export all player picks to a CSV spreadsheet">📊 Export CSV</button>
@@ -1991,7 +1992,7 @@ async function startBulk(g){
   const bulkQuitBtn=document.getElementById('bulk-quit-btn');
   if(bulkQuitBtn) bulkQuitBtn.style.display='inline-block';
   const bulkAutoFillBtn=document.getElementById('bulk-autofill-btn');
-  if(bulkAutoFillBtn) bulkAutoFillBtn.style.display='inline-block';
+  if(bulkAutoFillBtn) bulkAutoFillBtn.style.display=me.role==='host'?'inline-block':'none';
   const _ba=document.getElementById('bulk-area'); if(_ba) _ba._watchCommit=null;
   show('screen-bulk');
   // Silently restore any partial draft saved previously
@@ -3437,6 +3438,30 @@ document.getElementById('export-csv-btn').addEventListener('click', async () => 
 });
 
 // ─── LOCAL BACKUPS MODAL ──────────────────────────────────────────────────────
+// ─── ADJUST LIVES ─────────────────────────────────────────────────────────────
+document.getElementById('adjust-lives-btn').addEventListener('click', async () => {
+  const input = prompt('Adjust lives for ALL active players.\n\nEnter a number to add (e.g. 5) or remove (e.g. -3):');
+  if(input === null) return;
+  const delta = parseInt(input);
+  if(isNaN(delta) || delta === 0){ alert('Please enter a non-zero whole number (e.g. 5 or -3).'); return; }
+  const g = await loadGame(me.code);
+  if(!g){ alert('Could not load game.'); return; }
+  const active = g.players.filter(p => !p.eliminated);
+  if(!confirm(`${delta > 0 ? 'Add '+delta+' lives to' : 'Remove '+Math.abs(delta)+' lives from'} all ${active.length} active player${active.length===1?'':'s'}?`)) return;
+  let eliminatedNow = 0;
+  g.players.forEach(p => {
+    if(p.eliminated) return;
+    p.lives = Math.max(0, p.lives + delta);
+    if(p.lives === 0){ p.eliminated = true; eliminatedNow++; }
+  });
+  await saveGame(g);
+  saveLocalBackup(g, `Lives adjusted by ${delta > 0 ? '+' : ''}${delta}`);
+  let msg = `❤️ ${delta > 0 ? 'Added '+delta : 'Removed '+Math.abs(delta)} lives`;
+  if(eliminatedNow > 0) msg += ` · ${eliminatedNow} eliminated`;
+  showToast(msg);
+  enterGame(g);
+});
+
 document.getElementById('local-backups-btn').addEventListener('click', () => {
   renderLocalBackupsList();
   document.getElementById('local-backups-modal').style.display = 'flex';
