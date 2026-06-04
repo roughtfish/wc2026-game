@@ -1927,6 +1927,11 @@ async function pollHostLobby(){
 document.getElementById('host-make-picks-btn').addEventListener('click', async () => {
   const g = await loadGame(me.code);
   if(!g){ alert('Could not load game.'); return; }
+  // If they were marked ready, clear it while they edit so others see "Waiting…"
+  if(g.bulkSubmitted && g.bulkSubmitted[me.name]){
+    delete g.bulkSubmitted[me.name];
+    await saveGame(g);
+  }
   stopPolling();
   startBulk(g);
 });
@@ -2019,6 +2024,11 @@ document.getElementById('join-game-btn').addEventListener("click",async()=>{
 document.getElementById('lobby-make-picks-btn').addEventListener('click', async () => {
   const g = await loadGame(me.code);
   if(!g){ alert('Could not load game.'); return; }
+  // If they were marked ready, clear it while they edit so others see "Waiting…"
+  let needsSave = false;
+  if(g.bulkSubmitted && g.bulkSubmitted[me.name]){ delete g.bulkSubmitted[me.name]; needsSave = true; }
+  if(g.koBulkSubmitted && g.koBulkSubmitted[me.name]){ delete g.koBulkSubmitted[me.name]; needsSave = true; }
+  if(needsSave) await saveGame(g);
   // If host has already moved to bulk/ko-bulk, the normal poll will handle it; otherwise pre-pick
   stopPolling();
   if(g.status && g.status.startsWith('ko-bulk:')){ startKOBulk(g, g.status.slice(8)); return; }
@@ -2317,6 +2327,11 @@ async function pollBulkDone(){
     viewPicksBtn.addEventListener('click', async()=>{
       const fresh = await loadGame(me.code);
       if(!fresh) return;
+      // Clear ready status while editing so others see "Waiting…"
+      let needsSave=false;
+      if(fresh.bulkSubmitted && fresh.bulkSubmitted[me.name]){ delete fresh.bulkSubmitted[me.name]; needsSave=true; }
+      if(fresh.koBulkSubmitted && fresh.koBulkSubmitted[me.name]){ delete fresh.koBulkSubmitted[me.name]; needsSave=true; }
+      if(needsSave) await saveGame(fresh);
       // KO bulk round
       if(fresh.status && fresh.status.startsWith('ko-bulk:')){
         const round = fresh.status.slice(8);
