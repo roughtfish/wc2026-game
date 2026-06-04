@@ -3340,7 +3340,8 @@ async function renderWatchScreen(g){
 function determineWinner(g){
   const alive=g.players.filter(p=>!p.eliminated);
   const pool=alive.length>0?alive:g.players;
-  const sorted=[...pool].sort((a,b)=>b.lives-a.lives||b.correct-a.correct);
+  // Tiebreak order: most lives → most correct predictions → most exact-score hits
+  const sorted=[...pool].sort((a,b)=>b.lives-a.lives||b.correct-a.correct||(b.scoreBonus||0)-(a.scoreBonus||0));
   const winner=sorted[0];
   // Work out how it was decided
   let method='last-standing',tiebreakUsed=false;
@@ -3352,6 +3353,10 @@ function determineWinner(g){
     if(sorted.length>1&&sorted[0].lives===sorted[1].lives){
       tiebreakUsed=true;
       method='tiebreak-correct';
+      // If correct counts are ALSO equal, it went to exact-score count
+      if(sorted[0].correct===sorted[1].correct){
+        method='tiebreak-scores';
+      }
     }
   }
   return{winner,sorted,method,tiebreakUsed,alive};
@@ -3386,6 +3391,12 @@ function setWinnerBanner(g){
     detailEl.innerHTML=`<span style="color:var(--accent)">Tiebreak:</span> equal lives — decided by most correct predictions<br><span style="color:var(--muted);font-size:11px">${winner.lives} lives · ${winner.correct} correct</span>`;
     return;
   }
+  if(method==='tiebreak-scores'){
+    if(subEl)subEl.textContent='Won on tiebreak';
+    nameEl.textContent=winner.name;
+    detailEl.innerHTML=`<span style="color:var(--accent)">Tiebreak:</span> equal lives &amp; correct predictions — decided by most exact scores<br><span style="color:var(--muted);font-size:11px">${winner.lives} lives · ${winner.correct} correct · ${winner.scoreBonus||0} exact scores</span>`;
+    return;
+  }
 }
 
 function showWinner(g){
@@ -3399,7 +3410,7 @@ function showFinalLeaderboard(g){
   renderFinalLB(g);
 }
 function renderFinalLB(g){
-  const s=[...g.players].sort((a,b)=>b.lives-a.lives||b.correct-a.correct);
+  const s=[...g.players].sort((a,b)=>b.lives-a.lives||b.correct-a.correct||(b.scoreBonus||0)-(a.scoreBonus||0));
   // Count exact score bonuses per player
   const scoreBonuses={};
   Object.keys(g.results||{}).forEach(idx=>{
