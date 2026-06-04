@@ -493,7 +493,7 @@
     <div class="card">
       <h2>JOIN OR REJOIN</h2>
       <div class="info-box" style="margin-bottom:14px;">New player? Pick a password — you'll need it to rejoin from any device. Already in? Enter your name, code and password.</div>
-      <div class="field"><label>Your name</label><input type="text" id="player-name" placeholder="e.g. Jordan" maxlength="20"></div>
+      <div class="field"><label>Your name</label><input type="text" id="player-name" placeholder="e.g. Jordan" maxlength="20"><div style="font-size:11px;color:var(--muted);margin-top:4px">Rejoining? Enter your name exactly as before — it's case-sensitive.</div></div>
       <div class="field">
         <label>Game code</label>
         <input type="text" id="player-code" placeholder="e.g. ABCD" maxlength="6" style="font-family:'Bebas Neue',sans-serif;font-size:30px;letter-spacing:10px;text-transform:uppercase;text-align:center;">
@@ -2003,7 +2003,7 @@ document.getElementById('join-game-btn').addEventListener("click",async()=>{
   }
 
   // New player joining — store password hash
-  if(g.status!=='lobby'){err.textContent='This game has already started. Use the same name you originally joined with to rejoin.';err.style.display='block';return;}
+  if(g.status!=='lobby'){err.textContent='This game has already started — no new players can join. If you\'re already in the game, enter your name EXACTLY as you first registered it (it\'s case-sensitive) to rejoin.';err.style.display='block';return;}
   me.name=name;me.code=g.code;me.role='player';saveSession();
   g.players.push({name,pwHash,lives:g.lives,correct:0,eliminated:false,isHost:false});
   // In test mode, auto-fill this player's predictions immediately
