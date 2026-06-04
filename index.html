@@ -638,6 +638,14 @@
       </div>
       <div class="players-grid" id="watch-players-grid"></div>
     </div>
+    <div id="watch-rival-cta" style="display:none;background:linear-gradient(135deg, rgba(45,212,191,0.15), rgba(45,212,191,0.05));border:2px solid var(--accent2);border-radius:12px;padding:16px;margin-bottom:16px;text-align:center;">
+      <div style="display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:8px;">
+        <span style="font-size:24px;">⚔️</span>
+        <h3 style="color:var(--accent2);margin:0;font-size:15px;">CHOOSE YOUR RIVAL</h3>
+      </div>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:12px;">Pick someone to go head-to-head with. Beat them on correct predictions across the group stage to earn bonus lives!</p>
+      <button class="btn btn-teal" id="watch-rival-cta-btn" style="max-width:260px;margin:0 auto;">⚔️ Set My Rival</button>
+    </div>
     <div class="progress-bar-wrap"><div class="progress-bar-fill" id="watch-progress-bar" style="width:0%"></div></div>
     <div id="watch-area"></div>
   </div>
@@ -3155,14 +3163,26 @@ async function renderWatchScreen(g){
   const rivalDisplay = document.getElementById('watch-current-rival');
   const rivalName = document.getElementById('watch-rival-name');
   const noRivalDisplay = document.getElementById('watch-no-rival');
+  const rivalCta = document.getElementById('watch-rival-cta');
+  // Is it still the group stage? (rival bonus only applies during groups)
+  const curMatchRival = g.matches[g.currentMatchIdx];
+  const isGroupStageRival = curMatchRival && curMatchRival.group;
   if(myPlayer) {
     if(myPlayer.currentRival) {
       if(rivalDisplay) rivalDisplay.style.display = 'block';
       if(rivalName) rivalName.textContent = myPlayer.currentRival;
       if(noRivalDisplay) noRivalDisplay.style.display = 'none';
+      if(rivalCta) rivalCta.style.display = 'none';
     } else {
       if(rivalDisplay) rivalDisplay.style.display = 'none';
-      if(noRivalDisplay) noRivalDisplay.style.display = 'block';
+      // Prominent CTA only during the group stage; small button hidden when CTA shows
+      if(isGroupStageRival){
+        if(rivalCta) rivalCta.style.display = 'block';
+        if(noRivalDisplay) noRivalDisplay.style.display = 'none';
+      } else {
+        if(rivalCta) rivalCta.style.display = 'none';
+        if(noRivalDisplay) noRivalDisplay.style.display = 'none';
+      }
     }
   }
   
@@ -3665,6 +3685,7 @@ function openRivalModalFromWatch() {
 }
 document.getElementById('watch-set-rival-btn')?.addEventListener('click', openRivalModalFromWatch);
 document.getElementById('watch-set-rival-no-rival-btn')?.addEventListener('click', openRivalModalFromWatch);
+document.getElementById('watch-rival-cta-btn')?.addEventListener('click', openRivalModalFromWatch);
 document.getElementById('undo-result-btn').addEventListener('click', async () => {
   const g = await loadGame(me.code);
   if (!g) return;
