@@ -1732,8 +1732,35 @@ function renderRoster(g,elId){
     const badge=p.isHost?`<span class="roster-badge badge-host">Host</span>`
       :sub?`<span class="roster-badge badge-ready">✓ Ready</span>`
       :`<span class="roster-badge badge-waiting pulse">Waiting…</span>`;
-    return`<div class="roster-item"><span>${p.name}</span>${badge}</div>`;
+    const delBtn=(me.role==='host'&&!p.isHost)?`<button class="roster-del-btn" data-del-player="${encodeURIComponent(p.name)}" title="Remove ${p.name} from the game" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:16px;padding:0 4px;margin-left:4px;line-height:1">×</button>`:'';
+    return`<div class="roster-item"><span>${p.name}</span><span style="display:flex;align-items:center;gap:2px">${badge}${delBtn}</span></div>`;
   }).join('');
+  el.querySelectorAll('.roster-del-btn').forEach(btn=>{
+    btn.addEventListener('click',async(e)=>{
+      e.stopPropagation();
+      const name=decodeURIComponent(btn.dataset.delPlayer);
+      if(!confirm(`Remove ${name} from the game? This deletes their predictions and cannot be undone.`))return;
+      const fresh=await loadGame(me.code);
+      if(!fresh)return;
+      fresh.players=fresh.players.filter(pl=>pl.name!==name);
+      if(fresh.bulkSubmitted)delete fresh.bulkSubmitted[name];
+      if(fresh.koBulkSubmitted)delete fresh.koBulkSubmitted[name];
+      // Remove their predictions from every match
+      if(fresh.predictions){
+        Object.keys(fresh.predictions).forEach(idx=>{
+          if(fresh.predictions[idx]){
+            delete fresh.predictions[idx][name];
+            delete fresh.predictions[idx][name+'_score'];
+          }
+        });
+      }
+      // Clear them as anyone's rival
+      fresh.players.forEach(pl=>{ if(pl.currentRival===name) pl.currentRival=null; });
+      await saveGame(fresh);
+      showToast(`${name} removed`);
+      renderRoster(fresh,elId);
+    });
+  });
 }
 
 // ─── LANDING ─────────────────────────────────────────────────────────────────
