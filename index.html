@@ -2315,24 +2315,20 @@ async function pollBulkDone(){
     viewPicksBtn.addEventListener('click', async()=>{
       const fresh = await loadGame(me.code);
       if(!fresh) return;
-      const round = fresh.status.startsWith('ko-bulk:') ? fresh.status.slice(8) : 
-                    fresh.status.startsWith('bulk:') ? 'Group Stage' : null;
-      // Skip 3rd Place Play-off
-      if(round === '3rd Place Play-off'){
-        show('screen-bulk-done');
-        startPolling(pollBulkDone);
-        return;
-      }
-      if(round && round !== 'Group Stage'){
+      // KO bulk round
+      if(fresh.status && fresh.status.startsWith('ko-bulk:')){
+        const round = fresh.status.slice(8);
+        if(round === '3rd Place Play-off'){ show('screen-bulk-done'); startPolling(pollBulkDone); return; }
         stopPolling();
         show('screen-bulk');
         const area = document.getElementById('bulk-area');
-        area._watchCommit = async () => {
-          show('screen-bulk-done');
-          startPolling(pollBulkDone);
-        };
+        area._watchCommit = async () => { show('screen-bulk-done'); startPolling(pollBulkDone); };
         renderKOBulkForm(fresh, round);
+        return;
       }
+      // Group stage bulk (status 'bulk' or still in lobby)
+      stopPolling();
+      startBulk(fresh);
     });
   }
   
