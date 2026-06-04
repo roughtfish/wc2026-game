@@ -524,7 +524,9 @@
     <div class="card" style="text-align:center;">
       <div style="font-size:44px;margin-bottom:14px;">⏳</div>
       <h2 style="text-align:center;">YOU'RE IN!</h2>
-      <p style="font-size:13px;color:var(--muted);margin-bottom:18px;">Waiting for the host to start the game…</p>
+      <p style="font-size:13px;color:var(--muted);margin-bottom:18px;">Waiting for the host to start the game — but you can get your predictions in early!</p>
+      <button class="btn btn-primary" id="lobby-make-picks-btn" style="margin-bottom:8px">✏️ Make My Predictions Now</button>
+      <p style="font-size:11px;color:var(--muted);margin-bottom:18px;">You can change them any time until the host starts.</p>
       <div class="player-roster" id="player-lobby-roster"></div>
     </div>
   </div>
@@ -1967,10 +1969,25 @@ document.getElementById('join-game-btn').addEventListener("click",async()=>{
   startPolling(pollPlayerLobby);
 });
 
+document.getElementById('lobby-make-picks-btn').addEventListener('click', async () => {
+  const g = await loadGame(me.code);
+  if(!g){ alert('Could not load game.'); return; }
+  // If host has already moved to bulk/ko-bulk, the normal poll will handle it; otherwise pre-pick
+  stopPolling();
+  if(g.status && g.status.startsWith('ko-bulk:')){ startKOBulk(g, g.status.slice(8)); return; }
+  startBulk(g);
+});
+
 async function pollPlayerLobby(){
   const g=await loadGame(me.code);if(!g)return;
   renderRoster(g,'player-lobby-roster');
-  if(g.status==='bulk'){stopPolling();startBulk(g);}
+  // Update the pre-pick button to reflect whether this player has already submitted
+  const picksBtn=document.getElementById('lobby-make-picks-btn');
+  if(picksBtn){
+    const submitted=g.bulkSubmitted&&g.bulkSubmitted[me.name];
+    picksBtn.textContent=submitted?'✏️ Edit My Predictions':'✏️ Make My Predictions Now';
+  }
+  if(g.status==='bulk'){stopPolling();if(g.bulkSubmitted&&g.bulkSubmitted[me.name]){show('screen-bulk-done');startPolling(pollBulkDone);}else startBulk(g);}
   else if(g.status&&g.status.startsWith('ko-bulk:')){const r=g.status.slice(8);if(r!=='3rd Place Play-off'){stopPolling();startKOBulk(g,r);}}
   else if(g.status==='playing'){stopPolling();watchGame(g);}
 }
@@ -1978,7 +1995,7 @@ async function pollPlayerLobby(){
 // Force-start polling: detects when host has started the game
 startPolling(async()=>{
   const f=await loadGame(me.code);if(!f)return;
-  if(f.status==='bulk'){stopPolling();startBulk(f);}
+  if(f.status==='bulk'){stopPolling();if(f.bulkSubmitted&&f.bulkSubmitted[me.name]){show('screen-bulk-done');startPolling(pollBulkDone);}else startBulk(f);}
   else if(f.status&&f.status.startsWith('ko-bulk:')){const r=f.status.slice(8);if(r!=='3rd Place Play-off'){stopPolling();if(f.koBulkSubmitted&&f.koBulkSubmitted[me.name]){show('screen-bulk-done');startPolling(pollBulkDone);}else startKOBulk(f,r);}}
   else if(f.status==='playing'){stopPolling();if(me.role==='host')enterGame(f);else watchGame(f);}
 },3000);
@@ -1995,15 +2012,23 @@ async function startBulk(g){
   if(bulkAutoFillBtn) bulkAutoFillBtn.style.display=me.role==='host'?'inline-block':'none';
   const _ba=document.getElementById('bulk-area'); if(_ba) _ba._watchCommit=null;
   show('screen-bulk');
-  // Silently restore any partial draft saved previously
+  // Pre-load this player's already-submitted predictions so they can edit them
+  const myPreds=g.predictions||{};
+  Object.keys(myPreds).forEach(k=>{
+    const idx=parseInt(k);
+    const v=myPreds[idx]&&myPreds[idx][me.name];
+    if(v!=null){
+      bulkDraft[idx]=v;
+      const sc=myPreds[idx][me.name+'_score'];
+      if(sc)scoreDraft[idx]=sc;
+    }
+  });
+  // Silently restore any partial draft saved previously (overrides submitted where present)
   const saved=await loadDraft();
   if(saved&&Object.keys(saved).length>0){
-    // Only restore picks for matches not yet submitted
-    if(saved.__scores){scoreDraft=saved.__scores;delete saved.__scores;}
-    const submitted=g.predictions||{};
+    if(saved.__scores){scoreDraft={...scoreDraft,...saved.__scores};delete saved.__scores;}
     Object.entries(saved).forEach(([k,v])=>{
-      const idx=parseInt(k);
-      if(!submitted[idx]||!submitted[idx][me.name]) bulkDraft[idx]=v;
+      bulkDraft[parseInt(k)]=v;
     });
   }
   renderBulkForm(g);
@@ -2202,11 +2227,20 @@ async function commitBulk(g){
     });
     if(!fresh.bulkSubmitted)fresh.bulkSubmitted={};
     fresh.bulkSubmitted[me.name]=true;
+    // Only auto-advance to playing if the host has actually started the game (status is 'bulk').
+    // If a player is pre-submitting during the lobby, leave status untouched so the host stays in control.
+    const hostHasStarted = fresh.status==='bulk';
     const allDone=fresh.players.every(p=>fresh.bulkSubmitted[p.name]);
-    if(allDone)fresh.status='playing';
+    if(hostHasStarted && allDone)fresh.status='playing';
     await saveGame(fresh);
     clearDraft(); // no longer needed
     if(fresh.status==='playing'){stopPolling();if(me.role==='host')enterGame(fresh);else watchGame(fresh);}
+    else if(!hostHasStarted){
+      // Pre-submitted during lobby — return to lobby to keep waiting
+      show('screen-player-lobby');
+      startPolling(pollPlayerLobby);
+      showToast('✓ Predictions saved — you can change them until the host starts');
+    }
     else{show('screen-bulk-done');startPolling(pollBulkDone);}
   }catch(e){
     console.error('commitBulk failed',e);
