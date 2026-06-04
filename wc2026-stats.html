@@ -1732,6 +1732,22 @@ document.addEventListener('keydown',e=>{
 });
 
 // Clear H2H selection when toggle is turned off
+function showStatsToast(msg){
+  const t = document.getElementById('stats-toast');
+  if(!t) return;
+  t.textContent = msg;
+  t.style.display = 'block';
+  requestAnimationFrame(() => {
+    t.style.opacity = '1';
+    t.style.transform = 'translateX(-50%) translateY(0)';
+  });
+  clearTimeout(t._hideTimer);
+  t._hideTimer = setTimeout(() => {
+    t.style.opacity = '0';
+    t.style.transform = 'translateX(-50%) translateY(20px)';
+    setTimeout(() => { t.style.display = 'none'; }, 300);
+  }, 3200);
+}
 document.addEventListener('DOMContentLoaded', () => {
   const toggle = document.getElementById('h2h-mode-toggle');
   if(toggle){
@@ -1741,6 +1757,7 @@ document.addEventListener('DOMContentLoaded', () => {
       } else {
         // Prompt the user to pick players when they enable H2H mode
         updateH2HBanner();
+        showStatsToast('⚔️ Tap two players to compare them head-to-head');
       }
     });
   }
@@ -2333,5 +2350,6 @@ function showRivalDetail(playerName){
     }
   });
   </script>
+<div id="stats-toast" style="display:none;position:fixed;left:50%;bottom:32px;transform:translateX(-50%) translateY(20px);background:var(--accent2);color:#0a0f1a;font-weight:700;font-size:14px;padding:14px 22px;border-radius:10px;box-shadow:0 8px 30px rgba(0,0,0,0.4);z-index:9999;opacity:0;transition:opacity 0.25s,transform 0.25s;max-width:90vw;text-align:center;pointer-events:none"></div>
 </body>
 </html>
