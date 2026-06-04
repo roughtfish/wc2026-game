@@ -2088,6 +2088,22 @@ async function startBulk(g){
       bulkDraft[parseInt(k)]=v;
     });
   }
+  // Sanitise scoreDraft: group-stage matches only, one per group, max 12 (clears legacy corruption)
+  {
+    const seenGroups=new Set();
+    const cleaned={};
+    let count=0;
+    Object.keys(scoreDraft).map(Number).sort((a,b)=>a-b).forEach(idx=>{
+      const grp=g.matches[idx]?.group;
+      if(!grp) return;                  // drop non-group scores
+      if(seenGroups.has(grp)) return;   // drop extra score in same group
+      if(count>=12) return;             // drop beyond the 12 cap
+      seenGroups.add(grp);
+      cleaned[idx]=scoreDraft[idx];
+      count++;
+    });
+    scoreDraft=cleaned;
+  }
   renderBulkForm(g);
 }
 
@@ -2219,8 +2235,12 @@ function renderBulkForm(g){
       if(scoreDraft[idx]){
         delete scoreDraft[idx];
       } else {
-        // Enforce one per group — clear any existing score pick in the same group
         const grp=g.matches[idx]?.group;
+        // Only group-stage matches can have score predictions
+        if(!grp){ showToast('Score predictions are group stage only'); return; }
+        // Hard cap of 12 score predictions total
+        if(Object.keys(scoreDraft).length>=12){ showToast('🎯 Score limit reached (12 max)'); return; }
+        // Enforce one per group — clear any existing score pick in the same group
         Object.keys(scoreDraft).forEach(k=>{
           if(g.matches[parseInt(k)]?.group===grp) delete scoreDraft[parseInt(k)];
         });
