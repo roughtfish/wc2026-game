@@ -1403,6 +1403,7 @@ const MAX_DRAWS = 24;
 function checkPickLimit(fresh, draft) {
   const counts = {};
   fresh.matches.forEach((m, i) => {
+    if(draft[i] != null) return; // counted from draft below — avoid double-count when editing
     const pred = (fresh.predictions[i] || {})[me.name];
     if(!pred) return;
     const r = (fresh.results || {})[i];
@@ -2088,9 +2089,10 @@ function renderBulkForm(g){
 
   // Count how many times each team has been picked by THIS player only (per-player limit)
   const teamPicks = {}; // teamName -> count of THIS player's win predictions
-  // Count from this player's already-submitted predictions (not in draft yet)
-  // KO pen wins don't count toward the 5-pick limit
+  // Count from already-submitted predictions, but ONLY for matches not currently in the draft
+  // (the draft is the source of truth for any match being edited)
   gms.forEach(({m,i})=>{
+    if(bulkDraft[i]!=null) return; // counted from draft below
     const pred=(g.predictions[i]||{})[me.name];
     if(!pred) return;
     const r=(g.results||{})[i];
@@ -4201,6 +4203,7 @@ function renderKOBulkForm(g, round) {
 
   const teamPicks = {};
   g.matches.forEach((m, i) => {
+    if (koBulkDraft[i] != null) return; // counted from draft below
     const pred = (g.predictions[i] || {})[me.name];
     const winner = pred === 'home' ? m.home : pred === 'away' ? m.away : null;
     if (!winner) return;
