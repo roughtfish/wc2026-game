@@ -497,6 +497,9 @@
       <div class="field">
         <label>Game code</label>
         <input type="text" id="player-code" placeholder="e.g. ABCD" maxlength="6" style="font-family:'Bebas Neue',sans-serif;font-size:30px;letter-spacing:10px;text-transform:uppercase;text-align:center;">
+        <div id="last-game-chip" style="display:none;margin-top:8px;text-align:center">
+          <button type="button" id="last-game-btn" style="background:rgba(45,212,191,0.12);border:1px solid var(--accent2);color:var(--accent2);border-radius:20px;padding:5px 14px;font-size:12px;cursor:pointer;font-family:inherit">↩ Last game: <span id="last-game-code" style="font-weight:700;letter-spacing:1px"></span></button>
+        </div>
       </div>
       <div class="field"><label>Password</label><input type="password" id="player-password" placeholder="Choose / enter your password" maxlength="50" autocomplete="current-password">
         <div style="font-size:11px;color:var(--red);margin-top:5px;">⚠️ If you forget your password you cannot rejoin — there is no reset.</div>
@@ -1804,7 +1807,23 @@ document.getElementById('role-host').addEventListener("click",async()=>{
   if(pin!=='2416'){alert('Incorrect PIN.');return;}
   me.role='host'; show('screen-host-setup');
 });
-document.getElementById('role-player').addEventListener("click",async()=>{me.role='player';show('screen-player-join');});
+document.getElementById('role-player').addEventListener("click",async()=>{
+  me.role='player';
+  show('screen-player-join');
+  // Offer the last game code if we have one saved
+  try{
+    const last=localStorage.getItem('kf-last-code');
+    const chip=document.getElementById('last-game-chip');
+    if(last && chip){
+      document.getElementById('last-game-code').textContent=last;
+      chip.style.display='block';
+    } else if(chip){ chip.style.display='none'; }
+  }catch(e){}
+});
+document.getElementById('last-game-btn')?.addEventListener('click',()=>{
+  const last=(()=>{try{return localStorage.getItem('kf-last-code');}catch(e){return null;}})();
+  if(last) document.getElementById('player-code').value=last;
+});
 document.getElementById('back-to-landing').addEventListener("click",async()=>{ show('screen-landing');
 document.getElementById('pill-copy-btn').addEventListener('click',()=>{
   if(!me.code)return;
@@ -2015,6 +2034,8 @@ document.getElementById('join-game-btn').addEventListener("click",async()=>{
   const g=await loadGameByCode(code);
   err.style.display='none';
   if(!g){err.textContent='Game not found — check the code and try again.';err.style.display='block';return;}
+  // Remember this code for next time
+  try{ localStorage.setItem('kf-last-code', g.code); }catch(e){}
 
   const pwHash=await hashPassword(pw);
   const existing=g.players.find(p=>p.name===name);
