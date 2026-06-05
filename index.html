@@ -3735,9 +3735,9 @@ async function generatePreGameStats(){
     const pct = Math.round(strongest.pct*100);
     lines.push(`🔥 HIVE MIND`);
     if(pct === 100){
-      lines.push(`There's one match where ALL ${strongest.total} players agree on the result!`);
+      lines.push(`There's one match where everyone who's picked so far agrees on the result!`);
     } else {
-      lines.push(`On one match, ${strongest.count} of ${strongest.total} players (${pct}%) backed the same result.`);
+      lines.push(`On one match, ${pct}% of those who've picked so far backed the same result.`);
     }
     lines.push('');
   }
