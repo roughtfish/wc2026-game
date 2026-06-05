@@ -525,6 +525,7 @@
       <p style="font-size:11px;color:var(--muted);margin-top:6px;margin-bottom:0;">Get your own picks in early — you can still change them, and you choose when to start the game for everyone.</p>
       <button class="btn btn-primary" id="start-game-btn" style="margin-top:18px;" disabled>WAITING FOR PLAYERS…</button>
       <button class="btn btn-secondary btn-sm" id="lobby-pregame-stats-btn" style="margin-top:10px;font-size:11px;letter-spacing:1px;opacity:0.8;display:none">📣 Pre-Game Stats (to share)</button>
+      <button class="btn btn-secondary btn-sm" id="host-leave-lobby-btn" style="margin-top:10px;font-size:11px;letter-spacing:1px;opacity:0.7;color:var(--red);border-color:rgba(239,68,68,0.3)">✕ Leave Lobby</button>
     </div>
   </div>
 
@@ -1981,6 +1982,13 @@ async function pollHostLobby(){
   }
 }
 
+document.getElementById('host-leave-lobby-btn').addEventListener('click', () => {
+  if(!confirm('Leave the lobby and return to the main menu? The game stays saved — you can rejoin with your host name and code.')) return;
+  stopPolling();stopPresence();
+  try{sessionStorage.removeItem('kf_me');}catch(e){}
+  me={};
+  show('screen-landing');
+});
 document.getElementById('host-make-picks-btn').addEventListener('click', async () => {
   const g = await loadGame(me.code);
   if(!g){ alert('Could not load game.'); return; }
