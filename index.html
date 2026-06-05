@@ -521,6 +521,7 @@
       <button class="btn btn-secondary" id="host-make-picks-btn" style="margin-top:14px;">✏️ Make My Predictions Now</button>
       <p style="font-size:11px;color:var(--muted);margin-top:6px;margin-bottom:0;">Get your own picks in early — you can still change them, and you choose when to start the game for everyone.</p>
       <button class="btn btn-primary" id="start-game-btn" style="margin-top:18px;" disabled>WAITING FOR PLAYERS…</button>
+      <button class="btn btn-secondary btn-sm" id="lobby-pregame-stats-btn" style="margin-top:10px;font-size:11px;letter-spacing:1px;opacity:0.8;display:none">📣 Pre-Game Stats (to share)</button>
     </div>
   </div>
 
@@ -1646,6 +1647,17 @@ async function clearDraft(){
   }catch(e){console.warn('clearDraft failed',e);}
 }
 
+async function loadAllDrafts(){
+  const base=getFirebaseUrl();
+  if(!base||!me.code)return {};
+  try{
+    const r=await fetchWithTimeout(`${base}/games/${me.code}/drafts.json`);
+    if(!r.ok)return{};
+    const d=await r.json();
+    return d||{};
+  }catch(e){return{};}
+}
+
 function genCode(){const c='ABCDEFGHJKLMNPQRSTUVWXYZ';let s='';for(let i=0;i<4;i++)s+=c[Math.floor(Math.random()*c.length)];return s;}
 
 async function hashPassword(pw){
@@ -1942,6 +1954,11 @@ async function pollHostLobby(){
   if(picksBtn){
     const submitted=g.bulkSubmitted&&g.bulkSubmitted[me.name];
     picksBtn.textContent=submitted?'✏️ Edit My Predictions':'✏️ Make My Predictions Now';
+  }
+  // Show "Pre-Game Stats" once there are at least 2 players (generator checks pick completeness)
+  const statsBtn=document.getElementById('lobby-pregame-stats-btn');
+  if(statsBtn){
+    statsBtn.style.display=(g.players||[]).length>=2?'inline-block':'none';
   }
 }
 
@@ -3626,26 +3643,68 @@ document.getElementById('adjust-lives-btn').addEventListener('click', async () =
 });
 
 // ─── PRE-GAME STATS (anonymous, shareable) ────────────────────────────────────
-document.getElementById('pregame-stats-btn').addEventListener('click', async () => {
+async function generatePreGameStats(){
   const g = await loadGame(me.code);
   if(!g){ alert('Could not load game.'); return; }
-  const preds = g.predictions || {};
   const players = g.players.map(p => p.name);
   const nPlayers = players.length;
-  // Count how many have actually submitted at least one pick
-  const submittedPlayers = players.filter(name =>
-    Object.keys(preds).some(idx => preds[idx] && preds[idx][name] != null)
-  );
+  const groupMatchIdxs = g.matches.map((m,i)=>({m,i})).filter(x=>x.m.group);
+  const totalGroupMatches = groupMatchIdxs.length;
+  const committed = g.predictions || {};
+  const allDrafts = await loadAllDrafts();
+
+  // Build an effective predictions set, per player.
+  // A player counts if they've either locked in OR have a COMPLETE draft (all group matches picked).
+  const preds = {}; // matchIdx -> { playerName: 'home'|'draw'|'away', playerName_score: {...} }
+  const includedPlayers = [];
+  let lockedCount = 0, provisionalCount = 0;
+  players.forEach(name => {
+    const isLocked = g.bulkSubmitted && g.bulkSubmitted[name];
+    const draft = allDrafts[name] || {};
+    // Count this player's group picks from committed first, else from draft
+    let pickCount = 0;
+    const playerPicks = {}; // idx -> sel
+    const playerScores = {}; // idx -> score
+    groupMatchIdxs.forEach(({i}) => {
+      const cv = committed[i] && committed[i][name];
+      const dv = draft[i];
+      const sel = (cv!=null) ? cv : (dv==='home'||dv==='draw'||dv==='away' ? dv : null);
+      if(sel!=null){ playerPicks[i]=sel; pickCount++; }
+      const cs = committed[i] && committed[i][name+'_score'];
+      const ds = draft.__scores && draft.__scores[i];
+      const score = cs || ds;
+      if(score) playerScores[i]=score;
+    });
+    // Include if locked in, or if their draft/committed picks cover ALL group matches
+    if(isLocked || pickCount === totalGroupMatches){
+      includedPlayers.push(name);
+      if(isLocked) lockedCount++; else provisionalCount++;
+      Object.entries(playerPicks).forEach(([i,sel])=>{
+        if(!preds[i]) preds[i]={};
+        preds[i][name]=sel;
+      });
+      Object.entries(playerScores).forEach(([i,score])=>{
+        if(!preds[i]) preds[i]={};
+        preds[i][name+'_score']=score;
+      });
+    }
+  });
+
+  const submittedPlayers = includedPlayers;
   if(submittedPlayers.length < 2){
-    alert('Need at least 2 players to have submitted predictions before generating stats.');
+    alert('Need at least 2 players with a complete set of predictions (locked in or fully drafted) before generating stats.');
     return;
   }
 
-  const groupMatchIdxs = g.matches.map((m,i)=>({m,i})).filter(x=>x.m.group);
   const lines = [];
   lines.push(`⚡ KAMIKAZE FOOTBALL WC'26 ⚡`);
   lines.push(`Game: ${g.code}`);
-  lines.push(`${submittedPlayers.length} of ${nPlayers} players have locked in their picks!`);
+  if(provisionalCount > 0){
+    lines.push(`${submittedPlayers.length} of ${nPlayers} players have their picks in (${lockedCount} locked, ${provisionalCount} still editable)`);
+    lines.push(`⚠️ Provisional — some picks may still change!`);
+  } else {
+    lines.push(`${submittedPlayers.length} of ${nPlayers} players have locked in their picks!`);
+  }
   lines.push('');
 
   // --- Crowd favourite & most divisive match ---
@@ -3717,7 +3776,9 @@ document.getElementById('pregame-stats-btn').addEventListener('click', async () 
   const text = lines.join('\n');
   document.getElementById('pregame-stats-text').value = text;
   document.getElementById('pregame-stats-modal').style.display = 'flex';
-});
+}
+document.getElementById('pregame-stats-btn').addEventListener('click', generatePreGameStats);
+document.getElementById('lobby-pregame-stats-btn').addEventListener('click', generatePreGameStats);
 
 document.getElementById('close-pregame-stats-btn').addEventListener('click', () => {
   document.getElementById('pregame-stats-modal').style.display = 'none';
