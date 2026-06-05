@@ -3783,6 +3783,97 @@ async function generatePreGameStats(){
   }
   lines.push('');
 
+  // --- For each group match, work out the crowd's majority pick (for maverick/safe-bold) ---
+  const majorityPick = {}; // idx -> 'home'|'draw'|'away'
+  groupMatchIdxs.forEach(({i})=>{
+    const counts = {home:0, draw:0, away:0};
+    submittedPlayers.forEach(name=>{
+      const v = preds[i] && preds[i][name];
+      if(v) counts[v]++;
+    });
+    majorityPick[i] = Object.keys(counts).reduce((a,b)=>counts[a]>=counts[b]?a:b);
+  });
+
+  // --- The Maverick: player whose picks differ most from the crowd majority ---
+  let maverick = null;
+  submittedPlayers.forEach(name=>{
+    let against = 0, counted = 0;
+    groupMatchIdxs.forEach(({i})=>{
+      const v = preds[i] && preds[i][name];
+      if(!v) return;
+      counted++;
+      if(v !== majorityPick[i]) against++;
+    });
+    const pct = counted>0 ? against/counted : 0;
+    if(!maverick || pct > maverick.pct) maverick = {pct, against, counted};
+  });
+  if(maverick && maverick.against > 0){
+    lines.push(`🎲 THE MAVERICK`);
+    lines.push(`One player went against the crowd on ${maverick.against} matches — a true contrarian!`);
+    lines.push('');
+  }
+
+  // --- Great Minds: closest-matching pair of players ---
+  let bestPair = null;
+  for(let a=0;a<submittedPlayers.length;a++){
+    for(let b=a+1;b<submittedPlayers.length;b++){
+      const nA=submittedPlayers[a], nB=submittedPlayers[b];
+      let same=0, both=0;
+      groupMatchIdxs.forEach(({i})=>{
+        const vA=preds[i]&&preds[i][nA], vB=preds[i]&&preds[i][nB];
+        if(vA && vB){ both++; if(vA===vB) same++; }
+      });
+      const pct = both>0 ? same/both : 0;
+      if(!bestPair || pct > bestPair.pct) bestPair = {pct, same, both};
+    }
+  }
+  if(bestPair && bestPair.both > 0){
+    const pct = Math.round(bestPair.pct*100);
+    lines.push(`👥 GREAT MINDS`);
+    lines.push(`Two players agree on ${pct}% of their picks — spooky! 👻`);
+    lines.push('');
+  }
+
+  // --- Home vs Away lean (aggregate across all picks) ---
+  let hCount=0, dCount=0, aCount=0;
+  groupMatchIdxs.forEach(({i})=>{
+    submittedPlayers.forEach(name=>{
+      const v = preds[i] && preds[i][name];
+      if(v==='home') hCount++;
+      else if(v==='draw') dCount++;
+      else if(v==='away') aCount++;
+    });
+  });
+  const totalPicks = hCount+dCount+aCount;
+  if(totalPicks > 0){
+    const hPct=Math.round(hCount/totalPicks*100);
+    const dPct=Math.round(dCount/totalPicks*100);
+    const aPct=Math.round(aCount/totalPicks*100);
+    lines.push(`🏟️ THE GROUP LEANS`);
+    lines.push(`🏠 Home ${hPct}% · 🤝 Draw ${dPct}% · ✈️ Away ${aPct}%`);
+    lines.push('');
+  }
+
+  // --- Safe vs Bold: how often the crowd backed the FIFA favourite ---
+  let withFav=0, favCounted=0;
+  groupMatchIdxs.forEach(({m,i})=>{
+    const hr=fifaRating(m.home), ar=fifaRating(m.away);
+    if(hr===ar) return;
+    const favSide = hr>ar ? 'home' : 'away';
+    submittedPlayers.forEach(name=>{
+      const v = preds[i] && preds[i][name];
+      if(v!=='home' && v!=='away') return; // ignore draws for this stat
+      favCounted++;
+      if(v===favSide) withFav++;
+    });
+  });
+  if(favCounted > 0){
+    const favPct = Math.round(withFav/favCounted*100);
+    lines.push(`${favPct>=65?'🛡️ PLAYING IT SAFE':favPct<=45?'🎢 LIVING DANGEROUSLY':'⚖️ BALANCED BUNCH'}`);
+    lines.push(`${favPct}% of win/loss picks backed the favourite${favPct>=65?' — cautious crowd!':favPct<=45?' — upset hunters!':'.'}`);
+    lines.push('');
+  }
+
   lines.push(`May the divine wind be at your back. 🌪️⚽`);
 
   const text = lines.join('\n');
