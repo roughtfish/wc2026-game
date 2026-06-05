@@ -590,6 +590,7 @@
         <button class="btn btn-secondary btn-sm" id="backup-game-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Download full game backup (JSON) — restore later if anything goes wrong">💾 Backup</button>
         <button class="btn btn-secondary btn-sm" id="restore-game-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Restore a game from a backup JSON file">📂 Restore</button>
         <button class="btn btn-secondary btn-sm" id="export-csv-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Export all player picks to a CSV spreadsheet">📊 Export CSV</button>
+        <button class="btn btn-secondary btn-sm" id="pregame-stats-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Generate anonymous pre-game stats to share (e.g. on WhatsApp)">📣 Pre-Game Stats</button>
         <button class="btn btn-secondary btn-sm" id="local-backups-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="View and restore automatic local backups (last 10)">⏱ Local Backups</button>
         <input type="file" id="restore-file-input" accept=".json,application/json" style="display:none">
         <button class="btn btn-secondary btn-sm" id="quit-game-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7;color:var(--red);border-color:rgba(239,68,68,0.3)">✕ Quit</button>
@@ -652,6 +653,18 @@
 
   <!-- Rival Selection Modal -->
   <div id="toast-container"></div>
+
+  <div id="pregame-stats-modal" class="modal" style="display:none">
+    <div class="modal-content" style="max-width:440px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <h2 style="margin:0;font-size:18px">📣 Pre-Game Stats</h2>
+        <button id="close-pregame-stats-btn" style="background:none;border:none;color:var(--muted);font-size:24px;cursor:pointer;padding:0;line-height:1">&times;</button>
+      </div>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:12px">Anonymous summary of everyone's predictions — copy and paste into WhatsApp to build the hype!</p>
+      <textarea id="pregame-stats-text" readonly style="width:100%;box-sizing:border-box;height:280px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:inherit;font-size:13px;line-height:1.5;padding:12px;resize:vertical"></textarea>
+      <button class="btn btn-primary" id="copy-pregame-stats-btn" style="margin-top:12px">📋 Copy to clipboard</button>
+    </div>
+  </div>
 
   <div id="local-backups-modal" class="modal" style="display:none">
     <div class="modal-content" style="max-width:480px">
@@ -3610,6 +3623,117 @@ document.getElementById('adjust-lives-btn').addEventListener('click', async () =
   if(eliminatedNow > 0) msg += ` · ${eliminatedNow} eliminated`;
   showToast(msg);
   enterGame(g);
+});
+
+// ─── PRE-GAME STATS (anonymous, shareable) ────────────────────────────────────
+document.getElementById('pregame-stats-btn').addEventListener('click', async () => {
+  const g = await loadGame(me.code);
+  if(!g){ alert('Could not load game.'); return; }
+  const preds = g.predictions || {};
+  const players = g.players.map(p => p.name);
+  const nPlayers = players.length;
+  // Count how many have actually submitted at least one pick
+  const submittedPlayers = players.filter(name =>
+    Object.keys(preds).some(idx => preds[idx] && preds[idx][name] != null)
+  );
+  if(submittedPlayers.length < 2){
+    alert('Need at least 2 players to have submitted predictions before generating stats.');
+    return;
+  }
+
+  const groupMatchIdxs = g.matches.map((m,i)=>({m,i})).filter(x=>x.m.group);
+  const lines = [];
+  lines.push(`⚡ KAMIKAZE FOOTBALL WC'26 ⚡`);
+  lines.push(`Game: ${g.code}`);
+  lines.push(`${submittedPlayers.length} of ${nPlayers} players have locked in their picks!`);
+  lines.push('');
+
+  // --- Crowd favourite & most divisive match ---
+  let strongest = null, mostSplit = null;
+  groupMatchIdxs.forEach(({m,i})=>{
+    const counts = {home:0, draw:0, away:0};
+    let total = 0;
+    submittedPlayers.forEach(name=>{
+      const v = preds[i] && preds[i][name];
+      if(v==='home'||v==='draw'||v==='away'){ counts[v]++; total++; }
+    });
+    if(total < 2) return;
+    const topPick = Object.keys(counts).reduce((a,b)=>counts[a]>=counts[b]?a:b);
+    const topPct = counts[topPick]/total;
+    // strongest consensus
+    if(!strongest || topPct > strongest.pct){
+      strongest = {m, pick:topPick, pct:topPct, count:counts[topPick], total};
+    }
+    // most split = closest to even between the two strongest options
+    const sorted = Object.values(counts).sort((a,b)=>b-a);
+    const splitGap = (sorted[0]-sorted[1])/total;
+    if(!mostSplit || splitGap < mostSplit.gap){
+      mostSplit = {m, gap:splitGap, counts, total};
+    }
+  });
+
+  const pickLabel = (m, pick) => pick==='home'?m.home : pick==='away'?m.away : 'a draw';
+
+  if(strongest){
+    const pct = Math.round(strongest.pct*100);
+    lines.push(`🔥 BIGGEST CONSENSUS`);
+    lines.push(`${pct}% backed ${pickLabel(strongest.m, strongest.pick)} in ${strongest.m.home} v ${strongest.m.away}`);
+    lines.push('');
+  }
+  if(mostSplit){
+    lines.push(`🤔 MOST DIVISIVE MATCH`);
+    lines.push(`${mostSplit.m.home} v ${mostSplit.m.away} — the group can't agree!`);
+    lines.push(`(${mostSplit.counts.home} ${mostSplit.m.home} · ${mostSplit.counts.draw} draw · ${mostSplit.counts.away} ${mostSplit.m.away})`);
+    lines.push('');
+  }
+
+  // --- Draw merchants ---
+  let totalDraws = 0, drawCounts = [];
+  submittedPlayers.forEach(name=>{
+    let d = 0;
+    groupMatchIdxs.forEach(({i})=>{ if(preds[i] && preds[i][name]==='draw') d++; });
+    totalDraws += d; drawCounts.push(d);
+  });
+  const avgDraws = (totalDraws/submittedPlayers.length).toFixed(1);
+  const maxDraws = Math.max(...drawCounts);
+  lines.push(`🤝 DRAW WATCH`);
+  lines.push(`Average draws predicted: ${avgDraws} (someone went for ${maxDraws}!)`);
+  lines.push('');
+
+  // --- Exact score gamblers ---
+  let scorers = 0, totalScores = 0;
+  submittedPlayers.forEach(name=>{
+    let s = 0;
+    groupMatchIdxs.forEach(({i})=>{ if(preds[i] && preds[i][name+'_score']) s++; });
+    if(s>0) scorers++;
+    totalScores += s;
+  });
+  lines.push(`🎯 SCORELINE GAMBLERS`);
+  lines.push(`${scorers} of ${submittedPlayers.length} players risked exact-score predictions (${totalScores} in total)`);
+  lines.push('');
+
+  lines.push(`May the divine wind be at your back. 🌪️⚽`);
+
+  const text = lines.join('\n');
+  document.getElementById('pregame-stats-text').value = text;
+  document.getElementById('pregame-stats-modal').style.display = 'flex';
+});
+
+document.getElementById('close-pregame-stats-btn').addEventListener('click', () => {
+  document.getElementById('pregame-stats-modal').style.display = 'none';
+});
+
+document.getElementById('copy-pregame-stats-btn').addEventListener('click', async () => {
+  const text = document.getElementById('pregame-stats-text').value;
+  try{
+    await navigator.clipboard.writeText(text);
+    showToast('📋 Copied — paste it into WhatsApp!');
+  }catch(e){
+    // Fallback: select the textarea for manual copy
+    const ta = document.getElementById('pregame-stats-text');
+    ta.focus(); ta.select();
+    showToast('Select all & copy (Ctrl/Cmd+C)');
+  }
 });
 
 document.getElementById('local-backups-btn').addEventListener('click', () => {
