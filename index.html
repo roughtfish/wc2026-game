@@ -3517,7 +3517,22 @@ document.getElementById('bulk-autofill-btn').addEventListener('click', async () 
   showToast('⚡ Auto-filled with FIFA ratings');
 });
 
-document.getElementById('bulk-quit-btn').addEventListener('click',()=>{
+document.getElementById('bulk-quit-btn').addEventListener('click',async()=>{
+  const g=await loadGame(me.code);
+  // During the lobby phase, "quit" just returns to the lobby (picks are saved as draft)
+  if(g && g.status==='lobby'){
+    stopPolling();
+    if(me.role==='host'){
+      document.getElementById('lobby-code-display').textContent=g.code;
+      show('screen-host-lobby');
+      startPolling(pollHostLobby);
+    } else {
+      show('screen-player-lobby');
+      startPolling(pollPlayerLobby);
+    }
+    return;
+  }
+  // Otherwise (game already started) fall back to leaving the game
   if(!confirm('Quit game and return to main menu? The game will remain saved and players can still rejoin.')) return;
   stopPolling();
   try{sessionStorage.removeItem('kf_me');}catch(e){}
