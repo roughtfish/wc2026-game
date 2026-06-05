@@ -3731,18 +3731,19 @@ async function generatePreGameStats(){
     }
   });
 
-  const pickLabel = (m, pick) => pick==='home'?m.home : pick==='away'?m.away : 'a draw';
-
   if(strongest){
     const pct = Math.round(strongest.pct*100);
-    lines.push(`🔥 BIGGEST CONSENSUS`);
-    lines.push(`${pct}% backed ${pickLabel(strongest.m, strongest.pick)} in ${strongest.m.home} v ${strongest.m.away}`);
+    lines.push(`🔥 HIVE MIND`);
+    if(pct === 100){
+      lines.push(`There's one match where ALL ${strongest.total} players agree on the result!`);
+    } else {
+      lines.push(`On one match, ${strongest.count} of ${strongest.total} players (${pct}%) backed the same result.`);
+    }
     lines.push('');
   }
   if(mostSplit){
-    lines.push(`🤔 MOST DIVISIVE MATCH`);
-    lines.push(`${mostSplit.m.home} v ${mostSplit.m.away} — the group can't agree!`);
-    lines.push(`(${mostSplit.counts.home} ${mostSplit.m.home} · ${mostSplit.counts.draw} draw · ${mostSplit.counts.away} ${mostSplit.m.away})`);
+    lines.push(`🤔 GREAT DIVIDE`);
+    lines.push(`One fixture has the group split right down the middle — no clear favourite!`);
     lines.push('');
   }
 
@@ -3761,14 +3762,25 @@ async function generatePreGameStats(){
 
   // --- Exact score gamblers ---
   let scorers = 0, totalScores = 0;
+  const scoresPerMatch = {}; // matchIdx -> count of players who predicted a score
   submittedPlayers.forEach(name=>{
     let s = 0;
-    groupMatchIdxs.forEach(({i})=>{ if(preds[i] && preds[i][name+'_score']) s++; });
+    groupMatchIdxs.forEach(({i})=>{
+      if(preds[i] && preds[i][name+'_score']){
+        s++;
+        scoresPerMatch[i] = (scoresPerMatch[i] || 0) + 1;
+      }
+    });
     if(s>0) scorers++;
     totalScores += s;
   });
   lines.push(`🎯 SCORELINE GAMBLERS`);
-  lines.push(`${scorers} of ${submittedPlayers.length} players risked exact-score predictions (${totalScores} in total)`);
+  const topScoreMatch = Math.max(0, ...Object.values(scoresPerMatch));
+  if(topScoreMatch >= 2){
+    lines.push(`On one match, ${topScoreMatch} players all called the exact scoreline! 👀`);
+  } else {
+    lines.push(`A few brave souls have chanced an exact scoreline...`);
+  }
   lines.push('');
 
   lines.push(`May the divine wind be at your back. 🌪️⚽`);
