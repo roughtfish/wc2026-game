@@ -3980,6 +3980,29 @@ async function generatePreGameStats(){
     lines.push('');
   }
 
+  // --- Lone Wolf: a match where everyone agreed except exactly one player ---
+  let loneWolfFound = false;
+  groupMatchIdxs.forEach(({i})=>{
+    if(loneWolfFound) return;
+    const counts = {home:0, draw:0, away:0};
+    let total = 0;
+    submittedPlayers.forEach(name=>{
+      const v = preds[i] && preds[i][name];
+      if(v==='home'||v==='draw'||v==='away'){ counts[v]++; total++; }
+    });
+    if(total < 4) return; // need a decent crowd for it to be dramatic
+    // Exactly one option has count 1 and another has count (total-1) → lone dissenter
+    const vals = Object.values(counts);
+    const ones = vals.filter(c=>c===1).length;
+    const majority = Math.max(...vals);
+    if(majority === total-1 && ones === 1){
+      lines.push(`🤐 LONE WOLF`);
+      lines.push(`On one match, every single player agreed — except one brave soul who went their own way! 🐺`);
+      lines.push('');
+      loneWolfFound = true;
+    }
+  });
+
   lines.push(`May the divine wind be at your back. 🌪️⚽`);
 
   const text = lines.join('\n');
