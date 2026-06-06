@@ -526,6 +526,8 @@
       <button class="btn btn-primary" id="start-game-btn" style="margin-top:18px;" disabled>WAITING FOR PLAYERS…</button>
       <button class="btn btn-secondary btn-sm" id="lobby-pregame-stats-btn" style="margin-top:10px;font-size:11px;letter-spacing:1px;opacity:0.8;display:none">📣 Pre-Game Stats (to share)</button>
       <button class="btn btn-secondary btn-sm" id="import-picks-btn" style="margin-top:10px;font-size:11px;letter-spacing:1px;opacity:0.8">⬇️ Import Picks From Another Game</button>
+      <button class="btn btn-secondary btn-sm" id="fix-fixtures-btn" style="margin-top:10px;font-size:11px;letter-spacing:1px;opacity:0.8" title="Update this game's fixtures to the official schedule, keeping everyone's picks">🔧 Fix Fixtures (keep picks)</button>
+      <button class="btn btn-secondary btn-sm" id="lobby-backup-btn" style="margin-top:10px;font-size:11px;letter-spacing:1px;opacity:0.8" title="Download a full backup of this game as a file you can keep">💾 Download Backup</button>
       <button class="btn btn-secondary btn-sm" id="host-leave-lobby-btn" style="margin-top:10px;font-size:11px;letter-spacing:1px;opacity:0.7;color:var(--red);border-color:rgba(239,68,68,0.3)">✕ Leave Lobby</button>
     </div>
   </div>
@@ -659,6 +661,18 @@
 
   <!-- Rival Selection Modal -->
   <div id="toast-container"></div>
+
+  <div id="fix-fixtures-modal" class="modal" style="display:none">
+    <div class="modal-content" style="max-width:480px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <h2 style="margin:0;font-size:18px">🔧 Fix Fixtures</h2>
+        <button id="close-fix-fixtures-btn" style="background:none;border:none;color:var(--muted);font-size:24px;cursor:pointer;padding:0;line-height:1">&times;</button>
+      </div>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:12px">Updates this game's match list to the official World Cup schedule, keeping the same game code. Everyone's picks are remapped by team, so nobody needs to rejoin or re-pick. A backup is saved automatically first.</p>
+      <button class="btn btn-secondary" id="fix-fixtures-preview-btn" style="width:100%">🔍 Preview changes</button>
+      <div id="fix-fixtures-report" style="margin-top:14px"></div>
+    </div>
+  </div>
 
   <div id="import-picks-modal" class="modal" style="display:none">
     <div class="modal-content" style="max-width:480px">
@@ -3606,7 +3620,7 @@ document.getElementById('quit-game-btn').addEventListener('click',()=>{
 });
 
 // ─── BACKUP / RESTORE / EXPORT ────────────────────────────────────────────────
-document.getElementById('backup-game-btn').addEventListener('click', async () => {
+async function downloadGameBackup(){
   const g = await loadGame(me.code);
   if(!g){ alert('Could not load game to back up.'); return; }
   const json = JSON.stringify(g, null, 2);
@@ -3618,7 +3632,9 @@ document.getElementById('backup-game-btn').addEventListener('click', async () =>
   a.click();
   URL.revokeObjectURL(url);
   showToast('💾 Backup downloaded');
-});
+}
+document.getElementById('backup-game-btn').addEventListener('click', downloadGameBackup);
+document.getElementById('lobby-backup-btn').addEventListener('click', downloadGameBackup);
 
 document.getElementById('restore-game-btn').addEventListener('click', () => {
   document.getElementById('restore-file-input').click();
@@ -3954,6 +3970,93 @@ async function generatePreGameStats(){
   document.getElementById('pregame-stats-modal').style.display = 'flex';
 }
 // ─── IMPORT PICKS FROM ANOTHER GAME ───────────────────────────────────────────
+// ─── FIX FIXTURES IN PLACE (same code) ────────────────────────────────────────
+document.getElementById('fix-fixtures-btn').addEventListener('click', () => {
+  document.getElementById('fix-fixtures-report').innerHTML = '';
+  document.getElementById('fix-fixtures-modal').style.display = 'flex';
+});
+document.getElementById('close-fix-fixtures-btn').addEventListener('click', () => {
+  document.getElementById('fix-fixtures-modal').style.display = 'none';
+});
+
+document.getElementById('fix-fixtures-preview-btn').addEventListener('click', async () => {
+  const report = document.getElementById('fix-fixtures-report');
+  report.innerHTML = '<div style="color:var(--muted);font-size:12px">Checking…</div>';
+  const g = await loadGame(me.code);
+  if(!g){ report.innerHTML='<div style="color:var(--red);font-size:12px">Could not load game.</div>'; return; }
+  // Safety: only allowed before any results are entered
+  const hasResults = g.results && Object.keys(g.results).some(k=>!isNaN(k)&&g.results[k]!=null);
+  if(hasResults){
+    report.innerHTML='<div style="color:var(--red);font-size:12px">⚠️ This game already has results entered — fixtures can\'t be changed now without affecting the standings. This tool is only for games that haven\'t started.</div>';
+    return;
+  }
+
+  // Build the corrected match list (same mode as the current game)
+  const correctMatches = buildMatches(g.mode || 'full');
+
+  // Treat current game as "old", a temp object with correct fixtures as "new"
+  const plan = await buildImportPlan(g, {matches: correctMatches, lives: g.lives, players: g.players});
+  window._fixPlan = {plan, correctMatches};
+
+  // Detect whether anything actually differs
+  let orderChanged = false;
+  const cur = g.matches.filter(m=>m.group);
+  const cor = correctMatches.filter(m=>m.group);
+  for(let i=0;i<cor.length;i++){
+    if(!cur[i] || cur[i].home!==cor[i].home || cur[i].away!==cor[i].away || cur[i].date!==cor[i].date){ orderChanged=true; break; }
+  }
+
+  const playerRows = Object.entries(plan.perPlayer).map(([name,s])=>
+    `<div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0;border-bottom:1px solid var(--border)"><span>${name}</span><span style="color:var(--accent2)">${s.migrated} picks${s.dropped?` · <span style="color:var(--red)">${s.dropped} dropped</span>`:''}</span></div>`
+  ).join('') || '<div style="font-size:12px;color:var(--muted)">No picks made yet.</div>';
+
+  report.innerHTML = `
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:12px">
+      <div style="font-size:13px;margin-bottom:8px"><strong>Preview</strong></div>
+      <div style="font-size:12px;color:var(--muted);line-height:1.7">
+        ${orderChanged?'📅 Fixtures will be updated to the official schedule<br>':'✅ Fixtures already match the official schedule<br>'}
+        ✅ ${plan.migrated} picks kept &amp; remapped<br>
+        ${plan.scoresMigrated>0?`🎯 ${plan.scoresMigrated} exact-score predictions preserved<br>`:''}
+        ${plan.flipped>0?`🔄 ${plan.flipped} picks adjusted for flipped home/away<br>`:''}
+        ${plan.dropped>0?`<span style="color:var(--red)">⚠️ ${plan.dropped} picks couldn't be matched and will be lost</span><br>`:'✅ No picks will be lost<br>'}
+      </div>
+      <div style="margin-top:10px">${playerRows}</div>
+    </div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:10px">Game code stays <strong>${me.code}</strong> — players don't need to do anything. A backup is saved automatically before changes apply.</div>
+    <button class="btn btn-primary" id="fix-fixtures-commit-btn" style="width:100%"${plan.dropped>0?' ':''}>🔧 Apply fix to ${me.code}</button>
+  `;
+
+  document.getElementById('fix-fixtures-commit-btn').addEventListener('click', async () => {
+    const {plan, correctMatches} = window._fixPlan || {};
+    if(!plan) return;
+    let msg = `Update fixtures for game ${me.code}?\n\n${plan.migrated} picks will be kept.`;
+    if(plan.dropped>0) msg += `\n⚠️ ${plan.dropped} picks can't be matched and will be lost.`;
+    if(!confirm(msg)) return;
+    const fresh = await loadGame(me.code);
+    // Auto-backup first
+    saveLocalBackup(fresh, 'Before fixing fixtures');
+    // Swap in the corrected matches, keeping KO results-positions intact via rebuild
+    fresh.matches = correctMatches;
+    // Replace predictions with the remapped set (group stage). Preserve any KO predictions as-is.
+    const remapped = plan.newPreds;
+    // Keep KO predictions (indices beyond group stage) from the existing set
+    const groupCount = correctMatches.filter(m=>m.group).length;
+    const newPredictions = {};
+    Object.entries(remapped).forEach(([idx,obj])=>{ newPredictions[idx]=obj; });
+    // Carry over any existing KO-stage predictions unchanged
+    Object.entries(fresh.predictions||{}).forEach(([idx,obj])=>{
+      if(parseInt(idx) >= groupCount && !newPredictions[idx]) newPredictions[idx]=obj;
+    });
+    fresh.predictions = newPredictions;
+    // Refresh KO round-start cache
+    getMatchDateTime._roundStarts = {};
+    fresh.matches.forEach((m,i)=>{ if(m.round && !m.group && getMatchDateTime._roundStarts[m.round]===undefined) getMatchDateTime._roundStarts[m.round]=i; });
+    await saveGame(fresh);
+    document.getElementById('fix-fixtures-modal').style.display='none';
+    showToast('🔧 Fixtures updated — picks kept');
+  });
+});
+
 document.getElementById('import-picks-btn').addEventListener('click', () => {
   document.getElementById('import-old-code').value = '';
   document.getElementById('import-report').innerHTML = '';
