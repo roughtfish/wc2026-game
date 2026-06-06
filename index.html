@@ -525,6 +525,7 @@
       <p style="font-size:11px;color:var(--muted);margin-top:6px;margin-bottom:0;">Get your own picks in early — you can still change them, and you choose when to start the game for everyone.</p>
       <button class="btn btn-primary" id="start-game-btn" style="margin-top:18px;" disabled>WAITING FOR PLAYERS…</button>
       <button class="btn btn-secondary btn-sm" id="lobby-pregame-stats-btn" style="margin-top:10px;font-size:11px;letter-spacing:1px;opacity:0.8;display:none">📣 Pre-Game Stats (to share)</button>
+      <button class="btn btn-secondary btn-sm" id="import-picks-btn" style="margin-top:10px;font-size:11px;letter-spacing:1px;opacity:0.8">⬇️ Import Picks From Another Game</button>
       <button class="btn btn-secondary btn-sm" id="host-leave-lobby-btn" style="margin-top:10px;font-size:11px;letter-spacing:1px;opacity:0.7;color:var(--red);border-color:rgba(239,68,68,0.3)">✕ Leave Lobby</button>
     </div>
   </div>
@@ -658,6 +659,22 @@
 
   <!-- Rival Selection Modal -->
   <div id="toast-container"></div>
+
+  <div id="import-picks-modal" class="modal" style="display:none">
+    <div class="modal-content" style="max-width:480px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <h2 style="margin:0;font-size:18px">⬇️ Import Picks</h2>
+        <button id="close-import-picks-btn" style="background:none;border:none;color:var(--muted);font-size:24px;cursor:pointer;padding:0;line-height:1">&times;</button>
+      </div>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:12px">Copy players' predictions from an older game into <strong>this</strong> game. Picks are matched by team, so they map correctly even if the fixtures were reordered. You'll see a preview before anything is saved.</p>
+      <div class="field" style="margin-bottom:12px">
+        <label style="font-size:12px;color:var(--muted)">Old game code</label>
+        <input type="text" id="import-old-code" placeholder="e.g. SDKN" maxlength="6" style="text-transform:uppercase;letter-spacing:4px;text-align:center;font-family:'Bebas Neue',sans-serif;font-size:24px">
+      </div>
+      <button class="btn btn-secondary" id="import-preview-btn" style="width:100%">🔍 Preview migration</button>
+      <div id="import-report" style="margin-top:14px"></div>
+    </div>
+  </div>
 
   <div id="pregame-stats-modal" class="modal" style="display:none">
     <div class="modal-content" style="max-width:440px">
@@ -3935,6 +3952,147 @@ async function generatePreGameStats(){
   document.getElementById('pregame-stats-text').value = text;
   document.getElementById('pregame-stats-modal').style.display = 'flex';
 }
+// ─── IMPORT PICKS FROM ANOTHER GAME ───────────────────────────────────────────
+document.getElementById('import-picks-btn').addEventListener('click', () => {
+  document.getElementById('import-old-code').value = '';
+  document.getElementById('import-report').innerHTML = '';
+  document.getElementById('import-picks-modal').style.display = 'flex';
+});
+document.getElementById('close-import-picks-btn').addEventListener('click', () => {
+  document.getElementById('import-picks-modal').style.display = 'none';
+});
+
+// Build the migration plan (does not save). Returns {plan, report} or null.
+async function buildImportPlan(oldGame, newGame){
+  // Index the NEW game's group matches by team pair (both orderings)
+  const newByPair = {}; // "TeamA|TeamB" sorted -> {idx, home, away}
+  newGame.matches.forEach((m,i)=>{
+    if(!m.group) return;
+    const key = [m.home, m.away].sort().join('|');
+    newByPair[key] = {idx:i, home:m.home, away:m.away};
+  });
+
+  const oldPreds = oldGame.predictions || {};
+  let migrated = 0, dropped = 0, flipped = 0, scoresMigrated = 0;
+  const perPlayer = {}; // name -> {migrated, dropped}
+  const newPreds = {}; // idx -> {name: sel, name_score: {...}}
+
+  oldGame.matches.forEach((om, oi)=>{
+    if(!om.group) return;
+    const pr = oldPreds[oi];
+    if(!pr) return;
+    const key = [om.home, om.away].sort().join('|');
+    const target = newByPair[key];
+    Object.keys(pr).forEach(field=>{
+      if(field.endsWith('_score')) return; // handled with its base pick
+      const name = field;
+      const sel = pr[name];
+      if(sel!=='home' && sel!=='away' && sel!=='draw') return;
+      if(!perPlayer[name]) perPlayer[name]={migrated:0,dropped:0};
+      if(!target){ dropped++; perPlayer[name].dropped++; return; }
+      // Resolve the actual TEAM the player backed in the old fixture
+      let newSel;
+      if(sel==='draw'){ newSel='draw'; }
+      else {
+        const backedTeam = sel==='home' ? om.home : om.away;
+        // Map to the side that team occupies in the NEW fixture
+        if(backedTeam===target.home) newSel='home';
+        else if(backedTeam===target.away) newSel='away';
+        else { dropped++; perPlayer[name].dropped++; return; }
+        // Did home/away flip?
+        if(sel!==newSel) flipped++;
+      }
+      if(!newPreds[target.idx]) newPreds[target.idx]={};
+      newPreds[target.idx][name]=newSel;
+      migrated++; perPlayer[name].migrated++;
+      // Score prediction — flip if the fixture orientation flipped
+      const sc = pr[name+'_score'];
+      if(sc && typeof sc.home==='number' && typeof sc.away==='number'){
+        let ns;
+        if(sel==='draw' || newSel===sel) ns={home:sc.home, away:sc.away};
+        else ns={home:sc.away, away:sc.home}; // flipped
+        newPreds[target.idx][name+'_score']=ns;
+        scoresMigrated++;
+      }
+    });
+  });
+
+  return {newPreds, migrated, dropped, flipped, scoresMigrated, perPlayer,
+          oldPlayers:(oldGame.players||[]).map(p=>p.name),
+          oldPlayerObjs:(oldGame.players||[])};
+}
+
+document.getElementById('import-preview-btn').addEventListener('click', async () => {
+  const oldCode = document.getElementById('import-old-code').value.trim().toUpperCase();
+  const report = document.getElementById('import-report');
+  if(!oldCode){ report.innerHTML='<div style="color:var(--red);font-size:12px">Enter the old game code.</div>'; return; }
+  if(oldCode===me.code){ report.innerHTML='<div style="color:var(--red);font-size:12px">That\'s this game\'s code — enter the OLD game\'s code.</div>'; return; }
+  report.innerHTML='<div style="color:var(--muted);font-size:12px">Loading…</div>';
+  const oldGame = await loadGame(oldCode);
+  const newGame = await loadGame(me.code);
+  if(!oldGame){ report.innerHTML='<div style="color:var(--red);font-size:12px">Old game not found.</div>'; return; }
+  const plan = await buildImportPlan(oldGame, newGame);
+  window._importPlan = plan;
+
+  const playerRows = Object.entries(plan.perPlayer).map(([name,s])=>
+    `<div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0;border-bottom:1px solid var(--border)"><span>${name}</span><span style="color:var(--accent2)">${s.migrated} picks${s.dropped?` · <span style="color:var(--red)">${s.dropped} dropped</span>`:''}</span></div>`
+  ).join('');
+
+  report.innerHTML = `
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:12px">
+      <div style="font-size:13px;margin-bottom:8px"><strong>Preview</strong></div>
+      <div style="font-size:12px;color:var(--muted);line-height:1.7">
+        ✅ ${plan.migrated} picks will be imported<br>
+        ${plan.scoresMigrated>0?`🎯 ${plan.scoresMigrated} exact-score predictions carried over<br>`:''}
+        ${plan.flipped>0?`🔄 ${plan.flipped} picks adjusted for flipped home/away (same team backed)<br>`:''}
+        ${plan.dropped>0?`<span style="color:var(--red)">⚠️ ${plan.dropped} picks couldn't be matched and will be skipped</span><br>`:'✅ No picks dropped<br>'}
+      </div>
+      <div style="margin-top:10px">${playerRows}</div>
+    </div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:10px">Players and their passwords will be copied into this game, with their picks attached. They just reopen the game — their existing name and password will work, and their picks will already be in.</div>
+    <button class="btn btn-primary" id="import-commit-btn" style="width:100%">⬇️ Import these picks into ${me.code}</button>
+  `;
+
+  document.getElementById('import-commit-btn').addEventListener('click', async () => {
+    const plan = window._importPlan;
+    if(!plan) return;
+    if(!confirm(`Import ${plan.migrated} picks into game ${me.code}? This overwrites current picks in this game.`)) return;
+    const g = await loadGame(me.code);
+    g.predictions = g.predictions || {};
+    g.players = g.players || [];
+    // Copy over players (with their passwords) from the old game, except the host
+    // and anyone already present in this game
+    const existingNames = new Set(g.players.map(p=>p.name));
+    (plan.oldPlayerObjs||[]).forEach(op=>{
+      if(op.isHost) return;                 // the new game already has its own host
+      if(existingNames.has(op.name)) return; // already here
+      g.players.push({
+        name: op.name,
+        pwHash: op.pwHash,                  // preserve their password
+        lives: g.lives,                     // fresh lives for the new game
+        correct: 0,
+        eliminated: false,
+        isHost: false
+      });
+      existingNames.add(op.name);
+    });
+    // Merge imported predictions
+    Object.entries(plan.newPreds).forEach(([idx,obj])=>{
+      g.predictions[idx] = {...(g.predictions[idx]||{}), ...obj};
+    });
+    // Mark migrated players as submitted so they show as ready
+    g.bulkSubmitted = g.bulkSubmitted || {};
+    const totalGroup = g.matches.filter(m=>m.group).length;
+    Object.entries(plan.perPlayer).forEach(([name,s])=>{
+      if(s.migrated >= totalGroup) g.bulkSubmitted[name]=true;
+    });
+    await saveGame(g);
+    saveLocalBackup(g, `Imported ${plan.migrated} picks from ${document.getElementById('import-old-code').value.trim().toUpperCase()}`);
+    document.getElementById('import-picks-modal').style.display='none';
+    showToast(`⬇️ Imported ${plan.migrated} picks`);
+  });
+});
+
 document.getElementById('pregame-stats-btn').addEventListener('click', generatePreGameStats);
 document.getElementById('lobby-pregame-stats-btn').addEventListener('click', generatePreGameStats);
 
