@@ -3889,6 +3889,13 @@ async function generatePreGameStats(){
   }
   lines.push('');
 
+  // --- Friendly reminder if not everyone has used score predictions ---
+  if(scorers < submittedPlayers.length){
+    lines.push(`💡 DON'T FORGET`);
+    lines.push(`Exact-score predictions are a free shot at a bonus life — no downside if you're wrong. Worth a punt! 🎯`);
+    lines.push('');
+  }
+
   // --- For each group match, work out the crowd's majority pick (for maverick/safe-bold) ---
   const majorityPick = {}; // idx -> 'home'|'draw'|'away'
   groupMatchIdxs.forEach(({i})=>{
