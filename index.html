@@ -3623,6 +3623,9 @@ document.getElementById('quit-game-btn').addEventListener('click',()=>{
 async function downloadGameBackup(){
   const g = await loadGame(me.code);
   if(!g){ alert('Could not load game to back up.'); return; }
+  // Drafts live in a separate Firebase node — include them so un-locked picks are backed up too
+  const drafts = await loadAllDrafts(me.code);
+  g.__drafts = drafts || {};
   const json = JSON.stringify(g, null, 2);
   const blob = new Blob([json], {type:'application/json'});
   const url = URL.createObjectURL(blob);
@@ -3656,7 +3659,20 @@ document.getElementById('restore-file-input').addEventListener('change', async (
     }
     // Force the restored game to use the current game code so it writes back to the right place
     restored.code = me.code;
+    // Extract drafts (stored separately in Firebase) before saving the state
+    const restoredDrafts = restored.__drafts || null;
+    delete restored.__drafts;
     await saveGame(restored);
+    // Restore drafts to their own Firebase node
+    if(restoredDrafts && typeof restoredDrafts==='object'){
+      const base = getFirebaseUrl();
+      try{
+        await fetchWithTimeout(`${base}/games/${me.code}/drafts.json`, {
+          method:'PUT', headers:{'Content-Type':'application/json'},
+          body:JSON.stringify(restoredDrafts)
+        });
+      }catch(err){ console.warn('draft restore failed', err); }
+    }
     e.target.value = '';
     showToast('📂 Game restored — reloading…');
     setTimeout(async () => {
