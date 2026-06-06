@@ -3919,8 +3919,8 @@ async function generatePreGameStats(){
     lines.push('');
   }
 
-  // --- Great Minds: closest-matching pair of players ---
-  let bestPair = null;
+  // --- Great Minds: closest-matching pair of players (and Polar Opposites: least-matching) ---
+  let bestPair = null, worstPair = null;
   for(let a=0;a<submittedPlayers.length;a++){
     for(let b=a+1;b<submittedPlayers.length;b++){
       const nA=submittedPlayers[a], nB=submittedPlayers[b];
@@ -3931,12 +3931,19 @@ async function generatePreGameStats(){
       });
       const pct = both>0 ? same/both : 0;
       if(!bestPair || pct > bestPair.pct) bestPair = {pct, same, both};
+      if(!worstPair || pct < worstPair.pct) worstPair = {pct, same, both, diff:both-same};
     }
   }
   if(bestPair && bestPair.both > 0){
     const pct = Math.round(bestPair.pct*100);
     lines.push(`👥 GREAT MINDS`);
     lines.push(`Two players agree on ${pct}% of their picks — spooky! 👻`);
+    lines.push('');
+  }
+  // Only show Polar Opposites if it's a genuinely different pair from Great Minds (more than 2 players)
+  if(worstPair && worstPair.both > 0 && submittedPlayers.length > 2 && worstPair.diff > 0){
+    lines.push(`⚔️ POLAR OPPOSITES`);
+    lines.push(`Two players clash on ${worstPair.diff} matches — natural rivals! ⚡`);
     lines.push('');
   }
 
