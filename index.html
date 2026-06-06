@@ -4017,6 +4017,33 @@ async function generatePreGameStats(){
     }
   });
 
+  // --- Three Lions: average number of England group wins the crowd backed ---
+  const englandMatches = groupMatchIdxs.filter(({m}) => m.home==='England' || m.away==='England');
+  if(englandMatches.length > 0){
+    let totalWinsBacked = 0, playersCounted = 0, anyDrawOrAgainst = 0;
+    submittedPlayers.forEach(name=>{
+      let winsBacked = 0, picksMade = 0;
+      englandMatches.forEach(({m,i})=>{
+        const v = preds[i] && preds[i][name];
+        if(!v) return;
+        picksMade++;
+        const engSide = m.home==='England' ? 'home' : 'away';
+        if(v === engSide) winsBacked++;
+        else anyDrawOrAgainst++;
+      });
+      if(picksMade > 0){ totalWinsBacked += winsBacked; playersCounted++; }
+    });
+    if(playersCounted > 0){
+      const avg = (totalWinsBacked/playersCounted).toFixed(1);
+      lines.push(`🦁 THREE LIONS WATCH`);
+      lines.push(`On average, the group backed England to win ${avg} of their ${englandMatches.length} group games.`);
+      if(anyDrawOrAgainst === 0){
+        lines.push(`Not one person dared predict against them — full faith! 🏴󠁧󠁢󠁥󠁮󠁧󠁿`);
+      }
+      lines.push('');
+    }
+  }
+
   lines.push(`May the divine wind be at your back. 🌪️⚽`);
 
   const text = lines.join('\n');
