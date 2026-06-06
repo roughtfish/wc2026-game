@@ -1679,11 +1679,12 @@ async function clearDraft(){
   }catch(e){console.warn('clearDraft failed',e);}
 }
 
-async function loadAllDrafts(){
+async function loadAllDrafts(code){
   const base=getFirebaseUrl();
-  if(!base||!me.code)return {};
+  const c=code||me.code;
+  if(!base||!c)return {};
   try{
-    const r=await fetchWithTimeout(`${base}/games/${me.code}/drafts.json`);
+    const r=await fetchWithTimeout(`${base}/games/${c}/drafts.json`);
     if(!r.ok)return{};
     const d=await r.json();
     return d||{};
@@ -3972,7 +3973,31 @@ async function buildImportPlan(oldGame, newGame){
     newByPair[key] = {idx:i, home:m.home, away:m.away};
   });
 
-  const oldPreds = oldGame.predictions || {};
+  const oldPreds = JSON.parse(JSON.stringify(oldGame.predictions || {}));
+  // Fold in un-locked DRAFT picks from the old game so they migrate too.
+  // Committed picks take priority; drafts fill in matches a player hasn't locked.
+  const oldDrafts = await loadAllDrafts(oldGame.code);
+  Object.entries(oldDrafts).forEach(([name, draft])=>{
+    if(!draft || typeof draft!=='object') return;
+    const scores = draft.__scores || {};
+    Object.keys(draft).forEach(k=>{
+      if(k==='__scores') return;
+      const idx = parseInt(k);
+      if(isNaN(idx)) return;
+      const sel = draft[k];
+      if(sel!=='home' && sel!=='away' && sel!=='draw') return;
+      if(!oldPreds[idx]) oldPreds[idx]={};
+      // Only fill if this player hasn't already committed a pick for this match
+      if(oldPreds[idx][name]==null) oldPreds[idx][name]=sel;
+    });
+    Object.keys(scores).forEach(k=>{
+      const idx = parseInt(k);
+      if(isNaN(idx)) return;
+      if(!oldPreds[idx]) oldPreds[idx]={};
+      if(oldPreds[idx][name+'_score']==null) oldPreds[idx][name+'_score']=scores[k];
+    });
+  });
+
   let migrated = 0, dropped = 0, flipped = 0, scoresMigrated = 0;
   const perPlayer = {}; // name -> {migrated, dropped}
   const newPreds = {}; // idx -> {name: sel, name_score: {...}}
