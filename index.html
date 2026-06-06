@@ -528,6 +528,7 @@
       <button class="btn btn-secondary btn-sm" id="import-picks-btn" style="margin-top:10px;font-size:11px;letter-spacing:1px;opacity:0.8">⬇️ Import Picks From Another Game</button>
       <button class="btn btn-secondary btn-sm" id="fix-fixtures-btn" style="margin-top:10px;font-size:11px;letter-spacing:1px;opacity:0.8" title="Update this game's fixtures to the official schedule, keeping everyone's picks">🔧 Fix Fixtures (keep picks)</button>
       <button class="btn btn-secondary btn-sm" id="lobby-backup-btn" style="margin-top:10px;font-size:11px;letter-spacing:1px;opacity:0.8" title="Download a full backup of this game as a file you can keep">💾 Download Backup</button>
+      <button class="btn btn-secondary btn-sm" id="lobby-schedule-btn" style="margin-top:10px;font-size:11px;letter-spacing:1px;opacity:0.8" title="View the full tournament schedule">📅 View Schedule</button>
       <button class="btn btn-secondary btn-sm" id="host-leave-lobby-btn" style="margin-top:10px;font-size:11px;letter-spacing:1px;opacity:0.7;color:var(--red);border-color:rgba(239,68,68,0.3)">✕ Leave Lobby</button>
     </div>
   </div>
@@ -4381,6 +4382,13 @@ document.getElementById('open-history-btn').addEventListener('click', async () =
 });
 
 document.getElementById('view-schedule-btn').addEventListener('click', async () => {
+  const g = await loadGame(me.code);
+  if (!g) return;
+  showScheduleModal(g);
+});
+
+// Also add for host lobby (verify fixtures before starting)
+document.getElementById('lobby-schedule-btn')?.addEventListener('click', async () => {
   const g = await loadGame(me.code);
   if (!g) return;
   showScheduleModal(g);
