@@ -605,6 +605,7 @@
         <button class="btn btn-secondary btn-sm" id="restore-game-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Restore a game from a backup JSON file">📂 Restore</button>
         <button class="btn btn-secondary btn-sm" id="export-csv-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Export all player picks to a CSV spreadsheet">📊 Export CSV</button>
         <button class="btn btn-secondary btn-sm" id="check-scores-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="See how many exact-score predictions each player made">🎯 Score Check</button>
+        <button class="btn btn-secondary btn-sm" id="enter-scores-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Enter exact-score predictions a player gave you, on their behalf">✍️ Enter Scores For Player</button>
         <button class="btn btn-secondary btn-sm" id="pregame-stats-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Generate anonymous pre-game stats to share (e.g. on WhatsApp)">📣 Pre-Game Stats</button>
         <button class="btn btn-secondary btn-sm" id="local-backups-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="View and restore automatic local backups (last 10)">⏱ Local Backups</button>
         <input type="file" id="restore-file-input" accept=".json,application/json" style="display:none">
@@ -695,6 +696,23 @@
       </div>
       <button class="btn btn-secondary" id="import-preview-btn" style="width:100%">🔍 Preview migration</button>
       <div id="import-report" style="margin-top:14px"></div>
+    </div>
+  </div>
+
+  <div id="enter-scores-modal" class="modal" style="display:none">
+    <div class="modal-content" style="max-width:480px;max-height:85vh;overflow-y:auto">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <h2 style="margin:0;font-size:18px">✍️ Enter Scores For Player</h2>
+        <button id="close-enter-scores-btn" style="background:none;border:none;color:var(--muted);font-size:24px;cursor:pointer;padding:0;line-height:1">&times;</button>
+      </div>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:12px">For entering exact-score predictions a player gave you (e.g. younger players). Only upcoming group matches are shown, and the same limits apply: max 12 scores, one per group.</p>
+      <div class="field" style="margin-bottom:12px">
+        <label style="font-size:12px;color:var(--muted)">Player</label>
+        <select id="enter-scores-player" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--text);font-size:14px;outline:none"></select>
+      </div>
+      <div id="enter-scores-status" style="font-size:12px;margin-bottom:10px"></div>
+      <div id="enter-scores-list"></div>
+      <button class="btn btn-primary" id="save-entered-scores-btn" style="width:100%;margin-top:12px;display:none">Save scores</button>
     </div>
   </div>
 
@@ -3704,6 +3722,168 @@ document.getElementById('restore-file-input').addEventListener('change', async (
     alert('Failed to read backup file: ' + err.message);
     e.target.value = '';
   }
+});
+
+// ─── HOST: ENTER SCORES FOR A PLAYER (e.g. younger players who gave them verbally) ───
+const MAX_HOST_SCORES = 12;
+document.getElementById('enter-scores-btn').addEventListener('click', async () => {
+  const g = await loadGame(me.code);
+  if(!g){ alert('Could not load game.'); return; }
+  const sel = document.getElementById('enter-scores-player');
+  sel.innerHTML = '<option value="">— choose a player —</option>' +
+    g.players.map(p=>`<option value="${p.name}">${p.name}</option>`).join('');
+  document.getElementById('enter-scores-list').innerHTML = '';
+  document.getElementById('enter-scores-status').innerHTML = '';
+  document.getElementById('save-entered-scores-btn').style.display = 'none';
+  document.getElementById('enter-scores-modal').style.display = 'flex';
+});
+document.getElementById('close-enter-scores-btn').addEventListener('click', () => {
+  document.getElementById('enter-scores-modal').style.display = 'none';
+});
+
+document.getElementById('enter-scores-player').addEventListener('change', async (e) => {
+  const name = e.target.value;
+  const listEl = document.getElementById('enter-scores-list');
+  const statusEl = document.getElementById('enter-scores-status');
+  const saveBtn = document.getElementById('save-entered-scores-btn');
+  listEl.innerHTML = ''; statusEl.innerHTML = ''; saveBtn.style.display = 'none';
+  if(!name) return;
+
+  const g = await loadGame(me.code);
+  if(!g) return;
+  const committed = g.predictions || {};
+  const drafts = await loadAllDrafts(me.code);
+  const draft = drafts[name] || {};
+  const draftScores = draft.__scores || {};
+
+  // Build current score picture: which groups already have a score, and total count
+  const groupsScored = new Set();
+  let totalScores = 0;
+  g.matches.forEach((m,i)=>{
+    if(!m.group) return;
+    const has = (committed[i] && committed[i][name+'_score']) || draftScores[i];
+    if(has){ groupsScored.add(m.group); totalScores++; }
+  });
+
+  // SAFEGUARD: block entirely if already at the cap
+  if(totalScores >= MAX_HOST_SCORES){
+    statusEl.innerHTML = `<div style="color:var(--accent2)">✅ ${name} already has the maximum ${MAX_HOST_SCORES} score predictions — nothing to add.</div>`;
+    return;
+  }
+
+  // Find UPCOMING group matches (not yet played) in a group not already scored,
+  // where the player has an outcome pick (so we know who they backed).
+  const candidates = [];
+  g.matches.forEach((m,i)=>{
+    if(!m.group) return;
+    const played = g.results && g.results[i] != null;
+    if(played) return;                          // future matches only
+    if(groupsScored.has(m.group)) return;       // one per group
+    const outcome = (committed[i] && committed[i][name]) || draft[i];
+    candidates.push({ i, m, outcome });
+  });
+
+  statusEl.innerHTML = `<div style="color:var(--muted)">${name} has <strong>${totalScores}/${MAX_HOST_SCORES}</strong> scores. You can add up to <strong>${MAX_HOST_SCORES - totalScores}</strong> more, in groups they haven't scored yet.</div>`;
+
+  if(candidates.length === 0){
+    listEl.innerHTML = '<div style="color:var(--muted);font-size:12px;padding:10px 0">No eligible upcoming matches (all remaining groups are either already scored or played).</div>';
+    return;
+  }
+
+  listEl.innerHTML = candidates.map(({i,m,outcome})=>{
+    const backed = outcome==='home'?m.home : outcome==='away'?m.away : outcome==='draw'?'Draw' : '—';
+    return `
+    <div class="enter-score-row" data-idx="${i}" data-group="${m.group}" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;align-items:center;font-size:13px;margin-bottom:6px">
+        <span><strong>Grp ${m.group}</strong> · ${m.home} v ${m.away}</span>
+        <span style="font-size:11px;color:var(--muted)">${m.date||''}</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;font-size:13px">
+        <span style="flex:1">${m.home}</span>
+        <input type="number" min="0" max="20" class="score-home" style="width:46px;text-align:center;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:6px;color:var(--text)">
+        <span style="color:var(--muted)">–</span>
+        <input type="number" min="0" max="20" class="score-away" style="width:46px;text-align:center;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:6px;color:var(--text)">
+        <span style="flex:1;text-align:right">${m.away}</span>
+      </div>
+      <div style="font-size:10px;color:var(--muted);margin-top:4px">Their pick: ${backed}</div>
+    </div>`;
+  }).join('');
+  saveBtn.style.display = 'block';
+
+  // Live cap enforcement: limit how many rows can be filled
+  const remaining = MAX_HOST_SCORES - totalScores;
+  const enforceCap = () => {
+    const filled = [...listEl.querySelectorAll('.enter-score-row')].filter(row=>{
+      const h=row.querySelector('.score-home').value, a=row.querySelector('.score-away').value;
+      return h!=='' && a!=='';
+    });
+    if(filled.length > remaining){
+      statusEl.innerHTML = `<div style="color:var(--red)">⚠️ You can only add ${remaining} more — clear one before adding another.</div>`;
+    } else {
+      statusEl.innerHTML = `<div style="color:var(--muted)">${name} has <strong>${totalScores}/${MAX_HOST_SCORES}</strong> scores. Adding <strong>${filled.length}</strong> (max ${remaining} more).</div>`;
+    }
+  };
+  listEl.querySelectorAll('input').forEach(inp=>inp.addEventListener('input', enforceCap));
+});
+
+document.getElementById('save-entered-scores-btn').addEventListener('click', async () => {
+  const name = document.getElementById('enter-scores-player').value;
+  if(!name) return;
+  const listEl = document.getElementById('enter-scores-list');
+  const g = await loadGame(me.code);
+  if(!g) return;
+
+  // Recount current scores at save time (in case anything changed)
+  const committed = g.predictions || {};
+  const drafts = await loadAllDrafts(me.code);
+  const draft = drafts[name] || {};
+  const draftScores = draft.__scores || {};
+  const groupsScored = new Set();
+  let totalScores = 0;
+  g.matches.forEach((m,i)=>{
+    if(!m.group) return;
+    const has = (committed[i] && committed[i][name+'_score']) || draftScores[i];
+    if(has){ groupsScored.add(m.group); totalScores++; }
+  });
+
+  // Gather entered scores, validating against all rules
+  const toAdd = [];
+  let invalid = false;
+  listEl.querySelectorAll('.enter-score-row').forEach(row=>{
+    const idx = parseInt(row.getAttribute('data-idx'));
+    const grp = row.getAttribute('data-group');
+    const h = row.querySelector('.score-home').value;
+    const a = row.querySelector('.score-away').value;
+    if(h==='' && a==='') return;          // skipped row
+    if(h==='' || a==='') { invalid = true; return; } // half-filled
+    const hn = parseInt(h), an = parseInt(a);
+    if(isNaN(hn)||isNaN(an)||hn<0||an<0){ invalid = true; return; }
+    // re-check it's still a future, unscored group
+    if(g.results && g.results[idx] != null) return;       // played since
+    if(groupsScored.has(grp)) return;                     // group already scored
+    groupsScored.add(grp);                                // claim this group
+    toAdd.push({ idx, score:{home:hn, away:an} });
+  });
+
+  if(invalid){ alert('Some rows have only one number filled in — enter both or leave both blank.'); return; }
+  if(toAdd.length === 0){ alert('No valid scores entered.'); return; }
+  if(totalScores + toAdd.length > MAX_HOST_SCORES){
+    alert(`That would exceed the ${MAX_HOST_SCORES}-score limit. ${name} has ${totalScores}; you tried to add ${toAdd.length}.`);
+    return;
+  }
+
+  if(!confirm(`Add ${toAdd.length} score prediction${toAdd.length===1?'':'s'} for ${name}?`)) return;
+
+  // Write directly into committed predictions (the host is recording the player's real picks)
+  g.predictions = g.predictions || {};
+  toAdd.forEach(({idx,score})=>{
+    g.predictions[idx] = g.predictions[idx] || {};
+    g.predictions[idx][name+'_score'] = score;
+  });
+  await saveGame(g);
+  saveLocalBackup(g, `Host entered ${toAdd.length} scores for ${name}`);
+  document.getElementById('enter-scores-modal').style.display = 'none';
+  showToast(`✍️ Added ${toAdd.length} score${toAdd.length===1?'':'s'} for ${name}`);
 });
 
 document.getElementById('check-scores-btn').addEventListener('click', async () => {
