@@ -400,6 +400,10 @@
       <span>MOST PICKED AS RIVAL 🎯</span>
       <span style="font-size:11px;color:var(--muted);transition:transform 0.2s" id="most-picked-rival-arrow">▼</span>
     </div>
+    <div id="most-picked-rival-toggle" style="display:flex;gap:6px;margin:8px 0 4px">
+      <button class="rival-mode-btn" data-mode="overall" style="flex:1;font-size:11px;letter-spacing:1px;padding:6px;border-radius:6px;border:1px solid var(--accent2);background:var(--accent2);color:var(--bg);cursor:pointer;font-weight:600">OVERALL</button>
+      <button class="rival-mode-btn" data-mode="today" style="flex:1;font-size:11px;letter-spacing:1px;padding:6px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;font-weight:600">TODAY</button>
+    </div>
     <div id="most-picked-rival"></div>
     
     <!-- PREDICTIONS SECTION -->
@@ -1014,6 +1018,7 @@ function renderRivalStats(g){
   window._rivalStatsData={g,playerStats};
 }
 
+let _rivalStatMode = 'overall';
 function renderMostPickedRival(g){
   const el=document.getElementById('most-picked-rival');
   if(!el)return;
@@ -1025,22 +1030,33 @@ function renderMostPickedRival(g){
   const pickCounts={};
   const pickedBy={}; // Track who picked whom
   
-  completedDays.forEach(day=>{
-    const rivalSelections=day.rivalSelections||{};
-    Object.entries(rivalSelections).forEach(([picker,rivalName])=>{
+  if(_rivalStatMode==='today'){
+    // Today (in progress): read each player's live currentRival
+    players.forEach(p=>{
+      const rivalName=p.currentRival;
+      if(!rivalName) return;
       pickCounts[rivalName]=(pickCounts[rivalName]||0)+1;
-      
-      // Track who picked this rival
       if(!pickedBy[rivalName])pickedBy[rivalName]={};
-      pickedBy[rivalName][picker]=(pickedBy[rivalName][picker]||0)+1;
+      pickedBy[rivalName][p.name]=(pickedBy[rivalName][p.name]||0)+1;
     });
-  });
+  } else {
+    // Overall: aggregate across all completed days
+    completedDays.forEach(day=>{
+      const rivalSelections=day.rivalSelections||{};
+      Object.entries(rivalSelections).forEach(([picker,rivalName])=>{
+        pickCounts[rivalName]=(pickCounts[rivalName]||0)+1;
+        if(!pickedBy[rivalName])pickedBy[rivalName]={};
+        pickedBy[rivalName][picker]=(pickedBy[rivalName][picker]||0)+1;
+      });
+    });
+  }
   
   // Check if any picks exist
   const hasPicks=Object.keys(pickCounts).length>0;
   
   if(!hasPicks){
-    el.innerHTML='<div style="color:var(--muted);font-size:13px;padding:12px 0">No rival selections yet</div>';
+    const msg = _rivalStatMode==='today' ? 'No rivals picked for today yet' : 'No rival selections yet';
+    el.innerHTML=`<div style="color:var(--muted);font-size:13px;padding:12px 0">${msg}</div>`;
     return;
   }
   
@@ -2346,12 +2362,27 @@ function showRivalDetail(playerName){
   
   document.getElementById('most-picked-rival-header')?.addEventListener('click', () => {
     const content = document.getElementById('most-picked-rival');
+    const toggle = document.getElementById('most-picked-rival-toggle');
     const arrow = document.getElementById('most-picked-rival-arrow');
     if(content && arrow) {
       const isHidden = content.style.display === 'none';
       content.style.display = isHidden ? 'block' : 'none';
+      if(toggle) toggle.style.display = isHidden ? 'flex' : 'none';
       arrow.textContent = isHidden ? '▼' : '▶';
     }
+  });
+  // Overall / Today toggle for the rival popularity stat
+  document.querySelectorAll('.rival-mode-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      _rivalStatMode = btn.getAttribute('data-mode');
+      document.querySelectorAll('.rival-mode-btn').forEach(b => {
+        const active = b.getAttribute('data-mode') === _rivalStatMode;
+        b.style.background = active ? 'var(--accent2)' : 'transparent';
+        b.style.color = active ? 'var(--bg)' : 'var(--muted)';
+        b.style.borderColor = active ? 'var(--accent2)' : 'var(--border)';
+      });
+      if(currentGame) renderMostPickedRival(currentGame);
+    });
   });
   </script>
 <div id="stats-toast" style="display:none;position:fixed;left:50%;bottom:32px;transform:translateX(-50%) translateY(20px);background:var(--accent2);color:#0a0f1a;font-weight:700;font-size:14px;padding:14px 22px;border-radius:10px;box-shadow:0 8px 30px rgba(0,0,0,0.4);z-index:9999;opacity:0;transition:opacity 0.25s,transform 0.25s;max-width:90vw;text-align:center;pointer-events:none"></div>
