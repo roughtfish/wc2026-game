@@ -639,6 +639,25 @@ function renderQuickStats(g){
     return bCorrect-aCorrect;
   });
   const leader=sortedPlayers[0];
+  // Work out how many players are tied at the top (same lives AND same correct count)
+  const leaderCorrect = playedIdxs.filter(idx=>{
+    const r=results[idx];const v=(g.predictions[idx]||{})[leader.name];
+    return v&&v===(r.pens?r.pens:(r.home>r.away?'home':r.away>r.home?'away':'draw'));
+  }).length;
+  const tiedLeaders = players.filter(p=>{
+    if(p.lives!==leader.lives) return false;
+    const c = playedIdxs.filter(idx=>{
+      const r=results[idx];const v=(g.predictions[idx]||{})[p.name];
+      return v&&v===(r.pens?r.pens:(r.home>r.away?'home':r.away>r.home?'away':'draw'));
+    }).length;
+    return c===leaderCorrect;
+  });
+  // Randomise the tied list so no implied ranking
+  const shuffledTied = [...tiedLeaders].sort(()=>Math.random()-0.5);
+  const isTie = tiedLeaders.length > 1;
+  const leaderLabel = isTie ? `${tiedLeaders.length}-way tie` : leader.name;
+  const leaderTitle = isTie ? shuffledTied.map(p=>p.name).join(', ') : '';
+  const leaderSub = isTie ? `${leader.lives} ❤️ each` : `${leader.lives} ❤️`;
   
   el.innerHTML=`
     <div style="background:var(--surface);border-radius:8px;padding:12px;border-left:3px solid var(--accent2)">
@@ -658,8 +677,8 @@ function renderQuickStats(g){
     </div>
     <div style="background:var(--surface);border-radius:8px;padding:12px;border-left:3px solid gold">
       <div style="font-size:10px;color:var(--muted);letter-spacing:1px;margin-bottom:4px">LEADER</div>
-      <div style="font-family:'Bebas Neue',sans-serif;font-size:18px;color:gold">${leader.name}</div>
-      <div style="font-size:10px;color:var(--muted);margin-top:2px">${leader.lives} ❤️</div>
+      <div id="leader-name" style="font-family:'Bebas Neue',sans-serif;font-size:18px;color:gold;${isTie?'cursor:pointer':''}" ${isTie?`title="Tied: ${leaderTitle}" data-tied="${leaderTitle.replace(/"/g,'')}"`:''}>${leaderLabel}${isTie?' <span style="font-size:11px;color:var(--muted)">ⓘ</span>':''}</div>
+      <div style="font-size:10px;color:var(--muted);margin-top:2px">${leaderSub}</div>
     </div>
   `;
 }
@@ -2376,6 +2395,13 @@ function showRivalDetail(playerName){
       content.style.display = isHidden ? 'block' : 'none';
       if(toggle) toggle.style.display = isHidden ? 'flex' : 'none';
       arrow.textContent = isHidden ? '▼' : '▶';
+    }
+  });
+  // Tapping the LEADER box when it's a tie shows the tied players (for mobile, where title tooltips don't show)
+  document.body.addEventListener('click', (e) => {
+    const ln = e.target.closest && e.target.closest('#leader-name');
+    if(ln && ln.getAttribute('data-tied')){
+      showStatsToast('🤝 Tied: ' + ln.getAttribute('data-tied'));
     }
   });
   // Survival Analysis info box toggle
