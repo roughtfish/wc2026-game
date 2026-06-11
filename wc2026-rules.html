@@ -221,7 +221,7 @@
   </div>
 
   <!-- EXACT SCORE BONUS -->
-  <div class="section" id="score-prediction">
+  <div class="section" id="score-prediction" data-updated="2026-06-11">
     <div class="section-title"><span class="icon">🎯</span>Exact Score Bonus</div>
     <div class="rule">
       <div class="rule-icon">🎯</div>
@@ -249,7 +249,7 @@
   </div>
 
   <!-- RIVAL SYSTEM -->
-  <div class="section" id="rivals">
+  <div class="section" id="rivals" data-updated="2026-06-11">
     <div class="section-title"><span class="icon">⚔️</span>Rival System</div>
     <div class="rule">
       <div class="rule-icon">⚔️</div>
@@ -284,7 +284,7 @@
   </div>
 
   <!-- PENALTIES -->
-  <div class="section" id="penalties">
+  <div class="section" id="penalties" data-updated="2026-06-11">
     <div class="section-title"><span class="icon">🥅</span>Penalty Shootouts</div>
     <div class="rule">
       <div class="rule-icon">⚽</div>
@@ -301,7 +301,7 @@
   </div>
 
   <!-- ELIMINATION -->
-  <div class="section" id="elimination">
+  <div class="section" id="elimination" data-updated="2026-06-11">
     <div class="section-title"><span class="icon">💀</span>Elimination & Winning</div>
     <div class="rule">
       <div class="rule-icon">💀</div>
@@ -323,6 +323,34 @@ try{
   const el=document.getElementById('rules-player-name');
   if(el&&s.name){el.style.display='inline';el.querySelector('span').textContent=s.name;}
 }catch(e){}
+// Show a 🆕 UPDATED badge on any section changed in the last 48 hours.
+// Each section carries data-updated="YYYY-MM-DD"; bump that date when you edit it.
+(function(){
+  const WINDOW_MS = 48 * 60 * 60 * 1000;
+  const now = Date.now();
+  document.querySelectorAll('.section[data-updated]').forEach(sec=>{
+    const d = new Date(sec.getAttribute('data-updated') + 'T00:00:00');
+    if(isNaN(d)) return;
+    if(now - d.getTime() <= WINDOW_MS){
+      const title = sec.querySelector('.section-title');
+      if(title && !title.querySelector('.badge-new')){
+        const b = document.createElement('span');
+        b.className = 'badge badge-new';
+        b.textContent = '🆕 UPDATED';
+        title.appendChild(b);
+        // Also flag the matching table-of-contents link
+        const id = sec.id;
+        const tocLink = document.querySelector('.toc a[href="#'+id+'"]');
+        if(tocLink && !tocLink.querySelector('.badge-new')){
+          const tb = document.createElement('span');
+          tb.className = 'badge badge-new';
+          tb.textContent = '🆕';
+          tocLink.appendChild(tb);
+        }
+      }
+    }
+  });
+})();
 </script>
 </body>
 </html>
