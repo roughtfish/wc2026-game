@@ -600,6 +600,7 @@
         <button class="btn btn-secondary btn-sm" id="undo-result-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7;display:none">↩ Undo</button>
         <button class="btn btn-secondary btn-sm" id="open-history-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7">✎ Edit Result</button>
         <button class="btn btn-secondary btn-sm" id="adjust-lives-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Add or remove lives from all active players">❤️ Adjust Lives</button>
+        <button class="btn btn-secondary btn-sm" id="recompute-rivals-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Recalculate all rival head-to-head victories from the completed days">⚔️ Recompute Rival Stats</button>
         <button class="btn btn-secondary btn-sm" id="backup-game-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Download full game backup (JSON) — restore later if anything goes wrong">💾 Backup</button>
         <button class="btn btn-secondary btn-sm" id="restore-game-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Restore a game from a backup JSON file">📂 Restore</button>
         <button class="btn btn-secondary btn-sm" id="export-csv-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Export all player picks to a CSV spreadsheet">📊 Export CSV</button>
@@ -3734,6 +3735,25 @@ document.getElementById('export-csv-btn').addEventListener('click', async () => 
 
 // ─── LOCAL BACKUPS MODAL ──────────────────────────────────────────────────────
 // ─── ADJUST LIVES ─────────────────────────────────────────────────────────────
+document.getElementById('recompute-rivals-btn').addEventListener('click', async () => {
+  const g = await loadGame(me.code);
+  if(!g){ alert('Could not load game.'); return; }
+  const before = JSON.stringify(g.rivalVictories || {});
+  rebuildRivalVictories(g);
+  const after = JSON.stringify(g.rivalVictories || {});
+  await saveGame(g);
+  // Build a short summary of the corrected standings
+  const entries = Object.entries(g.rivalVictories || {})
+    .filter(([,v]) => v > 0)
+    .sort((a,b) => b[1] - a[1]);
+  const summary = entries.length
+    ? entries.map(([n,v]) => `${n}: ${v}`).join('\n')
+    : 'No rival victories yet.';
+  const changed = before !== after;
+  alert(`${changed ? '✅ Rival stats recalculated.' : '✅ Rival stats checked — already correct.'}\n\nCurrent victories:\n${summary}`);
+  showToast('⚔️ Rival stats recomputed');
+});
+
 document.getElementById('adjust-lives-btn').addEventListener('click', async () => {
   const input = prompt('Adjust lives for ALL active players.\n\nEnter a number to add (e.g. 5) or remove (e.g. -3):');
   if(input === null) return;
@@ -5803,13 +5823,10 @@ async function showDailySummary(g, matchIndices) {
       else if(winner === 'draw') player.rivalryRecord[rivalPlayer.name].draws++;
       else player.rivalryRecord[rivalPlayer.name].losses++;
       
-      // Track global rivalry victories for group stage bonus
+      // Global rivalry victories are now computed authoritatively when the host
+      // closes the day (see rebuildRivalVictories). Don't increment here to avoid
+      // double-counting or client race conditions.
       if(!g.rivalVictories) g.rivalVictories = {};
-      if(!g.rivalVictories[me.name]) g.rivalVictories[me.name] = 0;
-      if(!g.rivalVictories[rivalPlayer.name]) g.rivalVictories[rivalPlayer.name] = 0;
-      
-      if(winner === 'you') g.rivalVictories[me.name]++;
-      else if(winner === 'rival') g.rivalVictories[rivalPlayer.name]++;
       
       // Save updated record
       await saveGame(g);
@@ -5926,13 +5943,9 @@ async function showDailySummary(g, matchIndices) {
       if(correct > rivalCorrect) winner = 'me';
       else if(rivalCorrect > correct) winner = 'rival';
       
-      // Track rival victories
+      // Rival victories are computed authoritatively at day-close
+      // (rebuildRivalVictories). Don't increment here.
       if(!g.rivalVictories) g.rivalVictories = {};
-      if(!g.rivalVictories[me.name]) g.rivalVictories[me.name] = 0;
-      if(!g.rivalVictories[rival.name]) g.rivalVictories[rival.name] = 0;
-      
-      if(winner === 'me') g.rivalVictories[me.name]++;
-      else if(winner === 'rival') g.rivalVictories[rival.name]++;
       
       // Save updated victories
       await saveGame(g);
@@ -6541,45 +6554,10 @@ function reassignRivalsInTestMode(g) {
 
 // Track rival victories for all players in test mode
 function trackAllRivalVictoriesInTestMode(g, matchIndices) {
-  if(g.mode !== 'test') return;
-  
-  if(!g.rivalVictories) g.rivalVictories = {};
-  
-  // For each player who had a rival set
-  g.players.forEach(player => {
-    if(!player.currentRival) return;
-    
-    const rivalPlayer = g.players.find(p => p.name === player.currentRival);
-    if(!rivalPlayer) return;
-    
-    // Count correct predictions for this day
-    let playerCorrect = 0;
-    let rivalCorrect = 0;
-    
-    matchIndices.forEach(idx => {
-      const result = g.results?.[idx];
-      const playerPred = g.predictions[idx]?.[player.name];
-      const rivalPred = g.predictions[idx]?.[rivalPlayer.name];
-      
-      if(!result || playerPred === undefined || playerPred === null || rivalPred === undefined || rivalPred === null) return;
-      
-      const actualWinner = result.pens ? result.pens : (result.home > result.away ? 'home' : result.away > result.home ? 'away' : 'draw');
-      
-      if(playerPred === actualWinner) playerCorrect++;
-      if(rivalPred === actualWinner) rivalCorrect++;
-    });
-    
-    // Update victory counts
-    if(!g.rivalVictories[player.name]) g.rivalVictories[player.name] = 0;
-    if(!g.rivalVictories[rivalPlayer.name]) g.rivalVictories[rivalPlayer.name] = 0;
-    
-    if(playerCorrect > rivalCorrect) {
-      g.rivalVictories[player.name]++;
-    } else if(rivalCorrect > playerCorrect) {
-      g.rivalVictories[rivalPlayer.name]++;
-    }
-    // Draws don't count for anyone
-  });
+  // Rival victories are now computed authoritatively for ALL players (including
+  // test-mode bots) by rebuildRivalVictories() when the host closes the day.
+  // This function is kept as a no-op so existing call sites stay valid.
+  return;
 }
 
 // Open rival selection modal
@@ -6693,6 +6671,42 @@ async function saveRival() {
 
 // Add "Complete Day" button functionality
 // This will be called when host marks a day as complete
+// Compute each player's correct-count for a given set of match indices
+function countCorrectForMatches(g, playerName, matchIdxs){
+  let correct = 0;
+  matchIdxs.forEach(idx=>{
+    const result = g.results[idx];
+    if(!result) return;
+    const pred = (g.predictions[idx]||{})[playerName];
+    if(pred==null) return;
+    if(pred === actualOutcome(result)) correct++;
+  });
+  return correct;
+}
+
+// Authoritatively (re)build g.rivalVictories from the completedDays log.
+// Each completed day stores its own rival head-to-head outcomes, so this is
+// idempotent — running it repeatedly always yields the same totals.
+function rebuildRivalVictories(g){
+  g.rivalVictories = {};
+  (g.players||[]).forEach(p=>{ g.rivalVictories[p.name] = 0; });
+  (g.completedDays||[]).forEach(day=>{
+    const sel = day.rivalSelections || {};
+    const matchIdxs = day.matches || [];
+    Object.entries(sel).forEach(([playerName, rivalName])=>{
+      if(!rivalName) return;
+      // Only count if both still exist as players
+      if(g.rivalVictories[playerName]===undefined) return;
+      if(g.rivalVictories[rivalName]===undefined) return;
+      const myCorrect = countCorrectForMatches(g, playerName, matchIdxs);
+      const rivalCorrect = countCorrectForMatches(g, rivalName, matchIdxs);
+      // The better performer of the head-to-head wins the day. Draws count for no one.
+      if(myCorrect > rivalCorrect) g.rivalVictories[playerName]++;
+      else if(rivalCorrect > myCorrect) g.rivalVictories[rivalName]++;
+    });
+  });
+}
+
 async function completeDayAsHost(g) {
   // Calculate today's matches from game state instead of relying on global variable
   const currentMatch = g.matches[g.currentMatchIdx];
@@ -6730,6 +6744,9 @@ async function completeDayAsHost(g) {
     matches: [...calculatedTodaysMatches],
     rivalSelections: rivalSelections
   });
+  
+  // Authoritatively recompute rival victories from the completed-days log (idempotent)
+  rebuildRivalVictories(g);
   
   // Broadcast to all players to show summary
   g.showDailySummary = { matches: calculatedTodaysMatches, timestamp: Date.now() };
