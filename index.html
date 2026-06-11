@@ -646,6 +646,7 @@
           <button class="btn btn-teal btn-sm" id="watch-refresh-btn" style="font-size:11px;letter-spacing:1px;display:none">🔄 Refresh</button>
           <button class="btn btn-secondary btn-sm" id="watch-my-stats-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7;display:none">📋 Team Pick Qty</button>
           <button class="btn btn-secondary btn-sm" id="view-schedule-btn-watch" style="font-size:11px;letter-spacing:1px;opacity:0.7">📅 Schedule</button>
+          <button class="btn btn-secondary btn-sm" id="view-yesterday-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7;display:none">📊 Last Day's Results</button>
           <button class="btn btn-secondary btn-sm" id="open-watch-group-preds-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7;display:none">📋 My Group Picks</button>
           <button class="btn btn-secondary btn-sm" id="open-watch-ko-preds-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7;display:none">🎯 My KO Picks</button>
           <button class="btn btn-secondary btn-sm" id="watch-quit-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7;color:var(--red);border-color:rgba(239,68,68,0.3)">✕ Quit</button>
@@ -875,6 +876,7 @@
       <div id="daily-host-actions" style="display:none;">
         <button class="btn btn-primary" id="daily-continue-btn" onclick="hostContinueFromSummary()">CONTINUE TO NEXT DAY</button>
       </div>
+      <button class="btn btn-secondary" id="daily-revisit-back-btn" style="display:none;width:100%;margin-top:8px">← Back to Game</button>
     </div>
   </div>
 </div>
@@ -3340,6 +3342,13 @@ async function renderWatchScreen(g){
     watchMyStatsBtn.style.display = 'inline-block';
   }
   
+  // Show "Last Day's Results" button once at least one day has been completed
+  const viewYesterdayBtn = document.getElementById('view-yesterday-btn');
+  if(viewYesterdayBtn) {
+    const hasCompletedDay = (g.completedDays || []).length > 0;
+    viewYesterdayBtn.style.display = hasCompletedDay ? 'inline-block' : 'none';
+  }
+  
   // Show "My Picks" button during KO rounds
   const watchKoBtn=document.getElementById('open-watch-ko-preds-btn');
   if(watchKoBtn){
@@ -4496,6 +4505,18 @@ document.getElementById('view-schedule-btn-watch')?.addEventListener('click', as
   showScheduleModal(g);
 });
 
+document.getElementById('view-yesterday-btn')?.addEventListener('click', async () => {
+  const g = await loadGame(me.code);
+  if (!g) return;
+  const days = g.completedDays || [];
+  if(days.length === 0){ showToast('No completed days yet'); return; }
+  const lastDay = days[days.length - 1];
+  const matchIdxs = lastDay.matches || [];
+  if(matchIdxs.length === 0){ showToast('No results for the last day'); return; }
+  // Re-show the most recently completed day's summary (read-only revisit)
+  showDailySummary(g, matchIdxs, true);
+});
+
 // My Stats button listeners
 document.getElementById('host-my-stats-btn')?.addEventListener('click', async () => {
   const g = await loadGame(me.code);
@@ -5305,7 +5326,7 @@ document.getElementById('pill-code-display').addEventListener('click',()=>{
 let todaysMatches = []; // Track which matches happened today
 let dailySummaryData = null;
 
-async function showDailySummary(g, matchIndices) {
+async function showDailySummary(g, matchIndices, revisit) {
   // Calculate stats for today's matches
   const player = g.players.find(p => p.name === me.name);
   if (!player) return;
@@ -5828,8 +5849,8 @@ async function showDailySummary(g, matchIndices) {
       // double-counting or client race conditions.
       if(!g.rivalVictories) g.rivalVictories = {};
       
-      // Save updated record
-      await saveGame(g);
+      // Save updated record (skip when just revisiting a past day)
+      if(!revisit) await saveGame(g);
       
       const record = player.rivalryRecord[rivalPlayer.name];
       const totalVictories = record.wins;
@@ -5947,8 +5968,8 @@ async function showDailySummary(g, matchIndices) {
       // (rebuildRivalVictories). Don't increment here.
       if(!g.rivalVictories) g.rivalVictories = {};
       
-      // Save updated victories
-      await saveGame(g);
+      // Save updated victories (skip when just revisiting a past day)
+      if(!revisit) await saveGame(g);
       
       // Display showdown
       const myRecordHTML = '<span style="color:var(--green)">' + correct + '</span>-<span style="color:var(--red)">' + wrong + '</span>';
@@ -6335,7 +6356,19 @@ async function showDailySummary(g, matchIndices) {
   const continueBtn = document.getElementById('daily-continue-btn');
   const hostActions = document.getElementById('daily-host-actions');
   const waitingMsg = document.getElementById('daily-waiting-msg');
-  if(me.role === 'host'){
+  if(revisit){
+    // Read-only revisit: no continue, no advancing poll, just a way back
+    if(hostActions) hostActions.style.display = 'none';
+    if(continueBtn) continueBtn.style.display = 'none';
+    if(waitingMsg) waitingMsg.style.display = 'none';
+    const backBtn = document.getElementById('daily-revisit-back-btn');
+    if(backBtn){
+      backBtn.style.display = 'block';
+      backBtn.onclick = async () => { const f = await loadGame(me.code); if(f) enterGame(f); };
+    }
+  } else if(me.role === 'host'){
+    const backBtn = document.getElementById('daily-revisit-back-btn');
+    if(backBtn) backBtn.style.display = 'none';
     if(hostActions) hostActions.style.display = 'block';
     if(continueBtn) continueBtn.style.display = 'block';
     if(waitingMsg) waitingMsg.style.display = 'none';
@@ -6352,19 +6385,21 @@ async function showDailySummary(g, matchIndices) {
       }
     }, 2000);
   } else {
+    const backBtn = document.getElementById('daily-revisit-back-btn');
+    if(backBtn) backBtn.style.display = 'none';
     if(hostActions) hostActions.style.display = 'none';
     if(continueBtn) continueBtn.style.display = 'none';
     if(waitingMsg) waitingMsg.style.display = 'block';
   }
   
-  // Update Set Rival CTA (hide if player is eliminated)
+  // Update Set Rival CTA (hide if player is eliminated, or if revisiting a past day)
   const rivalCta = document.getElementById('daily-set-rival-cta');
   const ctaBadge = document.getElementById('current-rival-badge');
   const ctaBadgeName = document.getElementById('current-rival-name-badge');
   const ctaBtnText = document.getElementById('rival-btn-text');
   
-  if(player.eliminated) {
-    // Hide entire CTA if player is eliminated
+  if(player.eliminated || revisit) {
+    // Hide CTA if player is eliminated or this is a read-only revisit
     if(rivalCta) rivalCta.style.display = 'none';
   } else {
     // Show CTA and update its state
