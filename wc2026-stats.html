@@ -971,21 +971,30 @@ function renderStreakStats(g){
     };
   });
   
-  // Find player with best current streak
-  const currentLeader = streakData
-    .filter(s => s.current > 0)
-    .sort((a, b) => b.current - a.current)[0];
-  
-  // Find player with best overall streak
-  const overallLeader = streakData
-    .sort((a, b) => b.best - a.best)[0];
-  
+  // Find player(s) with best current streak
+  const activeStreaks = streakData.filter(s => s.current > 0);
+  const maxCurrent = activeStreaks.length ? Math.max(...activeStreaks.map(s=>s.current)) : 0;
+  const currentTied = activeStreaks.filter(s => s.current === maxCurrent);
+  const currentShuffled = [...currentTied].sort(()=>Math.random()-0.5);
+  const currentIsTie = currentTied.length > 1;
+  const currentLeader = currentTied[0];
+
+  // Find player(s) with best overall streak
+  const maxBest = streakData.length ? Math.max(...streakData.map(s=>s.best)) : 0;
+  const bestTied = streakData.filter(s => s.best === maxBest && s.best > 0);
+  const bestShuffled = [...bestTied].sort(()=>Math.random()-0.5);
+  const bestIsTie = bestTied.length > 1;
+  const overallLeader = bestTied[0];
+
+  const tieMarkup = (names) => `<span style="font-size:11px;color:var(--muted)"> ⓘ</span>`;
+  const tieAttr = (names) => `style="cursor:pointer" data-tied="${names.replace(/"/g,'')}" title="Tied: ${names}"`;
+
   el.innerHTML = `<div class="streak-grid">
     <div class="streak-card">
       <div class="streak-label">Current Hot Streak</div>
       ${currentLeader ? `
-        <div class="streak-player">${currentLeader.name}</div>
-        <div class="streak-value"><span class="streak-fire">🔥</span> ${currentLeader.current}</div>
+        <div class="streak-player ${currentIsTie?'streak-tie':''}" ${currentIsTie?tieAttr(currentShuffled.map(s=>s.name).join(', ')):''}>${currentIsTie?`${currentTied.length}-way tie`:currentLeader.name}${currentIsTie?tieMarkup():''}</div>
+        <div class="streak-value"><span class="streak-fire">🔥</span> ${maxCurrent}</div>
       ` : `
         <div style="color:var(--muted);font-size:13px;padding:20px 0">No active streaks</div>
       `}
@@ -993,8 +1002,8 @@ function renderStreakStats(g){
     <div class="streak-card">
       <div class="streak-label">Best Overall Streak</div>
       ${overallLeader && overallLeader.best > 0 ? `
-        <div class="streak-player">${overallLeader.name}</div>
-        <div class="streak-value"><span class="streak-fire">🏆</span> ${overallLeader.best}</div>
+        <div class="streak-player ${bestIsTie?'streak-tie':''}" ${bestIsTie?tieAttr(bestShuffled.map(s=>s.name).join(', ')):''}>${bestIsTie?`${bestTied.length}-way tie`:overallLeader.name}${bestIsTie?tieMarkup():''}</div>
+        <div class="streak-value"><span class="streak-fire">🏆</span> ${maxBest}</div>
       ` : `
         <div style="color:var(--muted);font-size:13px;padding:20px 0">No streaks yet</div>
       `}
@@ -2397,11 +2406,11 @@ function showRivalDetail(playerName){
       arrow.textContent = isHidden ? '▼' : '▶';
     }
   });
-  // Tapping the LEADER box when it's a tie shows the tied players (for mobile, where title tooltips don't show)
+  // Tapping any "X-way tie" label shows the tied players (for mobile, where title tooltips don't show)
   document.body.addEventListener('click', (e) => {
-    const ln = e.target.closest && e.target.closest('#leader-name');
-    if(ln && ln.getAttribute('data-tied')){
-      showStatsToast('🤝 Tied: ' + ln.getAttribute('data-tied'));
+    const t = e.target.closest && e.target.closest('[data-tied]');
+    if(t && t.getAttribute('data-tied')){
+      showStatsToast('🤝 Tied: ' + t.getAttribute('data-tied'));
     }
   });
   // Survival Analysis info box toggle
