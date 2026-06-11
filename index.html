@@ -6472,29 +6472,26 @@ async function hostContinueFromSummary() {
   // Check if we just finished the group stage (next match is first KO match)
   const isEndOfGroupStage = prevMatch && prevMatch.group && nextMatch && !nextMatch.group;
   if(isEndOfGroupStage && !g.rivalBonusAwarded){
-    // Calculate rival victory leaderboard
-    const rivalLeaderboard = g.players.map(p => ({
-      name: p.name,
-      victories: g.rivalVictories?.[p.name] || 0
-    })).sort((a,b) => b.victories - a.victories);
-    
-    // Award bonus lives (3 for 1st, 2 for 2nd, 1 for 3rd)
+    // Award bonus lives by DISTINCT victory total: top total +3, next +2, next +1.
+    // Tied players share the same (higher) bonus. Only players with >0 wins count.
     const bonuses = [];
-    if(rivalLeaderboard[0] && rivalLeaderboard[0].victories > 0){
-      const winner = g.players.find(p => p.name === rivalLeaderboard[0].name);
-      winner.lives += 3;
-      bonuses.push(`🥇 ${winner.name} (+3 ❤️ - ${rivalLeaderboard[0].victories} rival wins)`);
-    }
-    if(rivalLeaderboard[1] && rivalLeaderboard[1].victories > 0 && rivalLeaderboard[1].victories !== rivalLeaderboard[0].victories){
-      const second = g.players.find(p => p.name === rivalLeaderboard[1].name);
-      second.lives += 2;
-      bonuses.push(`🥈 ${second.name} (+2 ❤️ - ${rivalLeaderboard[1].victories} rival wins)`);
-    }
-    if(rivalLeaderboard[2] && rivalLeaderboard[2].victories > 0 && rivalLeaderboard[2].victories !== rivalLeaderboard[1].victories){
-      const third = g.players.find(p => p.name === rivalLeaderboard[2].name);
-      third.lives += 1;
-      bonuses.push(`🥉 ${third.name} (+1 ❤️ - ${rivalLeaderboard[2].victories} rival wins)`);
-    }
+    const distinctTotals = [...new Set(g.players
+      .map(p => g.rivalVictories?.[p.name] || 0)
+      .filter(v => v > 0))].sort((a,b) => b - a);
+    const tierAmounts = [3, 2, 1];
+    const tierMedals = ['🥇','🥈','🥉'];
+    distinctTotals.forEach((total, tierIdx) => {
+      if(tierIdx >= tierAmounts.length) return;
+      const amount = tierAmounts[tierIdx];
+      const medal = tierMedals[tierIdx];
+      // Every player on this victory total shares this bonus
+      g.players.forEach(p => {
+        if((g.rivalVictories?.[p.name] || 0) === total){
+          p.lives += amount;
+          bonuses.push(`${medal} ${p.name} (+${amount} ❤️ - ${total} rival wins)`);
+        }
+      });
+    });
     
     // Mark as awarded
     g.rivalBonusAwarded = true;
