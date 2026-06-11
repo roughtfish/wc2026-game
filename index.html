@@ -604,6 +604,7 @@
         <button class="btn btn-secondary btn-sm" id="backup-game-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Download full game backup (JSON) — restore later if anything goes wrong">💾 Backup</button>
         <button class="btn btn-secondary btn-sm" id="restore-game-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Restore a game from a backup JSON file">📂 Restore</button>
         <button class="btn btn-secondary btn-sm" id="export-csv-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Export all player picks to a CSV spreadsheet">📊 Export CSV</button>
+        <button class="btn btn-secondary btn-sm" id="check-scores-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="See how many exact-score predictions each player made">🎯 Score Check</button>
         <button class="btn btn-secondary btn-sm" id="pregame-stats-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Generate anonymous pre-game stats to share (e.g. on WhatsApp)">📣 Pre-Game Stats</button>
         <button class="btn btn-secondary btn-sm" id="local-backups-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="View and restore automatic local backups (last 10)">⏱ Local Backups</button>
         <input type="file" id="restore-file-input" accept=".json,application/json" style="display:none">
@@ -3703,6 +3704,38 @@ document.getElementById('restore-file-input').addEventListener('change', async (
     alert('Failed to read backup file: ' + err.message);
     e.target.value = '';
   }
+});
+
+document.getElementById('check-scores-btn').addEventListener('click', async () => {
+  const g = await loadGame(me.code);
+  if(!g){ alert('Could not load game.'); return; }
+  const groupIdxs = g.matches.map((m,i)=>({m,i})).filter(x=>x.m.group).map(x=>x.i);
+  const committed = g.predictions || {};
+  const drafts = await loadAllDrafts(me.code);
+
+  // Count each player's exact-score predictions (committed first, then drafts fill gaps)
+  const rows = g.players.map(p=>{
+    let count = 0;
+    const draft = drafts[p.name] || {};
+    const draftScores = draft.__scores || {};
+    groupIdxs.forEach(i=>{
+      const cs = committed[i] && committed[i][p.name+'_score'];
+      const ds = draftScores[i];
+      if(cs || ds) count++;
+    });
+    return { name:p.name, count };
+  }).sort((a,b)=>a.count-b.count); // fewest first
+
+  const maxScores = 12;
+  const lines = rows.map(r=>{
+    const flag = r.count===0 ? ' ⚠️ none' : (r.count>=maxScores ? ' ✅ maxed' : '');
+    return `${r.name}: ${r.count}/${maxScores}${flag}`;
+  });
+  const noneCount = rows.filter(r=>r.count===0).length;
+  const header = noneCount>0
+    ? `🎯 Exact-score predictions per player\n(${noneCount} player${noneCount===1?'':'s'} made none)\n\n`
+    : `🎯 Exact-score predictions per player\n\n`;
+  alert(header + lines.join('\n'));
 });
 
 document.getElementById('export-csv-btn').addEventListener('click', async () => {
