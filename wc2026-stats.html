@@ -430,7 +430,14 @@
     <!-- PERFORMANCE SECTION -->
     <div class="section-title" style="margin-top:32px;font-size:16px;color:var(--accent);letter-spacing:1.5px;border-bottom:2px solid var(--accent);padding-bottom:8px">📊 PERFORMANCE</div>
     
-    <div class="section-title" style="margin-top:20px">SURVIVAL ANALYSIS</div>
+    <div class="section-title" style="margin-top:20px;display:flex;align-items:center;gap:8px">SURVIVAL ANALYSIS <span id="survival-info-toggle" style="cursor:pointer;font-size:13px;color:var(--accent2);border:1px solid var(--accent2);border-radius:50%;width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;font-weight:700;line-height:1">i</span></div>
+    <div id="survival-info-box" style="display:none;background:var(--surface2);border:1px solid var(--accent2);border-radius:10px;padding:14px 16px;margin-bottom:14px;font-size:12px;color:var(--muted);line-height:1.6">
+      <strong style="color:var(--text)">How this works</strong> — a simulation plays out the rest of the tournament 2,000 times for each player:<br><br>
+      <strong style="color:var(--accent2)">1.</strong> Each player's accuracy is taken from matches played so far (capped 20–85%; defaults to 40% until 6+ matches are in).<br>
+      <strong style="color:var(--accent2)">2.</strong> Every remaining match is rolled out — a correct pick loses nothing, a wrong one costs a life, a missed one costs two, and there's a small chance of an exact-score bonus life.<br>
+      <strong style="color:var(--accent2)">3.</strong> The bar shows the % of those 2,000 runs the player finished still alive.<br><br>
+      <em>Early on (few or no matches played), everyone looks similar — it only sharpens once real results come in.</em>
+    </div>
     <div id="survival-prob"></div>
     <div class="section-title">LIVES OVER TIME</div>
     <div class="chart-wrap">
@@ -2370,6 +2377,11 @@ function showRivalDetail(playerName){
       if(toggle) toggle.style.display = isHidden ? 'flex' : 'none';
       arrow.textContent = isHidden ? '▼' : '▶';
     }
+  });
+  // Survival Analysis info box toggle
+  document.getElementById('survival-info-toggle')?.addEventListener('click', () => {
+    const box = document.getElementById('survival-info-box');
+    if(box) box.style.display = box.style.display === 'none' ? 'block' : 'none';
   });
   // Overall / Today toggle for the rival popularity stat
   document.querySelectorAll('.rival-mode-btn').forEach(btn => {
