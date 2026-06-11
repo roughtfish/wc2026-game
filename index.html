@@ -586,6 +586,10 @@
           <div class="scoreboard-title" style="margin:0">STANDINGS</div>
           <div id="host-current-rival" style="display:none;font-size:11px;color:var(--muted);">
             Rival: <span style="color:var(--accent2);font-weight:600;" id="host-rival-name"></span>
+            <button id="host-set-rival-btn" style="background:none;border:none;color:var(--accent2);cursor:pointer;font-size:11px;padding:0 0 0 6px;text-decoration:underline">change</button>
+          </div>
+          <div id="host-no-rival" style="display:none;font-size:11px;margin-top:2px;">
+            <button id="host-set-rival-no-rival-btn" class="btn btn-teal btn-sm" style="font-size:11px;letter-spacing:1px;padding:4px 10px">⚔️ Set Rival</button>
           </div>
         </div>
         <div style="display:flex;gap:7px">
@@ -2547,13 +2551,18 @@ async function renderGameHost(g){
   // Update current rival display
   const rivalDisplay = document.getElementById('host-current-rival');
   const rivalName = document.getElementById('host-rival-name');
+  const hostNoRival = document.getElementById('host-no-rival');
   const myPlayer = g.players.find(p => p.name === me.name);
   if(rivalDisplay && rivalName && myPlayer) {
+    // Rivals are a group-stage mechanic only
+    const inGroupStage = g.matches[g.currentMatchIdx] && g.matches[g.currentMatchIdx].group;
     if(myPlayer.currentRival) {
       rivalDisplay.style.display = 'block';
       rivalName.textContent = myPlayer.currentRival;
+      if(hostNoRival) hostNoRival.style.display = 'none';
     } else {
       rivalDisplay.style.display = 'none';
+      if(hostNoRival) hostNoRival.style.display = inGroupStage ? 'block' : 'none';
     }
   }
   
@@ -4407,6 +4416,8 @@ function openRivalModalFromWatch() {
 document.getElementById('watch-set-rival-btn')?.addEventListener('click', openRivalModalFromWatch);
 document.getElementById('watch-set-rival-no-rival-btn')?.addEventListener('click', openRivalModalFromWatch);
 document.getElementById('watch-rival-cta-btn')?.addEventListener('click', openRivalModalFromWatch);
+document.getElementById('host-set-rival-btn')?.addEventListener('click', openRivalModalFromWatch);
+document.getElementById('host-set-rival-no-rival-btn')?.addEventListener('click', openRivalModalFromWatch);
 document.getElementById('undo-result-btn').addEventListener('click', async () => {
   const g = await loadGame(me.code);
   if (!g) return;
