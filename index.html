@@ -2357,6 +2357,14 @@ function renderBulkForm(g){
     }
   }
 
+  if(isWatchMode){
+    // Read-only view: lock the toggles so picks can't be changed (changes wouldn't save anyway)
+    area.querySelectorAll('.bulk-toggle button, .score-predict-toggle').forEach(btn=>{
+      btn.disabled = true;
+      btn.style.cursor = 'default';
+      btn.style.pointerEvents = 'none';
+    });
+  } else {
   area.querySelectorAll('.bulk-toggle button').forEach(btn=>{
     btn.addEventListener('click',()=>{
       bulkDraft[parseInt(btn.dataset.idx)]=btn.dataset.val;
@@ -2414,6 +2422,7 @@ function renderBulkForm(g){
     input.addEventListener('input',apply);
     input.addEventListener('change',apply);
   });
+  }
 }
 
 async function commitBulk(g){
@@ -5388,13 +5397,20 @@ function renderKOBulkForm(g, round) {
     });
   }
 
-  if(!isLocked){
+  if(!isLocked && !isWatchModeKO){
     area.querySelectorAll('.bulk-toggle button').forEach(btn => {
       btn.addEventListener('click', () => {
         koBulkDraft[parseInt(btn.dataset.idx)] = btn.dataset.val;
         saveDraft(koBulkDraft);
         renderKOBulkForm(g, round);
       });
+    });
+  } else {
+    // Locked or read-only view: make toggles inert
+    area.querySelectorAll('.bulk-toggle button').forEach(btn => {
+      btn.disabled = true;
+      btn.style.cursor = 'default';
+      btn.style.pointerEvents = 'none';
     });
   }
 }
