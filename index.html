@@ -3948,29 +3948,74 @@ document.getElementById('save-entered-scores-btn').addEventListener('click', asy
 document.getElementById('check-scores-btn').addEventListener('click', async () => {
   const g = await loadGame(me.code);
   if(!g){ alert('Could not load game.'); return; }
-  const groupIdxs = g.matches.map((m,i)=>({m,i})).filter(x=>x.m.group).map(x=>x.i);
   const committed = g.predictions || {};
   const drafts = await loadAllDrafts(me.code);
+  const maxScores = 12;
 
-  // Count each player's exact-score predictions (committed first, then drafts fill gaps)
+  // Count each player's COMMITTED exact-score predictions on group matches,
+  // and detect anyone over the limit or with duplicate scores in a group.
   const rows = g.players.map(p=>{
     let count = 0;
+    const groupsSeen = {};
+    let dupInGroup = false;
+    g.matches.forEach((m,i)=>{
+      if(!m.group) return;
+      if(committed[i] && committed[i][p.name+'_score']){
+        count++;
+        groupsSeen[m.group] = (groupsSeen[m.group]||0)+1;
+        if(groupsSeen[m.group] > 1) dupInGroup = true;
+      }
+    });
+    // also account for any draft-only scores in the headline count
     const draft = drafts[p.name] || {};
     const draftScores = draft.__scores || {};
-    groupIdxs.forEach(i=>{
-      const cs = committed[i] && committed[i][p.name+'_score'];
-      const ds = draftScores[i];
-      if(cs || ds) count++;
+    let draftExtra = 0;
+    g.matches.forEach((m,i)=>{
+      if(!m.group) return;
+      if(!(committed[i] && committed[i][p.name+'_score']) && draftScores[i]) draftExtra++;
     });
-    return { name:p.name, count };
-  }).sort((a,b)=>a.count-b.count); // fewest first
+    return { name:p.name, count, draftExtra, over: count>maxScores || dupInGroup };
+  }).sort((a,b)=>b.count-a.count); // most first, so over-limit shows at top
 
-  const maxScores = 12;
+  const overPlayers = rows.filter(r=>r.over);
   const lines = rows.map(r=>{
-    const flag = r.count===0 ? ' ⚠️ none' : (r.count>=maxScores ? ' ✅ maxed' : '');
-    return `${r.name}: ${r.count}/${maxScores}${flag}`;
+    const total = r.count + r.draftExtra;
+    const flag = r.over ? ' 🚨 OVER LIMIT' : (total===0 ? ' ⚠️ none' : (total>=maxScores ? ' ✅ maxed' : ''));
+    return `${r.name}: ${r.count}/${maxScores}${r.draftExtra?` (+${r.draftExtra} draft)`:''}${flag}`;
   });
-  const noneCount = rows.filter(r=>r.count===0).length;
+
+  if(overPlayers.length > 0){
+    const names = overPlayers.map(r=>r.name).join(', ');
+    const ok = confirm(`🎯 Exact-score predictions per player\n\n${lines.join('\n')}\n\n🚨 ${overPlayers.length} player(s) exceed the ${maxScores}-score limit or have duplicates in a group: ${names}\n\nFix now? This trims each over-limit player to a legal set (one per group, max ${maxScores}, keeping their earliest matches).`);
+    if(!ok) return;
+    // Trim each over-limit player's COMMITTED scores to a legal set
+    let trimmed = 0;
+    overPlayers.forEach(r=>{
+      const name = r.name;
+      const seenGroups = new Set();
+      let kept = 0;
+      g.matches.forEach((m,i)=>{
+        if(!m.group) return;
+        const has = committed[i] && committed[i][name+'_score'];
+        if(!has) return;
+        const overCap = kept >= maxScores;
+        const dupGroup = seenGroups.has(m.group);
+        if(overCap || dupGroup){
+          delete g.predictions[i][name+'_score']; // remove the illegal score
+          trimmed++;
+        } else {
+          seenGroups.add(m.group);
+          kept++;
+        }
+      });
+    });
+    await saveGame(g);
+    saveLocalBackup(g, `Trimmed ${trimmed} over-limit scores`);
+    showToast(`🎯 Trimmed ${trimmed} illegal score${trimmed===1?'':'s'}`);
+    return;
+  }
+
+  const noneCount = rows.filter(r=>(r.count+r.draftExtra)===0).length;
   const header = noneCount>0
     ? `🎯 Exact-score predictions per player\n(${noneCount} player${noneCount===1?'':'s'} made none)\n\n`
     : `🎯 Exact-score predictions per player\n\n`;
@@ -4464,7 +4509,7 @@ async function buildImportPlan(oldGame, newGame){
   newGame.matches.forEach((m,i)=>{
     if(!m.group) return;
     const key = [m.home, m.away].sort().join('|');
-    newByPair[key] = {idx:i, home:m.home, away:m.away};
+    newByPair[key] = {idx:i, home:m.home, away:m.away, group:m.group};
   });
 
   const oldPreds = JSON.parse(JSON.stringify(oldGame.predictions || {}));
@@ -4495,6 +4540,7 @@ async function buildImportPlan(oldGame, newGame){
   let migrated = 0, dropped = 0, flipped = 0, scoresMigrated = 0;
   const perPlayer = {}; // name -> {migrated, dropped}
   const newPreds = {}; // idx -> {name: sel, name_score: {...}}
+  const scoreTrack = {}; // name -> {count, groups:Set} to enforce 12-cap + one-per-group
 
   oldGame.matches.forEach((om, oi)=>{
     if(!om.group) return;
@@ -4524,14 +4570,21 @@ async function buildImportPlan(oldGame, newGame){
       if(!newPreds[target.idx]) newPreds[target.idx]={};
       newPreds[target.idx][name]=newSel;
       migrated++; perPlayer[name].migrated++;
-      // Score prediction — flip if the fixture orientation flipped
+      // Score prediction — flip if the fixture orientation flipped.
+      // Enforce the same rules players face: group-stage only, one per group, max 12.
       const sc = pr[name+'_score'];
-      if(sc && typeof sc.home==='number' && typeof sc.away==='number'){
-        let ns;
-        if(sel==='draw' || newSel===sel) ns={home:sc.home, away:sc.away};
-        else ns={home:sc.away, away:sc.home}; // flipped
-        newPreds[target.idx][name+'_score']=ns;
-        scoresMigrated++;
+      if(sc && typeof sc.home==='number' && typeof sc.away==='number' && target.group){
+        if(!scoreTrack[name]) scoreTrack[name]={count:0, groups:new Set()};
+        const st = scoreTrack[name];
+        if(st.count < 12 && !st.groups.has(target.group)){
+          let ns;
+          if(sel==='draw' || newSel===sel) ns={home:sc.home, away:sc.away};
+          else ns={home:sc.away, away:sc.home}; // flipped
+          newPreds[target.idx][name+'_score']=ns;
+          st.count++;
+          st.groups.add(target.group);
+          scoresMigrated++;
+        }
       }
     });
   });
