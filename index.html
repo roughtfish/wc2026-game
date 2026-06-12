@@ -596,6 +596,7 @@
         <button class="btn btn-secondary btn-sm" id="host-my-stats-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7;display:none">📋 Team Pick Qty</button>
         <button class="btn btn-secondary btn-sm" id="view-schedule-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7">📅 Schedule</button>
         <button class="btn btn-secondary btn-sm" id="complete-day-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7;display:none">📊 Complete Day</button>
+        <button class="btn btn-secondary btn-sm" id="open-group-preds-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7;display:none">📋 My Group Picks</button>
         <button class="btn btn-secondary btn-sm" id="open-ko-preds-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7;display:none">🎯 My Picks</button>
         <button class="btn btn-secondary btn-sm" id="undo-result-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7;display:none">↩ Undo</button>
         <button class="btn btn-secondary btn-sm" id="open-history-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7">✎ Edit Result</button>
@@ -633,7 +634,7 @@
   <!-- WATCHING (players) -->
   <div id="screen-watch" class="screen">
     <div class="scoreboard">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px">
         <div style="display:flex;flex-direction:column;gap:3px;">
           <div class="scoreboard-title" style="margin:0">STANDINGS</div>
           <div id="watch-current-rival" style="display:none;font-size:11px;color:var(--muted);">
@@ -644,7 +645,7 @@
             <button id="watch-set-rival-no-rival-btn" class="btn btn-teal btn-sm" style="font-size:11px;letter-spacing:1px;padding:4px 10px">⚔️ Set Rival</button>
           </div>
         </div>
-        <div style="display:flex;gap:6px">
+        <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">
           <button class="btn btn-teal btn-sm" id="watch-refresh-btn" style="font-size:11px;letter-spacing:1px;display:none">🔄 Refresh</button>
           <button class="btn btn-secondary btn-sm" id="watch-my-stats-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7;display:none">📋 Team Pick Qty</button>
           <button class="btn btn-secondary btn-sm" id="view-schedule-btn-watch" style="font-size:11px;letter-spacing:1px;opacity:0.7">📅 Schedule</button>
@@ -2678,6 +2679,33 @@ async function renderGameHost(g){
   }
   const match=g.matches[g.currentMatchIdx];
   // Show "My Picks" button during KO rounds so host can always access round predictions
+  const groupPredsBtn=document.getElementById('open-group-preds-btn');
+  if(groupPredsBtn){
+    const isGroupStage=match&&match.group;
+    const hasSubmittedGroup=g.bulkSubmitted&&g.bulkSubmitted[me.name];
+    groupPredsBtn.style.display=(isGroupStage&&hasSubmittedGroup)?'block':'none';
+    groupPredsBtn.onclick=null;
+    if(isGroupStage&&hasSubmittedGroup){
+      groupPredsBtn.onclick=()=>{
+        stopPolling();
+        bulkDraft={};
+        scoreDraft={};
+        g.matches.forEach((m,i)=>{
+          if(!m.group)return;
+          const pred=(g.predictions[i]||{})[me.name];
+          if(pred!=null)bulkDraft[i]=pred;
+          const sc=(g.predictions[i]||{})[me.name+'_score'];
+          if(sc)scoreDraft[i]=sc;
+        });
+        document.getElementById('bulk-player-name').textContent=me.name+' (Host)';
+        document.getElementById('bulk-round-label').textContent='Predicting all group stage matches';
+        show('screen-bulk');
+        const area2=document.getElementById('bulk-area');
+        area2._watchCommit=()=>{ area2._watchCommit=null; enterGame(g); };
+        renderBulkForm(g);
+      };
+    }
+  }
   const koPredsBtn=document.getElementById('open-ko-preds-btn');
   if(koPredsBtn){
     const isKORound=match&&!match.group&&!match.koSlot&&match.home!=='TBD';
