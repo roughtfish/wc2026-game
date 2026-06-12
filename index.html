@@ -741,7 +741,7 @@
   </div>
 
   <div id="rival-modal" class="modal" style="display:none">
-    <div class="modal-content" style="max-width:380px">
+    <div class="modal-content" style="max-width:380px;max-height:85vh;overflow-y:auto">
       <h2 style="margin-bottom:16px;font-size:18px">⚔️ Choose Your Rival</h2>
       <p style="font-size:13px;color:var(--muted);margin-bottom:16px">Pick a rival for the next game day. Whoever gets more correct predictions wins!</p>
       <p style="font-size:11px;color:var(--muted);background:var(--surface2);border-radius:6px;padding:8px 10px;margin-bottom:16px;line-height:1.5">⚠️ You can only change your rival during the daily summary. Once the day starts, it's locked in.</p>
@@ -780,9 +780,9 @@
   <!-- Daily Summary Screen -->
   <div id="screen-daily-summary" class="screen">
     <div class="card">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
         <h2 style="margin:0;">📊 TODAY'S RESULTS</h2>
-        <div style="display:flex;gap:6px;">
+        <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;">
           <button class="btn btn-secondary btn-sm" id="daily-team-list-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7">📋 Team Pick Qty</button>
           <button class="btn btn-secondary btn-sm" id="daily-schedule-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7">📅 Schedule</button>
           <button class="btn btn-secondary btn-sm" id="daily-summary-quit-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7;color:var(--red);border-color:rgba(239,68,68,0.3)">✕ Quit</button>
