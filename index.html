@@ -3765,19 +3765,28 @@ document.getElementById('enter-scores-player').addEventListener('change', async 
     if(has){ groupsScored.add(m.group); totalScores++; }
   });
 
+  // Groups where ANY match has already been played — these are locked,
+  // you can't add a score prediction once the group is underway.
+  const groupsStarted = new Set();
+  g.matches.forEach((m,i)=>{
+    if(!m.group) return;
+    if(g.results && g.results[i] != null) groupsStarted.add(m.group);
+  });
+
   // SAFEGUARD: block entirely if already at the cap
   if(totalScores >= MAX_HOST_SCORES){
     statusEl.innerHTML = `<div style="color:var(--accent2)">✅ ${name} already has the maximum ${MAX_HOST_SCORES} score predictions — nothing to add.</div>`;
     return;
   }
 
-  // Find UPCOMING group matches (not yet played) in a group not already scored,
-  // where the player has an outcome pick (so we know who they backed).
+  // Find group matches eligible for a NEW score prediction:
+  // - the group hasn't started (no match in it played yet)
+  // - the group isn't already scored by this player
+  // - the player has an outcome pick (so we know who they backed)
   const candidates = [];
   g.matches.forEach((m,i)=>{
     if(!m.group) return;
-    const played = g.results && g.results[i] != null;
-    if(played) return;                          // future matches only
+    if(groupsStarted.has(m.group)) return;      // whole group locked once any match played
     if(groupsScored.has(m.group)) return;       // one per group
     const outcome = (committed[i] && committed[i][name]) || draft[i];
     candidates.push({ i, m, outcome });
@@ -3817,7 +3826,13 @@ document.getElementById('enter-scores-player').addEventListener('change', async 
       const h=row.querySelector('.score-home').value, a=row.querySelector('.score-away').value;
       return h!=='' && a!=='';
     });
-    if(filled.length > remaining){
+    // Detect two filled rows in the same group (only one score allowed per group)
+    const grpCounts = {};
+    filled.forEach(row=>{ const g2=row.getAttribute('data-group'); grpCounts[g2]=(grpCounts[g2]||0)+1; });
+    const dupGroup = Object.keys(grpCounts).find(k=>grpCounts[k]>1);
+    if(dupGroup){
+      statusEl.innerHTML = `<div style="color:var(--red)">⚠️ Only one score allowed per group — you've entered two in Group ${dupGroup}.</div>`;
+    } else if(filled.length > remaining){
       statusEl.innerHTML = `<div style="color:var(--red)">⚠️ You can only add ${remaining} more — clear one before adding another.</div>`;
     } else {
       statusEl.innerHTML = `<div style="color:var(--muted)">${name} has <strong>${totalScores}/${MAX_HOST_SCORES}</strong> scores. Adding <strong>${filled.length}</strong> (max ${remaining} more).</div>`;
@@ -3845,6 +3860,12 @@ document.getElementById('save-entered-scores-btn').addEventListener('click', asy
     const has = (committed[i] && committed[i][name+'_score']) || draftScores[i];
     if(has){ groupsScored.add(m.group); totalScores++; }
   });
+  // Groups locked because a match in them has been played
+  const groupsStarted = new Set();
+  g.matches.forEach((m,i)=>{
+    if(!m.group) return;
+    if(g.results && g.results[i] != null) groupsStarted.add(m.group);
+  });
 
   // Gather entered scores, validating against all rules
   const toAdd = [];
@@ -3858,7 +3879,8 @@ document.getElementById('save-entered-scores-btn').addEventListener('click', asy
     if(h==='' || a==='') { invalid = true; return; } // half-filled
     const hn = parseInt(h), an = parseInt(a);
     if(isNaN(hn)||isNaN(an)||hn<0||an<0){ invalid = true; return; }
-    // re-check it's still a future, unscored group
+    // re-check rules: group must not have started, match not played, group not already scored
+    if(groupsStarted.has(grp)) return;                    // group underway — locked
     if(g.results && g.results[idx] != null) return;       // played since
     if(groupsScored.has(grp)) return;                     // group already scored
     groupsScored.add(grp);                                // claim this group
