@@ -706,7 +706,7 @@
         <h2 style="margin:0;font-size:18px">✍️ Enter Scores For Player</h2>
         <button id="close-enter-scores-btn" style="background:none;border:none;color:var(--muted);font-size:24px;cursor:pointer;padding:0;line-height:1">&times;</button>
       </div>
-      <p style="font-size:12px;color:var(--muted);margin-bottom:12px">For entering exact-score predictions a player gave you (e.g. younger players). Only upcoming group matches are shown, and the same limits apply: max 12 scores, one per group.</p>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:12px">For entering exact-score predictions a player gave you (e.g. younger players). Any match that hasn't kicked off yet is shown — even in groups already underway. The same limits apply: max 12 scores, one per group.</p>
       <div class="field" style="margin-bottom:12px">
         <label style="font-size:12px;color:var(--muted)">Player</label>
         <select id="enter-scores-player" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--text);font-size:14px;outline:none"></select>
@@ -3802,14 +3802,6 @@ document.getElementById('enter-scores-player').addEventListener('change', async 
     if(has){ groupsScored.add(m.group); totalScores++; }
   });
 
-  // Groups where ANY match has already been played — these are locked,
-  // you can't add a score prediction once the group is underway.
-  const groupsStarted = new Set();
-  g.matches.forEach((m,i)=>{
-    if(!m.group) return;
-    if(g.results && g.results[i] != null) groupsStarted.add(m.group);
-  });
-
   // SAFEGUARD: block entirely if already at the cap
   if(totalScores >= MAX_HOST_SCORES){
     statusEl.innerHTML = `<div style="color:var(--accent2)">✅ ${name} already has the maximum ${MAX_HOST_SCORES} score predictions — nothing to add.</div>`;
@@ -3817,22 +3809,22 @@ document.getElementById('enter-scores-player').addEventListener('change', async 
   }
 
   // Find group matches eligible for a NEW score prediction:
-  // - the group hasn't started (no match in it played yet)
-  // - the group isn't already scored by this player
+  // - the match itself hasn't been played yet (started groups are OK)
+  // - the player hasn't already scored a match in this group (one per group)
   // - the player has an outcome pick (so we know who they backed)
   const candidates = [];
   g.matches.forEach((m,i)=>{
     if(!m.group) return;
-    if(groupsStarted.has(m.group)) return;      // whole group locked once any match played
-    if(groupsScored.has(m.group)) return;       // one per group
+    if(g.results && g.results[i] != null) return; // this match already played
+    if(groupsScored.has(m.group)) return;         // one per group
     const outcome = (committed[i] && committed[i][name]) || draft[i];
     candidates.push({ i, m, outcome });
   });
 
-  statusEl.innerHTML = `<div style="color:var(--muted)">${name} has <strong>${totalScores}/${MAX_HOST_SCORES}</strong> scores. You can add up to <strong>${MAX_HOST_SCORES - totalScores}</strong> more, in groups they haven't scored yet.</div>`;
+  statusEl.innerHTML = `<div style="color:var(--muted)">${name} has <strong>${totalScores}/${MAX_HOST_SCORES}</strong> scores. You can add up to <strong>${MAX_HOST_SCORES - totalScores}</strong> more, one per group they haven't scored yet.</div>`;
 
   if(candidates.length === 0){
-    listEl.innerHTML = '<div style="color:var(--muted);font-size:12px;padding:10px 0">No eligible upcoming matches (all remaining groups are either already scored or played).</div>';
+    listEl.innerHTML = '<div style="color:var(--muted);font-size:12px;padding:10px 0">No eligible matches (all remaining groups are either already scored, or every unplayed match is in a scored group).</div>';
     return;
   }
 
@@ -3897,13 +3889,6 @@ document.getElementById('save-entered-scores-btn').addEventListener('click', asy
     const has = (committed[i] && committed[i][name+'_score']) || draftScores[i];
     if(has){ groupsScored.add(m.group); totalScores++; }
   });
-  // Groups locked because a match in them has been played
-  const groupsStarted = new Set();
-  g.matches.forEach((m,i)=>{
-    if(!m.group) return;
-    if(g.results && g.results[i] != null) groupsStarted.add(m.group);
-  });
-
   // Gather entered scores, validating against all rules
   const toAdd = [];
   let invalid = false;
@@ -3916,8 +3901,7 @@ document.getElementById('save-entered-scores-btn').addEventListener('click', asy
     if(h==='' || a==='') { invalid = true; return; } // half-filled
     const hn = parseInt(h), an = parseInt(a);
     if(isNaN(hn)||isNaN(an)||hn<0||an<0){ invalid = true; return; }
-    // re-check rules: group must not have started, match not played, group not already scored
-    if(groupsStarted.has(grp)) return;                    // group underway — locked
+    // re-check rules: this match not yet played, group not already scored
     if(g.results && g.results[idx] != null) return;       // played since
     if(groupsScored.has(grp)) return;                     // group already scored
     groupsScored.add(grp);                                // claim this group
