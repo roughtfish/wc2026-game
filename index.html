@@ -62,6 +62,8 @@
   .btn-teal{background:rgba(45,212,191,0.12);border:1px solid rgba(45,212,191,0.35);color:var(--accent2)}
   .btn-teal:hover{background:rgba(45,212,191,0.22)}
   .btn-sm{padding:7px 14px;font-size:12px;border-radius:7px;width:auto;display:inline-block}
+  .top-back{display:inline-flex;align-items:center;gap:5px;background:none;border:none;color:var(--muted);font-size:13px;cursor:pointer;padding:4px 0;margin-bottom:8px;font-family:inherit}
+  .top-back:hover{color:var(--accent)}
   .role-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:4px}
   .role-card{background:var(--surface2);border:1.5px solid var(--border);border-radius:13px;padding:20px 14px;text-align:center;cursor:pointer;transition:all 0.2s}
   .role-card:hover{border-color:var(--accent);background:rgba(232,184,75,0.06)}
@@ -456,6 +458,7 @@
   <!-- HOST SETUP -->
   <div id="screen-host-setup" class="screen">
     <div class="card">
+      <button class="top-back" id="host-setup-top-back">← Back</button>
       <h2>CREATE GAME</h2>
       <div class="field"><label>Your name (host)</label><input type="text" id="host-name" placeholder="e.g. Alex" maxlength="20"></div>
       <div class="field-row">
@@ -491,6 +494,7 @@
   <!-- PLAYER JOIN -->
   <div id="screen-player-join" class="screen">
     <div class="card">
+      <button class="top-back" id="player-join-top-back">← Back</button>
       <h2>JOIN OR REJOIN</h2>
       <div class="info-box" style="margin-bottom:14px;">New player? Pick a password — you'll need it to rejoin from any device. Already in? Enter your name, code and password.</div>
       <div class="field"><label>Your name</label><input type="text" id="player-name" placeholder="e.g. Jordan" maxlength="20"><div style="font-size:11px;color:var(--muted);margin-top:4px">Rejoining? Enter your name exactly as before — it's case-sensitive.</div></div>
@@ -565,6 +569,7 @@
   <!-- BULK SUBMITTED – waiting -->
   <div id="screen-bulk-done" class="screen">
     <div class="card" style="text-align:center;">
+      <button class="top-back" id="bulk-done-top-back" style="float:left">← Lobby</button>
       <div style="font-size:50px;margin-bottom:12px;">✅</div>
       <h2 style="text-align:center;">LOCKED IN!</h2>
       <p style="font-size:13px;color:var(--muted);margin-bottom:18px;">Waiting for everyone else to submit…</p>
@@ -1896,7 +1901,17 @@ document.getElementById('last-game-btn')?.addEventListener('click',()=>{
   const last=(()=>{try{return localStorage.getItem('kf-last-code');}catch(e){return null;}})();
   if(last) document.getElementById('player-code').value=last;
 });
-document.getElementById('back-to-landing').addEventListener("click",async()=>{ show('screen-landing');
+document.getElementById('back-to-landing').addEventListener("click",async()=>{ show('screen-landing'); });
+// Top back buttons on deep screens
+document.getElementById('host-setup-top-back')?.addEventListener('click',()=>show('screen-landing'));
+document.getElementById('player-join-top-back')?.addEventListener('click',()=>show('screen-landing'));
+document.getElementById('bulk-done-top-back')?.addEventListener('click',async()=>{
+  stopPolling();
+  const g=await loadGame(me.code);
+  if(g && me.role==='host'){ document.getElementById('lobby-code-display').textContent=g.code; show('screen-host-lobby'); startPolling(pollHostLobby); }
+  else if(g){ show('screen-player-lobby'); startPolling(pollPlayerLobby); }
+  else show('screen-landing');
+});
 document.getElementById('pill-copy-btn').addEventListener('click',()=>{
   if(!me.code)return;
   navigator.clipboard.writeText(me.code).then(()=>{
@@ -1907,7 +1922,7 @@ document.getElementById('pill-copy-btn').addEventListener('click',()=>{
 });
 document.getElementById('pill-code-display').addEventListener('click',()=>{
   document.getElementById('pill-copy-btn').click();
-}); });
+});
 document.getElementById('back-to-landing2').addEventListener("click",async()=>show('screen-landing'));
 
 
