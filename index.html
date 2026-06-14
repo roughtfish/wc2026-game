@@ -552,6 +552,7 @@
   <!-- BULK PREDICTION -->
   <div id="screen-bulk" class="screen">
     <div class="card" style="padding:14px 18px;margin-bottom:12px;">
+      <button class="top-back" id="bulk-top-back" style="display:none">← Back</button>
       <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
         <div>
           <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:3px;" id="bulk-round-label">Predicting all group stage matches</div>
@@ -785,6 +786,7 @@
   <!-- Daily Summary Screen -->
   <div id="screen-daily-summary" class="screen">
     <div class="card">
+      <button class="top-back" id="daily-top-back">← Back to Game</button>
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
         <h2 style="margin:0;">📊 TODAY'S RESULTS</h2>
         <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;">
@@ -2341,6 +2343,23 @@ function renderBulkForm(g){
     </div>`;
 
   area.innerHTML=html;
+
+  // Top back button: visible only in read-only/watch view, mirrors the bottom back
+  const topBack=document.getElementById('bulk-top-back');
+  if(topBack){
+    if(isWatchMode){
+      topBack.style.display='inline-flex';
+      topBack.onclick=async()=>{
+        area._watchCommit=null;
+        const fresh=await loadGame(me.code);
+        if(!fresh) return;
+        if(me.role==='host') enterGame(fresh); else watchGame(fresh);
+      };
+    } else {
+      topBack.style.display='none';
+      topBack.onclick=null;
+    }
+  }
 
   if(isWatchMode){
     area.querySelector('#bulk-back-btn').addEventListener('click',async()=>{
@@ -4865,6 +4884,13 @@ document.getElementById('daily-schedule-btn')?.addEventListener('click', async (
   const g = await loadGame(me.code);
   if (!g) return;
   showScheduleModal(g);
+});
+
+document.getElementById('daily-top-back')?.addEventListener('click', async () => {
+  stopPolling();
+  const g = await loadGame(me.code);
+  if (!g) { show('screen-landing'); return; }
+  if (me.role === 'host') enterGame(g); else watchGame(g);
 });
 
 document.getElementById('history-back-btn').addEventListener('click', () => {
