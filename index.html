@@ -6595,7 +6595,7 @@ async function showDailySummary(g, matchIndices, revisit) {
         correct: pCorrect,
         wrong: pWrong
       };
-    }).filter(m => m.livesChange !== 0).sort((a, b) => b.livesChange - a.livesChange);
+    }).filter(m => m.livesChange !== 0).sort((a, b) => Math.abs(b.livesChange) - Math.abs(a.livesChange) || b.livesChange - a.livesChange);
     
     const topMovers = movers.slice(0, 5);
     if (topMovers.length > 0) {
