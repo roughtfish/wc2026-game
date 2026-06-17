@@ -605,7 +605,7 @@
         <button class="btn btn-secondary btn-sm" id="open-group-preds-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7;display:none">📋 My Group Picks</button>
         <button class="btn btn-secondary btn-sm" id="open-ko-preds-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7;display:none">🎯 My Picks</button>
         <button class="btn btn-secondary btn-sm" id="undo-result-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7;display:none">↩ Undo</button>
-        <button class="btn btn-secondary btn-sm" id="open-history-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7">✎ Edit Result</button>
+        <button class="btn btn-secondary btn-sm" id="open-history-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7;display:none">✎ Edit Result</button>
         <button class="btn btn-secondary btn-sm" id="adjust-lives-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Add or remove lives from all active players">❤️ Adjust Lives</button>
         <button class="btn btn-secondary btn-sm" id="recompute-rivals-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Recalculate all rival head-to-head victories from the completed days">⚔️ Recompute Rival Stats</button>
         <button class="btn btn-secondary btn-sm" id="backup-game-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Download full game backup (JSON) — restore later if anything goes wrong">💾 Backup</button>
@@ -2560,6 +2560,9 @@ async function pollBulkDone(){
 
 // ─── HOST GAME ────────────────────────────────────────────────────────────────
 async function enterGame(g){
+  // Safety guard: enterGame shows the HOST screen with result-editing controls.
+  // If a non-host ever reaches here, send them to the watch screen instead.
+  if(me.role !== 'host'){ watchGame(g); return; }
   // If daily summary is active, show that instead of game screen
   if(g.showDailySummary && g.showDailySummary.matches){
     showDailySummary(g, g.showDailySummary.matches);
@@ -2613,6 +2616,9 @@ async function enterGame(g){
 
 async function renderGameHost(g){
   renderScoreboard(g,'players-grid');
+  // Edit Result is a host-only control — show it now we're on the host screen
+  const editResultBtn = document.getElementById('open-history-btn');
+  if(editResultBtn) editResultBtn.style.display = 'inline-block';
   
   // Update current rival display
   const rivalDisplay = document.getElementById('host-current-rival');
@@ -6721,7 +6727,7 @@ async function showDailySummary(g, matchIndices, revisit) {
     const backBtn = document.getElementById('daily-revisit-back-btn');
     if(backBtn){
       backBtn.style.display = 'block';
-      backBtn.onclick = async () => { const f = await loadGame(me.code); if(f) enterGame(f); };
+      backBtn.onclick = async () => { const f = await loadGame(me.code); if(f){ if(me.role==='host') enterGame(f); else watchGame(f); } };
     }
   } else if(me.role === 'host'){
     const backBtn = document.getElementById('daily-revisit-back-btn');
@@ -6738,7 +6744,7 @@ async function showDailySummary(g, matchIndices, revisit) {
       // If daily summary was cleared (host clicked continue), stop polling and return to game
       if(!f.showDailySummary){
         stopPolling();
-        enterGame(f);
+        if(me.role==='host') enterGame(f); else watchGame(f);
       }
     }, 2000);
   } else {
