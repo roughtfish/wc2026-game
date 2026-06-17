@@ -2047,6 +2047,9 @@ function renderLeaderboard(g){
   });
 
   const el=document.getElementById('leaderboard');
+  // Movement since the last completed day: compare current rank to the stored snapshot
+  const completedDaysLb = g.completedDays || [];
+  const lastSnap = completedDaysLb.length > 0 ? (completedDaysLb[completedDaysLb.length-1].rankSnapshot || null) : null;
   const sortBtn = (key, label) => `<button onclick="window.setLbSort('${key}')" style="cursor:pointer;padding:3px 8px;border-radius:4px;font-size:10px;letter-spacing:1px;border:none;${lbSort===key?'background:var(--accent2);color:#0a0f1a;font-weight:700':'background:transparent;color:var(--muted)'}">${label}${lbSort===key?' ▼':''}</button>`;
 
   const headerHTML = `<div style="display:flex;gap:6px;align-items:center;padding:8px 16px;border-bottom:1px solid var(--border);flex-wrap:wrap">
@@ -2061,8 +2064,18 @@ function renderLeaderboard(g){
     const rankClass=i===0&&!p.eliminated?'gold':i===1&&!p.eliminated?'silver':i===2&&!p.eliminated?'bronze':'';
     const livePct=maxLives>0?Math.round(p.lives/maxLives*100):0;
     const barCol=livePct>60?'var(--green)':livePct>30?'var(--accent)':'var(--red)';
+    // Position movement since last completed day (only meaningful on the default lives sort)
+    let moveHTML = '';
+    if(lbSort==='lives' && lastSnap && lastSnap[p.name] != null && !p.eliminated){
+      const prev = lastSnap[p.name];
+      const cur = i+1;
+      const delta = prev - cur; // positive = moved up
+      if(delta > 0) moveHTML = `<span style="font-size:9px;color:var(--green);display:block;line-height:1">▲${delta}</span>`;
+      else if(delta < 0) moveHTML = `<span style="font-size:9px;color:var(--red);display:block;line-height:1">▼${Math.abs(delta)}</span>`;
+      else moveHTML = `<span style="font-size:9px;color:var(--muted);display:block;line-height:1">–</span>`;
+    }
     return`<div class="lb-row${p.eliminated?' eliminated':''}">
-      <div class="lb-rank ${rankClass}">${p.eliminated?'💀':i+1}</div>
+      <div class="lb-rank ${rankClass}">${p.eliminated?'💀':i+1}${moveHTML}</div>
       <div>
         <button class="lb-name-btn" data-player="${p.name.replace(/"/g,'&quot;')}">${p.name}${p.isHost?' <span style="font-size:10px;color:var(--accent);opacity:0.7">(host)</span>':''}</button>
         <div class="life-bar-wrap"><div class="life-bar" style="width:${livePct}%;background:${barCol}"></div></div>
