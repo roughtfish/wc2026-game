@@ -7128,10 +7128,16 @@ async function completeDayAsHost(g) {
     }
   });
   
+  // Snapshot each player's rank at this day-close (for "movement since last day" on stats)
+  const rankSorted = [...g.players].sort((a,b)=>b.lives-a.lives||b.correct-a.correct||(b.scoreBonus||0)-(a.scoreBonus||0));
+  const rankSnapshot = {};
+  rankSorted.forEach((p,i)=>{ rankSnapshot[p.name] = i+1; });
+
   g.completedDays.push({
     date: new Date().toISOString(),
     matches: [...calculatedTodaysMatches],
-    rivalSelections: rivalSelections
+    rivalSelections: rivalSelections,
+    rankSnapshot: rankSnapshot
   });
   
   // Authoritatively recompute rival victories from the completed-days log (idempotent)
