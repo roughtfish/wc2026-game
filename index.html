@@ -606,6 +606,7 @@
         <button class="btn btn-secondary btn-sm" id="open-ko-preds-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7;display:none">🎯 My Picks</button>
         <button class="btn btn-secondary btn-sm" id="undo-result-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7;display:none">↩ Undo</button>
         <button class="btn btn-secondary btn-sm" id="open-history-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7;display:none">✎ Edit Result</button>
+        <button class="btn btn-secondary btn-sm" id="host-view-yesterday-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7;display:none">📊 Last Day's Results</button>
         <button class="btn btn-secondary btn-sm" id="adjust-lives-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Add or remove lives from all active players">❤️ Adjust Lives</button>
         <button class="btn btn-secondary btn-sm" id="recompute-rivals-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Recalculate all rival head-to-head victories from the completed days">⚔️ Recompute Rival Stats</button>
         <button class="btn btn-secondary btn-sm" id="backup-game-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Download full game backup (JSON) — restore later if anything goes wrong">💾 Backup</button>
@@ -2619,6 +2620,9 @@ async function renderGameHost(g){
   // Edit Result is a host-only control — show it now we're on the host screen
   const editResultBtn = document.getElementById('open-history-btn');
   if(editResultBtn) editResultBtn.style.display = 'inline-block';
+  // Show "Last Day's Results" once at least one day has been completed
+  const hostYesterdayBtn = document.getElementById('host-view-yesterday-btn');
+  if(hostYesterdayBtn) hostYesterdayBtn.style.display = (g.completedDays || []).length > 0 ? 'inline-block' : 'none';
   
   // Update current rival display
   const rivalDisplay = document.getElementById('host-current-rival');
@@ -4855,6 +4859,18 @@ document.getElementById('view-schedule-btn-watch')?.addEventListener('click', as
 });
 
 document.getElementById('view-yesterday-btn')?.addEventListener('click', async () => {
+  const g = await loadGame(me.code);
+  if (!g) return;
+  const days = g.completedDays || [];
+  if(days.length === 0){ showToast('No completed days yet'); return; }
+  const lastDay = days[days.length - 1];
+  const matchIdxs = lastDay.matches || [];
+  if(matchIdxs.length === 0){ showToast('No results for the last day'); return; }
+  // Re-show the most recently completed day's summary (read-only revisit)
+  showDailySummary(g, matchIdxs, true);
+});
+
+document.getElementById('host-view-yesterday-btn')?.addEventListener('click', async () => {
   const g = await loadGame(me.code);
   if (!g) return;
   const days = g.completedDays || [];
