@@ -6237,25 +6237,14 @@ async function showDailySummary(g, matchIndices, revisit) {
       else if(rivalCorrect > correct) winner = 'rival';
       else winner = 'draw';
       
-      // Track rivalry record (personal)
+      // Personal W-D-L record is rebuilt authoritatively at day-close
+      // (see rebuildRivalVictories) — don't increment here, just read it.
       if(!player.rivalryRecord) player.rivalryRecord = {};
-      if(!player.rivalryRecord[rivalPlayer.name]) {
-        player.rivalryRecord[rivalPlayer.name] = {wins: 0, draws: 0, losses: 0};
-      }
+      const record = player.rivalryRecord[rivalPlayer.name] || {wins:0, draws:0, losses:0};
       
-      if(winner === 'you') player.rivalryRecord[rivalPlayer.name].wins++;
-      else if(winner === 'draw') player.rivalryRecord[rivalPlayer.name].draws++;
-      else player.rivalryRecord[rivalPlayer.name].losses++;
-      
-      // Global rivalry victories are now computed authoritatively when the host
-      // closes the day (see rebuildRivalVictories). Don't increment here to avoid
-      // double-counting or client race conditions.
+      // Global rivalry victories are also computed authoritatively at day-close.
       if(!g.rivalVictories) g.rivalVictories = {};
       
-      // Save updated record (skip when just revisiting a past day)
-      if(!revisit) await saveGame(g);
-      
-      const record = player.rivalryRecord[rivalPlayer.name];
       const totalVictories = record.wins;
       
       rivalShowdownEl.style.display = 'block';
@@ -7126,6 +7115,9 @@ function countCorrectForMatches(g, playerName, matchIdxs){
 function rebuildRivalVictories(g){
   g.rivalVictories = {};
   (g.players||[]).forEach(p=>{ g.rivalVictories[p.name] = 0; });
+  // Personal W-D-L record vs each rival, from the picker's perspective.
+  // Rebuilt authoritatively (idempotent) so re-renders/revisits can't corrupt it.
+  (g.players||[]).forEach(p=>{ p.rivalryRecord = {}; });
   (g.completedDays||[]).forEach(day=>{
     const sel = day.rivalSelections || {};
     const matchIdxs = day.matches || [];
@@ -7139,6 +7131,14 @@ function rebuildRivalVictories(g){
       // The better performer of the head-to-head wins the day. Draws count for no one.
       if(myCorrect > rivalCorrect) g.rivalVictories[playerName]++;
       else if(rivalCorrect > myCorrect) g.rivalVictories[rivalName]++;
+      // Personal record (from the picker's perspective)
+      const picker = g.players.find(pp=>pp.name===playerName);
+      if(picker){
+        if(!picker.rivalryRecord[rivalName]) picker.rivalryRecord[rivalName] = {wins:0, draws:0, losses:0};
+        if(myCorrect > rivalCorrect) picker.rivalryRecord[rivalName].wins++;
+        else if(myCorrect < rivalCorrect) picker.rivalryRecord[rivalName].losses++;
+        else picker.rivalryRecord[rivalName].draws++;
+      }
     });
   });
 }
