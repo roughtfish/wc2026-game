@@ -5710,6 +5710,28 @@ async function showDailySummary(g, matchIndices, revisit) {
   const player = g.players.find(p => p.name === me.name);
   if (!player) return;
   
+  // Resolve the rival each player had LOCKED IN for this specific day.
+  // We match the summarised matches against the completedDays log; if found,
+  // use that day's stored rivalSelections. Falls back to live currentRival
+  // (e.g. the live day-close before it's archived) only if no match is found.
+  let daySummaryRivalSelections = null;
+  {
+    const days = g.completedDays || [];
+    const want = [...matchIndices].sort((a,b)=>a-b).join(',');
+    for(const d of days){
+      if(((d.matches||[]).slice().sort((a,b)=>a-b).join(',')) === want){
+        daySummaryRivalSelections = d.rivalSelections || {};
+        break;
+      }
+    }
+  }
+  // Helper: the rival name a given player had for this day
+  const rivalForDay = (pname) => {
+    if(daySummaryRivalSelections) return daySummaryRivalSelections[pname] || null;
+    const pp = g.players.find(p=>p.name===pname);
+    return pp ? (pp.currentRival || null) : null;
+  };
+  
   let correct = 0;
   let wrong = 0;
   let startingLives = player.lives; // Current lives
@@ -6178,8 +6200,9 @@ async function showDailySummary(g, matchIndices, revisit) {
   
   // Rival Showdown - Compare performance vs rival
   const rivalShowdownEl = document.getElementById('daily-rival-showdown');
-  if(player.currentRival){
-    const rivalPlayer = g.players.find(p => p.name === player.currentRival);
+  const myDayRival1 = rivalForDay(me.name);
+  if(myDayRival1){
+    const rivalPlayer = g.players.find(p => p.name === myDayRival1);
     if(rivalPlayer){
       // Calculate rival's stats for today
       let rivalCorrect = 0;
@@ -6305,8 +6328,9 @@ async function showDailySummary(g, matchIndices, revisit) {
   document.getElementById('daily-rank').style.color = myRank <= 3 ? 'var(--green)' : myRank > standings.length - 3 ? 'var(--red)' : 'var(--accent)';
   
   // ⚔️ Rival Showdown
-  if(player.currentRival){
-    const rival = g.players.find(p => p.name === player.currentRival);
+  const myDayRival = rivalForDay(me.name);
+  if(myDayRival){
+    const rival = g.players.find(p => p.name === myDayRival);
     if(rival){
       // Calculate rival's stats for today
       let rivalCorrect = 0;
