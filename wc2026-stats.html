@@ -416,7 +416,7 @@
       <span style="font-size:11px;color:var(--muted);transition:transform 0.2s" id="exact-scores-arrow">▼</span>
     </div>
     <div id="exact-scores"></div>
-    <div class="section-title">BIGGEST UPSET</div>
+    <div class="section-title">BIGGEST UPSETS</div>
     <div id="biggest-upset"></div>
     <div class="section-title">UNDERDOG PICKS 🐕</div>
     <div id="underdog-picks"></div>
@@ -1235,33 +1235,39 @@ function renderBiggestUpset(g){
   const playedIdxs=Object.keys(results).map(Number).filter(n=>!isNaN(n)&&results[n]!=null).sort((a,b)=>a-b);
   if(playedIdxs.length===0){el.innerHTML='<div style="color:var(--muted);font-size:13px;padding:12px 0">No matches played yet</div>';return;}
 
-  let worstIdx=null, worstWrong=0, worstTotal=0;
+  // Score every played match by how many got it wrong, ranked by WRONG PERCENTAGE
+  // (so a 100%-wrong match always beats a 95%-wrong one, regardless of how many predicted).
+  const scored=[];
   playedIdxs.forEach(idx=>{
     const r=results[idx];
     const actual=actualOutcome(r);
     const preds=g.predictions[idx]||{};
     const eligible=players.filter(p=>preds[p.name]!=null);
+    if(eligible.length===0)return; // no one predicted — can't be an upset
     const wrong=eligible.filter(p=>preds[p.name]!==actual).length;
-    if(wrong>worstWrong||(wrong===worstWrong&&eligible.length>worstTotal)){
-      worstWrong=wrong; worstTotal=eligible.length; worstIdx=idx;
-    }
+    if(wrong===0)return;           // everyone right — not an upset
+    scored.push({ idx, wrong, total:eligible.length, pct:wrong/eligible.length });
   });
 
-  if(worstIdx===null){el.innerHTML='';return;}
-  const match=g.matches[worstIdx];
-  const r=results[worstIdx];
-  const actual=actualOutcome(r);
-  const preds=g.predictions[worstIdx]||{};
-  const eligible=players.filter(p=>preds[p.name]!=null);
-  const wrong=eligible.filter(p=>preds[p.name]!==actual).length;
-  const right=eligible.length-wrong;
-  const wrongPct=eligible.length>0?Math.round(wrong/eligible.length*100):0;
-  const rightPct=100-wrongPct;
-  const round=match.group?'Group '+match.group:(match.round||'KO');
-  const resultLabel=actual==='home'?match.home:actual==='away'?match.away:'Draw';
-  const penLabel=r.penWinner?' (pens)':'';
+  if(scored.length===0){el.innerHTML='<div style="color:var(--muted);font-size:13px;padding:12px 0;font-style:italic">No upsets yet — everyone\'s been on the money!</div>';return;}
 
-  el.innerHTML=`<div class="upset-card">
+  // Sort by % wrong desc, then by raw wrong count desc, then most recent
+  scored.sort((a,b)=>b.pct-a.pct||b.wrong-a.wrong||b.idx-a.idx);
+  const top=scored.slice(0,5);
+
+  el.innerHTML=top.map(u=>{
+    const match=g.matches[u.idx];
+    const r=results[u.idx];
+    const actual=actualOutcome(r);
+    const eligible=u.total;
+    const wrong=u.wrong;
+    const right=eligible-wrong;
+    const wrongPct=Math.round(u.pct*100);
+    const rightPct=100-wrongPct;
+    const round=match.group?'Group '+match.group:(match.round||'KO');
+    const resultLabel=actual==='home'?match.home:actual==='away'?match.away:'Draw';
+    const penLabel=r.penWinner?' (pens)':'';
+    return`<div class="upset-card" style="margin-bottom:12px">
     <div class="upset-match">
       <div class="upset-teams">${flag(match.home,16)} ${match.home} ${r.home}–${r.away} ${flag(match.away,16)} ${match.away}</div>
       <div class="upset-meta">${round} · Result: ${flag(resultLabel==='Draw'?'':resultLabel,14)} ${resultLabel}${penLabel}</div>
@@ -1270,15 +1276,16 @@ function renderBiggestUpset(g){
       <div class="upset-bar-row">
         <span class="upset-bar-label">❌ Wrong</span>
         <div class="upset-bar-track"><div class="upset-bar-fill" style="width:${wrongPct}%;background:var(--red)"></div></div>
-        <span style="font-size:12px;font-weight:600;color:var(--red)">${wrong}/${eligible.length}</span>
+        <span style="font-size:12px;font-weight:600;color:var(--red)">${wrong}/${eligible}</span>
       </div>
       <div class="upset-bar-row">
         <span class="upset-bar-label">✅ Correct</span>
         <div class="upset-bar-track"><div class="upset-bar-fill" style="width:${rightPct}%;background:var(--green)"></div></div>
-        <span style="font-size:12px;font-weight:600;color:var(--green)">${right}/${eligible.length}</span>
+        <span style="font-size:12px;font-weight:600;color:var(--green)">${right}/${eligible}</span>
       </div>
     </div>
   </div>`;
+  }).join('');
 }
 
 function renderExactScores(g){
