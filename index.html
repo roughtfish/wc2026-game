@@ -5996,8 +5996,9 @@ async function showDailySummary(g, matchIndices, revisit) {
     
     // Lone wolf if exactly 1 person predicted the correct outcome
     if(predsByOutcome[actualWinner].length === 1){
-      const winner = actualWinner === 'home' ? match.home : actualWinner === 'away' ? match.away : 'Draw';
-      loneWolves.push(`${predsByOutcome[actualWinner][0]} (only one to pick ${winner})`);
+      const winner = actualWinner === 'home' ? match.home : actualWinner === 'away' ? match.away : 'the draw';
+      const fixture = `${match.home} v ${match.away}`;
+      loneWolves.push(`${predsByOutcome[actualWinner][0]} (only one to back ${winner} in ${fixture})`);
     }
   });
   
