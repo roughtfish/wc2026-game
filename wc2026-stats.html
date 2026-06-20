@@ -656,7 +656,9 @@ function renderQuickStats(g){
   // Randomise the tied list so no implied ranking
   const shuffledTied = [...tiedLeaders].sort(()=>Math.random()-0.5);
   const isTie = tiedLeaders.length > 1;
-  const leaderLabel = isTie ? `${tiedLeaders.length}-way tie` : leader.name;
+  // Show names directly when up to 3 tied (they fit); otherwise "N-way tie" with reveal
+  const leaderNeedsReveal = tiedLeaders.length > 3;
+  const leaderLabel = isTie ? (leaderNeedsReveal ? `${tiedLeaders.length}-way tie` : shuffledTied.map(p=>p.name).join(', ')) : leader.name;
   const leaderTitle = isTie ? shuffledTied.map(p=>p.name).join(', ') : '';
   const leaderSub = isTie ? `${leader.lives} ❤️ each` : `${leader.lives} ❤️`;
   
@@ -678,7 +680,7 @@ function renderQuickStats(g){
     </div>
     <div style="background:var(--surface);border-radius:8px;padding:12px;border-left:3px solid gold">
       <div style="font-size:10px;color:var(--muted);letter-spacing:1px;margin-bottom:4px">LEADER</div>
-      <div id="leader-name" style="font-family:'Bebas Neue',sans-serif;font-size:18px;color:gold;${isTie?'cursor:pointer':''}" ${isTie?`title="Tied: ${leaderTitle}" data-tied="${leaderTitle.replace(/"/g,'')}"`:''}>${leaderLabel}${isTie?' <span style="font-size:11px;color:var(--muted)">ⓘ</span>':''}</div>
+      <div id="leader-name" style="font-family:'Bebas Neue',sans-serif;font-size:18px;color:gold;line-height:1.15;${isTie&&leaderNeedsReveal?'cursor:pointer':''}" ${isTie&&leaderNeedsReveal?`title="Tied: ${leaderTitle}" data-tied="${leaderTitle.replace(/"/g,'')}"`:''}>${leaderLabel}${isTie&&leaderNeedsReveal?' <span style="font-size:11px;color:var(--muted)">ⓘ</span>':''}</div>
       <div style="font-size:10px;color:var(--muted);margin-top:2px">${leaderSub}</div>
     </div>
   `;
