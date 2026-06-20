@@ -84,7 +84,7 @@
   .streak-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:22px}
   .streak-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px 18px;text-align:center}
   .streak-label{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
-  .streak-player{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:2px;color:var(--accent);margin-bottom:4px}
+  .streak-player{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:2px;color:var(--accent);margin-bottom:4px;line-height:1.1;word-break:break-word}
   .streak-value{font-family:'Bebas Neue',sans-serif;font-size:42px;letter-spacing:2px;color:var(--accent2);line-height:1}
   .streak-fire{font-size:32px;opacity:0.9}
   @media(max-width:500px){.streak-grid{grid-template-columns:1fr}}
@@ -989,12 +989,18 @@ function renderStreakStats(g){
 
   const tieMarkup = (names) => `<span style="font-size:11px;color:var(--muted)"> ⓘ</span>`;
   const tieAttr = (names) => `style="cursor:pointer" data-tied="${names.replace(/"/g,'')}" title="Tied: ${names}"`;
+  // Show actual names when up to 3 are tied (they fit on the card); otherwise "N-way tie" with reveal
+  const tieLabel = (shuffled) => {
+    if(shuffled.length <= 3) return shuffled.map(s=>s.name).join(', ');
+    return `${shuffled.length}-way tie`;
+  };
+  const tieNeedsReveal = (shuffled) => shuffled.length > 3;
 
   el.innerHTML = `<div class="streak-grid">
     <div class="streak-card">
       <div class="streak-label">Current Hot Streak</div>
       ${currentLeader ? `
-        <div class="streak-player ${currentIsTie?'streak-tie':''}" ${currentIsTie?tieAttr(currentShuffled.map(s=>s.name).join(', ')):''}>${currentIsTie?`${currentTied.length}-way tie`:currentLeader.name}${currentIsTie?tieMarkup():''}</div>
+        <div class="streak-player ${currentIsTie?'streak-tie':''}" ${currentIsTie&&tieNeedsReveal(currentShuffled)?tieAttr(currentShuffled.map(s=>s.name).join(', ')):''}>${currentIsTie?tieLabel(currentShuffled):currentLeader.name}${currentIsTie&&tieNeedsReveal(currentShuffled)?tieMarkup():''}</div>
         <div class="streak-value"><span class="streak-fire">🔥</span> ${maxCurrent}</div>
       ` : `
         <div style="color:var(--muted);font-size:13px;padding:20px 0">No active streaks</div>
@@ -1003,7 +1009,7 @@ function renderStreakStats(g){
     <div class="streak-card">
       <div class="streak-label">Best Overall Streak</div>
       ${overallLeader && overallLeader.best > 0 ? `
-        <div class="streak-player ${bestIsTie?'streak-tie':''}" ${bestIsTie?tieAttr(bestShuffled.map(s=>s.name).join(', ')):''}>${bestIsTie?`${bestTied.length}-way tie`:overallLeader.name}${bestIsTie?tieMarkup():''}</div>
+        <div class="streak-player ${bestIsTie?'streak-tie':''}" ${bestIsTie&&tieNeedsReveal(bestShuffled)?tieAttr(bestShuffled.map(s=>s.name).join(', ')):''}>${bestIsTie?tieLabel(bestShuffled):overallLeader.name}${bestIsTie&&tieNeedsReveal(bestShuffled)?tieMarkup():''}</div>
         <div class="streak-value"><span class="streak-fire">🏆</span> ${maxBest}</div>
       ` : `
         <div style="color:var(--muted);font-size:13px;padding:20px 0">No streaks yet</div>
