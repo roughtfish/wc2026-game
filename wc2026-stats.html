@@ -452,8 +452,8 @@
       <div id="chart-legend" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;"></div>
       <div style="font-size:10px;color:var(--muted);text-align:center;margin-top:8px;letter-spacing:1px">💡 Click player names to show/hide lines</div>
     </div>
-    <div class="section-title">GROUP ACCURACY PER DAY 📈</div>
-    <div style="font-size:11px;color:var(--muted);line-height:1.5;margin:-6px 0 12px">The whole group's prediction accuracy for each completed day — correct picks as a share of all picks made. Is everyone getting sharper, or sloppier?</div>
+    <div class="section-title">AVERAGE ACCURACY OVER TIME 📈</div>
+    <div style="font-size:11px;color:var(--muted);line-height:1.5;margin:-6px 0 12px">The group's running average accuracy across the whole tournament — every correct pick as a share of all picks made so far. This is the headline AVG ACCURACY figure, tracked as it's evolved.</div>
     <div class="chart-wrap">
       <canvas id="accuracy-chart" class="chart-canvas"></canvas>
     </div>
@@ -1812,26 +1812,28 @@ function renderAccuracyChart(g){
   const players=Array.isArray(g.players)?g.players:Object.values(g.players||{});
   const completedDays=g.completedDays||[];
 
-  // Build one accuracy point per completed day: total correct picks / total picks made
+  // Build a CUMULATIVE accuracy point per completed day: running total of all
+  // correct picks / all picks made, up to and including that day. This matches the
+  // headline "AVG ACCURACY" figure, shown as it evolved over the tournament.
   const points=[];
+  let runCorrect=0, runTotal=0;
   completedDays.forEach(day=>{
     const idxs=(day.matches||[]).filter(i=>results[i]!=null);
     if(idxs.length===0)return;
-    let correct=0, total=0;
     idxs.forEach(idx=>{
       const actual=actualOutcome(results[idx]);
       const preds=g.predictions[idx]||{};
       players.forEach(p=>{
         const v=preds[p.name];
         if(v==null)return;       // no pick = not counted toward accuracy
-        total++;
-        if(v===actual)correct++;
+        runTotal++;
+        if(v===actual)runCorrect++;
       });
     });
-    if(total===0)return;
+    if(runTotal===0)return;
     const firstMatch=g.matches[idxs[0]];
     const label=firstMatch&&firstMatch.date?firstMatch.date:'Day '+(points.length+1);
-    points.push({ label, acc: correct/total, correct, total });
+    points.push({ label, acc: runCorrect/runTotal, correct: runCorrect, total: runTotal });
   });
 
   if(points.length===0){canvas.style.display='none';return;}
