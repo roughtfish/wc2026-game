@@ -1660,19 +1660,17 @@ function renderDrawMerchants(g){
   const results=g.results||{};
   const playedIdxs=Object.keys(results).map(Number).filter(n=>!isNaN(n)&&results[n]!=null);
 
-  // Count draw picks across ALL predictions (played + upcoming) for the headline count,
-  // but accuracy can only be judged on played matches.
-  const allIdxs=g.matches.map((m,i)=>i);
+  // Only count draws on fixtures already PLAYED — counting upcoming draw picks
+  // would leak the volume of a player's pending predictions to everyone.
+  const playedSorted=[...playedIdxs].sort((a,b)=>a-b);
   let rows=players.map(p=>{
     let drawsPicked=0, drawsPlayed=0, drawsRight=0;
-    allIdxs.forEach(idx=>{
+    playedSorted.forEach(idx=>{
       const v=(g.predictions[idx]||{})[p.name];
       if(v!=='draw')return;
       drawsPicked++;
-      if(results[idx]!=null){
-        drawsPlayed++;
-        if(actualOutcome(results[idx])==='draw') drawsRight++;
-      }
+      drawsPlayed++;
+      if(actualOutcome(results[idx])==='draw') drawsRight++;
     });
     return { name:p.name, drawsPicked, drawsPlayed, drawsRight, acc: drawsPlayed>0 ? drawsRight/drawsPlayed : null };
   }).filter(r=>r.drawsPicked>0);
