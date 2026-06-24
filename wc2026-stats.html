@@ -452,6 +452,11 @@
       <div id="chart-legend" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;"></div>
       <div style="font-size:10px;color:var(--muted);text-align:center;margin-top:8px;letter-spacing:1px">💡 Click player names to show/hide lines</div>
     </div>
+    <div class="section-title">GROUP ACCURACY PER DAY 📈</div>
+    <div style="font-size:11px;color:var(--muted);line-height:1.5;margin:-6px 0 12px">The whole group's prediction accuracy for each completed day — correct picks as a share of all picks made. Is everyone getting sharper, or sloppier?</div>
+    <div class="chart-wrap">
+      <canvas id="accuracy-chart" class="chart-canvas"></canvas>
+    </div>
     
     <!-- HISTORY SECTION -->
     <div class="section-title" style="margin-top:32px;font-size:16px;color:var(--accent);letter-spacing:1.5px;border-bottom:2px solid var(--accent);padding-bottom:8px">📜 HISTORY</div>
@@ -600,6 +605,7 @@ function render(g){
   renderDrawMerchants(g);
   renderSurvivalProb(g);
   renderLivesChart(g);
+  renderAccuracyChart(g);
   renderHistory(g);
   }catch(e){
     console.error('render failed',e);
@@ -1795,6 +1801,81 @@ function renderLivesChart(g){
     const lastX=PAD.l+(tl.length>1?(tl.length-1)*cW/(pts-1):0);
     const lastY=PAD.t+cH*(1-tl[tl.length-1]/maxLives);
     ctx.beginPath();ctx.arc(lastX,lastY,3,0,Math.PI*2);ctx.fillStyle=col;ctx.fill();
+  });
+}
+
+// GROUP ACCURACY PER DAY — single trend line of the whole group's accuracy each completed day
+function renderAccuracyChart(g){
+  const canvas=document.getElementById('accuracy-chart');
+  if(!canvas)return;
+  const results=g.results||{};
+  const players=Array.isArray(g.players)?g.players:Object.values(g.players||{});
+  const completedDays=g.completedDays||[];
+
+  // Build one accuracy point per completed day: total correct picks / total picks made
+  const points=[];
+  completedDays.forEach(day=>{
+    const idxs=(day.matches||[]).filter(i=>results[i]!=null);
+    if(idxs.length===0)return;
+    let correct=0, total=0;
+    idxs.forEach(idx=>{
+      const actual=actualOutcome(results[idx]);
+      const preds=g.predictions[idx]||{};
+      players.forEach(p=>{
+        const v=preds[p.name];
+        if(v==null)return;       // no pick = not counted toward accuracy
+        total++;
+        if(v===actual)correct++;
+      });
+    });
+    if(total===0)return;
+    const firstMatch=g.matches[idxs[0]];
+    const label=firstMatch&&firstMatch.date?firstMatch.date:'Day '+(points.length+1);
+    points.push({ label, acc: correct/total, correct, total });
+  });
+
+  if(points.length===0){canvas.style.display='none';return;}
+  canvas.style.display='block';
+
+  const dpr=window.devicePixelRatio||1;
+  const W=canvas.offsetWidth||800, H=190;
+  canvas.width=W*dpr; canvas.height=H*dpr;
+  canvas.style.width=W+'px'; canvas.style.height=H+'px';
+  const ctx=canvas.getContext('2d');
+  ctx.scale(dpr,dpr);
+  ctx.clearRect(0,0,W,H);
+
+  const PAD={t:16,r:16,b:28,l:40};
+  const cW=W-PAD.l-PAD.r, cH=H-PAD.t-PAD.b;
+
+  // Y gridlines at 0/25/50/75/100%
+  ctx.strokeStyle='rgba(255,255,255,0.05)';ctx.lineWidth=1;
+  [0,0.25,0.5,0.75,1].forEach(f=>{
+    const y=PAD.t+cH*(1-f);
+    ctx.beginPath();ctx.moveTo(PAD.l,y);ctx.lineTo(PAD.l+cW,y);ctx.stroke();
+    ctx.fillStyle='rgba(255,255,255,0.25)';ctx.font='9px DM Sans';ctx.textAlign='right';
+    ctx.fillText(Math.round(f*100)+'%',PAD.l-4,y+3);
+  });
+
+  const pts=points.length;
+  const xFor=i=>PAD.l+(pts>1?i*cW/(pts-1):cW/2);
+  const yFor=acc=>PAD.t+cH*(1-acc);
+
+  // Accuracy line (accent colour)
+  const col='#2dd4bf';
+  ctx.beginPath();ctx.strokeStyle=col;ctx.lineWidth=2.5;ctx.lineJoin='round';
+  points.forEach((p,i)=>{ const x=xFor(i),y=yFor(p.acc); i===0?ctx.moveTo(x,y):ctx.lineTo(x,y); });
+  ctx.stroke();
+
+  // Points + value labels
+  points.forEach((p,i)=>{
+    const x=xFor(i),y=yFor(p.acc);
+    ctx.beginPath();ctx.arc(x,y,3.5,0,Math.PI*2);ctx.fillStyle=col;ctx.fill();
+    ctx.fillStyle='rgba(255,255,255,0.7)';ctx.font='9px DM Sans';ctx.textAlign='center';
+    ctx.fillText(Math.round(p.acc*100)+'%',x,y-8);
+    // X-axis date label (rotated-free, just show abbreviated)
+    ctx.fillStyle='rgba(255,255,255,0.35)';ctx.font='8px DM Sans';ctx.textAlign='center';
+    ctx.fillText(p.label,x,H-8);
   });
 }
 
