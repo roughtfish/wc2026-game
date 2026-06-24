@@ -1644,6 +1644,9 @@ function renderBoldnessIndex(g){
 }
 
 // DRAW MERCHANTS — who predicts the most draws, and how accurate they are at it
+let _drawSort='most'; // 'most' | 'accuracy'
+window.setDrawSort = function(key){ _drawSort=key; if(currentGame) renderDrawMerchants(currentGame); };
+
 function renderDrawMerchants(g){
   const el=document.getElementById('draw-merchants');
   if(!el)return;
@@ -1654,7 +1657,7 @@ function renderDrawMerchants(g){
   // Count draw picks across ALL predictions (played + upcoming) for the headline count,
   // but accuracy can only be judged on played matches.
   const allIdxs=g.matches.map((m,i)=>i);
-  const rows=players.map(p=>{
+  let rows=players.map(p=>{
     let drawsPicked=0, drawsPlayed=0, drawsRight=0;
     allIdxs.forEach(idx=>{
       const v=(g.predictions[idx]||{})[p.name];
@@ -1666,11 +1669,32 @@ function renderDrawMerchants(g){
       }
     });
     return { name:p.name, drawsPicked, drawsPlayed, drawsRight, acc: drawsPlayed>0 ? drawsRight/drawsPlayed : null };
-  }).filter(r=>r.drawsPicked>0).sort((a,b)=>b.drawsPicked-a.drawsPicked||(b.acc||0)-(a.acc||0));
+  }).filter(r=>r.drawsPicked>0);
+
+  // Sort by the selected mode
+  if(_drawSort==='accuracy'){
+    // Players with at least one settled draw rank first (by accuracy, then volume);
+    // those with no settled draws yet drop to the bottom.
+    rows.sort((a,b)=>{
+      const aHas=a.acc!==null, bHas=b.acc!==null;
+      if(aHas!==bHas) return aHas?-1:1;
+      if(aHas&&bHas) return b.acc-a.acc || b.drawsRight-a.drawsRight || b.drawsPicked-a.drawsPicked;
+      return b.drawsPicked-a.drawsPicked;
+    });
+  } else {
+    rows.sort((a,b)=>b.drawsPicked-a.drawsPicked||(b.acc||0)-(a.acc||0));
+  }
 
   if(rows.length===0){el.innerHTML='<div style="color:var(--muted);font-size:13px;padding:12px 0">Nobody\u2019s backed a draw yet</div>';return;}
 
-  el.innerHTML='<div class="leaderboard" style="margin-bottom:22px">'+rows.map((r,i)=>{
+  const sortBtn=(key,label)=>`<button onclick="window.setDrawSort('${key}')" style="cursor:pointer;padding:3px 8px;border-radius:4px;font-size:10px;letter-spacing:1px;border:none;${_drawSort===key?'background:var(--accent2);color:#0a0f1a;font-weight:700':'background:transparent;color:var(--muted)'}">${label}${_drawSort===key?' \u25bc':''}</button>`;
+  const header=`<div style="display:flex;gap:6px;align-items:center;padding:8px 16px;border-bottom:1px solid var(--border);flex-wrap:wrap">
+    <span style="font-size:10px;color:var(--muted);letter-spacing:1px;margin-right:2px">SORT:</span>
+    ${sortBtn('most','MOST DRAWS')}
+    ${sortBtn('accuracy','BEST ACCURACY')}
+  </div>`;
+
+  el.innerHTML='<div class="leaderboard" style="margin-bottom:22px">'+header+rows.map((r,i)=>{
     const accTxt = r.acc===null ? '<span style="color:var(--muted)">—</span>' : `<span style="color:${r.acc>=0.5?'var(--green)':r.acc>0?'var(--accent)':'var(--red)'}">${Math.round(r.acc*100)}%</span>`;
     const accSub = r.acc===null ? 'none settled yet' : `${r.drawsRight}/${r.drawsPlayed} landed`;
     return `<div class="lb-row" style="grid-template-columns:36px 1fr auto auto">
