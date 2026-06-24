@@ -427,6 +427,12 @@
     <div id="worst-team"></div>
     <div class="section-title">PICK AGREEMENT 🤝</div>
     <div id="pick-agreement"></div>
+    <div class="section-title">BOLDNESS INDEX 🎲</div>
+    <div style="font-size:11px;color:var(--muted);line-height:1.5;margin:-6px 0 12px">How often each player goes against the crowd. A pick is "bold" when it differs from what most other players picked on that match. Higher = more of a maverick.</div>
+    <div id="boldness-index"></div>
+    <div class="section-title">DRAW MERCHANTS 🤝</div>
+    <div style="font-size:11px;color:var(--muted);line-height:1.5;margin:-6px 0 12px">Who backs the draw most — and who's actually good at it. Draw accuracy is how often their draw picks landed.</div>
+    <div id="draw-merchants"></div>
     
     <!-- PERFORMANCE SECTION -->
     <div class="section-title" style="margin-top:32px;font-size:16px;color:var(--accent);letter-spacing:1.5px;border-bottom:2px solid var(--accent);padding-bottom:8px">📊 PERFORMANCE</div>
@@ -590,6 +596,8 @@ function render(g){
   renderMostPickedTeams(g);
   renderWorstTeam(g);
   renderPickAgreement(g);
+  renderBoldnessIndex(g);
+  renderDrawMerchants(g);
   renderSurvivalProb(g);
   renderLivesChart(g);
   renderHistory(g);
@@ -1582,6 +1590,96 @@ function renderPickAgreement(g){
   }
 
   el.innerHTML=html||'<div style="color:var(--muted);font-size:13px;padding:12px 0">Not enough data yet</div>';
+}
+
+// BOLDNESS INDEX — % of a player's picks that went against the crowd majority
+function renderBoldnessIndex(g){
+  const el=document.getElementById('boldness-index');
+  if(!el)return;
+  const players=Array.isArray(g.players)?g.players:Object.values(g.players||{});
+  const results=g.results||{};
+  const playedIdxs=Object.keys(results).map(Number).filter(n=>!isNaN(n)&&results[n]!=null);
+  if(playedIdxs.length===0){el.innerHTML='<div style="color:var(--muted);font-size:13px;padding:12px 0">No matches played yet</div>';return;}
+
+  // For each played match, work out the crowd-majority pick
+  const majorityByIdx={};
+  playedIdxs.forEach(idx=>{
+    const preds=g.predictions[idx]||{};
+    const votes={home:0,away:0,draw:0};
+    let total=0;
+    players.forEach(p=>{ const v=preds[p.name]; if(v==null)return; votes[v]++; total++; });
+    if(total<2){ majorityByIdx[idx]=null; return; } // need a crowd to be "against"
+    const max=Math.max(votes.home,votes.away,votes.draw);
+    // Only call it a majority if a single pick is strictly the top (no tie for top)
+    const tops=['home','away','draw'].filter(k=>votes[k]===max);
+    majorityByIdx[idx]= tops.length===1 ? tops[0] : null;
+  });
+
+  const rows=players.map(p=>{
+    let bold=0, counted=0;
+    playedIdxs.forEach(idx=>{
+      const maj=majorityByIdx[idx];
+      if(!maj)return;
+      const v=(g.predictions[idx]||{})[p.name];
+      if(v==null)return;
+      counted++;
+      if(v!==maj) bold++;
+    });
+    return { name:p.name, bold, counted, pct: counted>0 ? bold/counted : 0 };
+  }).filter(r=>r.counted>0).sort((a,b)=>b.pct-a.pct||b.counted-a.counted);
+
+  if(rows.length===0){el.innerHTML='<div style="color:var(--muted);font-size:13px;padding:12px 0">Not enough data yet</div>';return;}
+
+  el.innerHTML='<div class="leaderboard" style="margin-bottom:22px">'+rows.map((r,i)=>{
+    const pct=Math.round(r.pct*100);
+    const label = pct>=60?'🃏 Maverick':pct>=35?'😏 Bold':pct>=15?'🙂 Balanced':'🐑 Follows the crowd';
+    const barCol = pct>=50?'var(--accent)':pct>=25?'var(--accent2)':'var(--muted)';
+    return `<div class="lb-row" style="grid-template-columns:36px 1fr auto auto">
+      <div class="lb-rank">${i+1}</div>
+      <div class="lb-name">${r.name}<div style="font-size:10px;color:var(--muted)">${label}</div></div>
+      <div style="min-width:90px"><div style="height:6px;background:var(--surface2);border-radius:3px;overflow:hidden"><div style="height:100%;width:${pct}%;background:${barCol}"></div></div></div>
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:18px;color:${barCol};min-width:42px;text-align:right">${pct}%</div>
+    </div>`;
+  }).join('')+'</div>';
+}
+
+// DRAW MERCHANTS — who predicts the most draws, and how accurate they are at it
+function renderDrawMerchants(g){
+  const el=document.getElementById('draw-merchants');
+  if(!el)return;
+  const players=Array.isArray(g.players)?g.players:Object.values(g.players||{});
+  const results=g.results||{};
+  const playedIdxs=Object.keys(results).map(Number).filter(n=>!isNaN(n)&&results[n]!=null);
+
+  // Count draw picks across ALL predictions (played + upcoming) for the headline count,
+  // but accuracy can only be judged on played matches.
+  const allIdxs=g.matches.map((m,i)=>i);
+  const rows=players.map(p=>{
+    let drawsPicked=0, drawsPlayed=0, drawsRight=0;
+    allIdxs.forEach(idx=>{
+      const v=(g.predictions[idx]||{})[p.name];
+      if(v!=='draw')return;
+      drawsPicked++;
+      if(results[idx]!=null){
+        drawsPlayed++;
+        if(actualOutcome(results[idx])==='draw') drawsRight++;
+      }
+    });
+    return { name:p.name, drawsPicked, drawsPlayed, drawsRight, acc: drawsPlayed>0 ? drawsRight/drawsPlayed : null };
+  }).filter(r=>r.drawsPicked>0).sort((a,b)=>b.drawsPicked-a.drawsPicked||(b.acc||0)-(a.acc||0));
+
+  if(rows.length===0){el.innerHTML='<div style="color:var(--muted);font-size:13px;padding:12px 0">Nobody\u2019s backed a draw yet</div>';return;}
+
+  el.innerHTML='<div class="leaderboard" style="margin-bottom:22px">'+rows.map((r,i)=>{
+    const accTxt = r.acc===null ? '<span style="color:var(--muted)">—</span>' : `<span style="color:${r.acc>=0.5?'var(--green)':r.acc>0?'var(--accent)':'var(--red)'}">${Math.round(r.acc*100)}%</span>`;
+    const accSub = r.acc===null ? 'none settled yet' : `${r.drawsRight}/${r.drawsPlayed} landed`;
+    return `<div class="lb-row" style="grid-template-columns:36px 1fr auto auto">
+      <div class="lb-rank">${i+1}</div>
+      <div class="lb-name">${r.name}<div style="font-size:10px;color:var(--muted)">${accSub}</div></div>
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:16px;color:var(--accent2);min-width:60px;text-align:right">${r.drawsPicked} <span style="font-size:10px;color:var(--muted)">drawn</span></div>
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:16px;min-width:48px;text-align:right">${accTxt}</div>
+    </div>`;
+  }).join('')+'</div>';
 }
 
 const hiddenChartPlayers=new Set();
