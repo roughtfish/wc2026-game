@@ -608,6 +608,7 @@
         <button class="btn btn-secondary btn-sm" id="open-history-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7;display:none">✎ Edit Result</button>
         <button class="btn btn-secondary btn-sm" id="host-view-yesterday-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7;display:none">📊 Last Day's Results</button>
         <button class="btn btn-secondary btn-sm" id="adjust-lives-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Add or remove lives from all active players">❤️ Adjust Lives</button>
+        <button class="btn btn-secondary btn-sm" id="set-baseline-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Set the starting-lives baseline used for the stats page bars">📊 Set Baseline</button>
         <button class="btn btn-secondary btn-sm" id="recompute-rivals-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Recalculate all rival head-to-head victories from the completed days">⚔️ Recompute Rival Stats</button>
         <button class="btn btn-secondary btn-sm" id="backup-game-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Download full game backup (JSON) — restore later if anything goes wrong">💾 Backup</button>
         <button class="btn btn-secondary btn-sm" id="restore-game-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Restore a game from a backup JSON file">📂 Restore</button>
@@ -4108,6 +4109,20 @@ document.getElementById('recompute-rivals-btn').addEventListener('click', async 
   showToast('⚔️ Rival stats recomputed');
 });
 
+document.getElementById('set-baseline-btn').addEventListener('click', async () => {
+  const g = await loadGame(me.code);
+  if(!g){ alert('Could not load game.'); return; }
+  const input = prompt(`Set the starting-lives baseline.\n\nThis is the "out of X" value the stats page uses for the lives bars and percentages. It does NOT change any player's actual lives.\n\nCurrent baseline: ${g.lives}`, String(g.lives));
+  if(input === null) return;
+  const val = parseInt(input);
+  if(isNaN(val) || val < 1){ alert('Please enter a whole number of 1 or more.'); return; }
+  if(!confirm(`Set the baseline to ${val}? (Currently ${g.lives})`)) return;
+  g.lives = val;
+  await saveGame(g);
+  saveLocalBackup(g, `Baseline lives set to ${val}`);
+  showToast(`📊 Baseline set to ${val}`);
+});
+
 document.getElementById('adjust-lives-btn').addEventListener('click', async () => {
   const input = prompt('Adjust lives for ALL active players.\n\nEnter a number to add (e.g. 5) or remove (e.g. -3):');
   if(input === null) return;
@@ -4128,6 +4143,14 @@ document.getElementById('adjust-lives-btn').addEventListener('click', async () =
   let msg = `❤️ ${delta > 0 ? 'Added '+delta : 'Removed '+Math.abs(delta)} lives`;
   if(eliminatedNow > 0) msg += ` · ${eliminatedNow} eliminated`;
   showToast(msg);
+  // Offer to shift the "out of X" baseline (g.lives) so the stats page bars stay accurate
+  const newBaseline = (g.lives || 0) + delta;
+  if(confirm(`Also update the starting-lives baseline from ${g.lives} to ${newBaseline}?\n\nThis keeps the stats page "out of X" bars and percentages accurate. Choose OK if you gave everyone these lives as part of their starting stock.`)){
+    g.lives = Math.max(1, newBaseline);
+    await saveGame(g);
+    saveLocalBackup(g, `Baseline lives set to ${g.lives}`);
+    showToast(`📊 Baseline set to ${g.lives}`);
+  }
   enterGame(g);
 });
 
