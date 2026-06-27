@@ -4175,6 +4175,7 @@ document.getElementById('close-set-ko-btn').addEventListener('click', () => {
 });
 
 document.getElementById('save-ko-fixtures-btn').addEventListener('click', async () => {
+ try{
   const g = await loadGame(me.code);
   if(!g){ alert('Could not load game.'); return; }
   if(g.status && g.status.startsWith('ko-bulk')){
@@ -4183,7 +4184,12 @@ document.getElementById('save-ko-fixtures-btn').addEventListener('click', async 
     return;
   }
   const r32Start = g.matches.findIndex(m => m.round === 'Round of 32');
-  if(r32Start === -1) return;
+  if(r32Start === -1){
+    // The stored game has no Round of 32 matches — likely created before KO matches existed.
+    const koRounds = [...new Set(g.matches.filter(m=>!m.group).map(m=>m.round||'(no round label)'))];
+    alert('This game has no "Round of 32" matches stored, so there\'s nothing to set.\n\nKnockout rounds found: ' + (koRounds.length?koRounds.join(', '):'none at all') + '\n\nThe game was likely created before KO fixtures were added. Tell me and I can add a one-time repair to insert the knockout matches.');
+    return;
+  }
 
   // Collect entered fixtures and validate
   const rows = [...document.querySelectorAll('.set-ko-row')];
@@ -4236,6 +4242,9 @@ document.getElementById('save-ko-fixtures-btn').addEventListener('click', async 
   } else {
     alert('⚠️ The fixtures were sent but didn\'t read back as saved. Something may be overwriting them — try again, and tell me if it keeps happening.');
   }
+ }catch(err){
+   alert('⚠️ Error while saving KO fixtures: ' + (err && err.message ? err.message : err) + '\n\nTell me this message and I\'ll fix it.');
+ }
 });
 
 document.getElementById('locked-ko-btn').addEventListener('click', async () => {
