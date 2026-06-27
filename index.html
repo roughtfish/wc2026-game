@@ -1415,6 +1415,9 @@ function populateKnockoutBracket(g){
   R32_FIXED.forEach((slot,i)=>{
     const match=g.matches[r32Start+i];
     if(!match)return;
+    // Never overwrite a slot that already holds real teams — preserves host-set
+    // (official) fixtures even if the manual flag was dropped by another save path.
+    if(match.home && match.home!=='TBD' && match.away && match.away!=='TBD') return;
     const[homeDesc,awayDesc]=slot;
     match.home=homeDesc.startsWith('3')?(thirdMap[i]||'TBD'):resolveTeam(homeDesc,winners,runners,[]);
     match.away=awayDesc.startsWith('3')?(thirdMap[i]||'TBD'):resolveTeam(awayDesc,winners,runners,[]);
