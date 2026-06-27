@@ -4168,6 +4168,7 @@ document.getElementById('set-ko-btn').addEventListener('click', async () => {
     </div>`;
   }).join('');
   document.getElementById('set-ko-modal').style.display = 'flex';
+  stopPolling(); // pause background polling so it can't clobber the save
 });
 document.getElementById('close-set-ko-btn').addEventListener('click', () => {
   document.getElementById('set-ko-modal').style.display = 'none';
@@ -4214,10 +4215,27 @@ document.getElementById('save-ko-fixtures-btn').addEventListener('click', async 
     match.koSlot = false;
   });
   g.koFixturesManual = true; // tells populateKnockoutBracket not to overwrite these
-  await saveGame(g);
+  try{
+    await saveGame(g);
+  }catch(e){
+    alert('Save failed — fixtures not stored. Check your connection and try again.');
+    return;
+  }
+  // Verify the save persisted by reading it straight back
+  const check = await loadGame(me.code);
+  const cr32 = check ? check.matches.findIndex(m=>m.round==='Round of 32') : -1;
+  const ok = check && check.koFixturesManual && cr32 !== -1 &&
+    chosen.every(c=>{
+      const m = check.matches[cr32 + c.i];
+      return m && m.home === c.home && m.away === c.away;
+    });
   saveLocalBackup(g, 'KO fixtures set manually');
   document.getElementById('set-ko-modal').style.display = 'none';
-  showToast('✏️ KO fixtures saved');
+  if(ok){
+    showToast('✏️ KO fixtures saved');
+  } else {
+    alert('⚠️ The fixtures were sent but didn\'t read back as saved. Something may be overwriting them — try again, and tell me if it keeps happening.');
+  }
 });
 
 document.getElementById('locked-ko-btn').addEventListener('click', async () => {
