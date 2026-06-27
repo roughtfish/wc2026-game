@@ -3136,8 +3136,8 @@ function reverseResult(g, matchIdx){
     const idx=g.matches.indexOf(groupMatches[i]);
     return g.results&&g.results[idx];
   });
-  if(!hasAllGroupResults){
-    // Reset KO bracket slots back to TBD
+  if(!hasAllGroupResults && !g.koFixturesManual){
+    // Reset KO bracket slots back to TBD (unless the host set them manually)
     g.matches.forEach(m=>{if(!m.group){m.home='TBD';m.away='TBD';m.koSlot=true;}});
   }
 }
