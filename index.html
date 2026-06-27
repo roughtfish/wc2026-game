@@ -609,6 +609,7 @@
         <button class="btn btn-secondary btn-sm" id="host-view-yesterday-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7;display:none">📊 Last Day's Results</button>
         <button class="btn btn-secondary btn-sm" id="adjust-lives-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Add or remove lives from all active players">❤️ Adjust Lives</button>
         <button class="btn btn-secondary btn-sm" id="set-baseline-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Set the starting-lives baseline used for the stats page bars">📊 Set Baseline</button>
+        <button class="btn btn-secondary btn-sm" id="locked-ko-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="See which Round of 32 ties are already mathematically locked in">🔓 Locked KO Ties</button>
         <button class="btn btn-secondary btn-sm" id="recompute-rivals-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Recalculate all rival head-to-head victories from the completed days">⚔️ Recompute Rival Stats</button>
         <button class="btn btn-secondary btn-sm" id="backup-game-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Download full game backup (JSON) — restore later if anything goes wrong">💾 Backup</button>
         <button class="btn btn-secondary btn-sm" id="restore-game-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Restore a game from a backup JSON file">📂 Restore</button>
@@ -4107,6 +4108,58 @@ document.getElementById('recompute-rivals-btn').addEventListener('click', async 
   const changed = before !== after;
   alert(`${changed ? '✅ Rival stats recalculated.' : '✅ Rival stats checked — already correct.'}\n\nCurrent victories:\n${summary}`);
   showToast('⚔️ Rival stats recomputed');
+});
+
+document.getElementById('locked-ko-btn').addEventListener('click', async () => {
+  const g = await loadGame(me.code);
+  if(!g){ alert('Could not load game.'); return; }
+
+  // Which groups are fully played (all their matches have results)?
+  const groupComplete = {};
+  g.matches.forEach((m,i)=>{
+    if(!m.group) return;
+    if(groupComplete[m.group] === undefined) groupComplete[m.group] = true;
+    if(!(g.results && g.results[i] != null)) groupComplete[m.group] = false;
+  });
+  const allGroupsDone = Object.values(groupComplete).every(v=>v);
+
+  const fin = getGroupFinishers(g);
+
+  // A tie's slot is "locked" if it resolves to a real team given settled groups.
+  // 1X / 2X need group X fully played. 3XYZ needs the WHOLE group stage done
+  // (third-place seeding compares across all groups).
+  const slotLocked = (desc) => {
+    if(desc.startsWith('1') || desc.startsWith('2')){
+      return groupComplete[desc[1]] === true;
+    }
+    if(desc.startsWith('3')){
+      return allGroupsDone; // third-place pool only fixed once everything's played
+    }
+    return false;
+  };
+  const slotTeam = (desc) => resolveTeam(desc, fin.winners, fin.runners, fin.thirds);
+
+  const lines = [];
+  let lockedCount = 0;
+  R32_FIXED.forEach((slot, i)=>{
+    const [hDesc, aDesc] = slot;
+    const hLocked = slotLocked(hDesc), aLocked = slotLocked(aDesc);
+    const matchNo = 73 + i;
+    if(hLocked && aLocked){
+      lockedCount++;
+      lines.push(`✅ M${matchNo}: ${slotTeam(hDesc)} v ${slotTeam(aDesc)}`);
+    } else {
+      // Show what's still pending
+      const hStr = hLocked ? slotTeam(hDesc) : `[${hDesc}?]`;
+      const aStr = aLocked ? slotTeam(aDesc) : `[${aDesc}?]`;
+      lines.push(`⏳ M${matchNo}: ${hStr} v ${aStr}`);
+    }
+  });
+
+  const header = `🔓 Locked Round-of-32 ties: ${lockedCount}/16\n\n` +
+    `✅ = both teams known · ⏳ = waiting\n` +
+    `(slots like [3ABCDF?] need the whole group stage finished)\n\n`;
+  alert(header + lines.join('\n'));
 });
 
 document.getElementById('set-baseline-btn').addEventListener('click', async () => {
