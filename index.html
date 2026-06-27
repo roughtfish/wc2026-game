@@ -610,6 +610,7 @@
         <button class="btn btn-secondary btn-sm" id="adjust-lives-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Add or remove lives from all active players">❤️ Adjust Lives</button>
         <button class="btn btn-secondary btn-sm" id="set-baseline-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Set the starting-lives baseline used for the stats page bars">📊 Set Baseline</button>
         <button class="btn btn-secondary btn-sm" id="locked-ko-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="See which Round of 32 ties are already mathematically locked in">🔓 Locked KO Ties</button>
+        <button class="btn btn-secondary btn-sm" id="set-ko-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Set the Round of 32 fixtures to match the official bracket">✏️ Set KO Fixtures</button>
         <button class="btn btn-secondary btn-sm" id="recompute-rivals-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Recalculate all rival head-to-head victories from the completed days">⚔️ Recompute Rival Stats</button>
         <button class="btn btn-secondary btn-sm" id="backup-game-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Download full game backup (JSON) — restore later if anything goes wrong">💾 Backup</button>
         <button class="btn btn-secondary btn-sm" id="restore-game-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Restore a game from a backup JSON file">📂 Restore</button>
@@ -706,6 +707,18 @@
       </div>
       <button class="btn btn-secondary" id="import-preview-btn" style="width:100%">🔍 Preview migration</button>
       <div id="import-report" style="margin-top:14px"></div>
+    </div>
+  </div>
+
+  <div id="set-ko-modal" class="modal" style="display:none">
+    <div class="modal-content" style="max-width:560px;max-height:85vh;overflow-y:auto">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <h2 style="margin:0;font-size:18px">✏️ Set KO Fixtures</h2>
+        <button id="close-set-ko-btn" style="background:none;border:none;color:var(--muted);font-size:24px;cursor:pointer;padding:0;line-height:1">&times;</button>
+      </div>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:12px">The Round of 32 ties are pre-filled from the current standings. Correct any to match the official bracket (especially the third-place slots), then save. Only available before KO predictions open.</p>
+      <div id="set-ko-list"></div>
+      <button class="btn btn-primary" id="save-ko-fixtures-btn" style="width:100%;margin-top:12px">Save fixtures</button>
     </div>
   </div>
 
@@ -1370,6 +1383,9 @@ function resolveTeam(desc,winners,runners,thirds){
 }
 
 function populateKnockoutBracket(g){
+  // If the host set the R32 fixtures manually (to match the official bracket),
+  // don't overwrite them with the auto-resolver.
+  if(g.koFixturesManual) return;
   const{winners,runners,thirds}=getGroupFinishers(g);
   const r32Start=g.matches.findIndex(m=>m.round==='Round of 32');
   if(r32Start===-1)return;
@@ -4108,6 +4124,100 @@ document.getElementById('recompute-rivals-btn').addEventListener('click', async 
   const changed = before !== after;
   alert(`${changed ? '✅ Rival stats recalculated.' : '✅ Rival stats checked — already correct.'}\n\nCurrent victories:\n${summary}`);
   showToast('⚔️ Rival stats recomputed');
+});
+
+document.getElementById('set-ko-btn').addEventListener('click', async () => {
+  const g = await loadGame(me.code);
+  if(!g){ alert('Could not load game.'); return; }
+  // Guard: only before KO predictions open
+  if(g.status && g.status.startsWith('ko-bulk')){
+    alert('KO predictions have already opened — fixtures are locked to avoid changing them under players. (You can only set fixtures before the KO round begins.)');
+    return;
+  }
+  const r32Start = g.matches.findIndex(m => m.round === 'Round of 32');
+  if(r32Start === -1){ alert('No Round of 32 fixtures found in this game.'); return; }
+
+  // Build the candidate team list: every team that appears in the group stage
+  const allTeams = [...new Set(g.matches.filter(m=>m.group).flatMap(m=>[m.home, m.away]))].sort();
+
+  // Pre-fill each tie from the current standings resolution
+  const fin = getGroupFinishers(g);
+  const prefill = [];
+  R32_FIXED.forEach((slot, i)=>{
+    const [hDesc, aDesc] = slot;
+    // Use the existing match if it already has real teams; else resolve from standings
+    const match = g.matches[r32Start + i];
+    const h = (match && match.home && match.home !== 'TBD') ? match.home : resolveTeam(hDesc, fin.winners, fin.runners, fin.thirds);
+    const a = (match && match.away && match.away !== 'TBD') ? match.away : resolveTeam(aDesc, fin.winners, fin.runners, fin.thirds);
+    prefill.push({ i, hDesc, aDesc, h, a });
+  });
+
+  const teamOpts = (selected) => '<option value="TBD"'+(selected==='TBD'||!selected?' selected':'')+'>— TBD —</option>' +
+    allTeams.map(t=>`<option value="${t}"${t===selected?' selected':''}>${t}</option>`).join('');
+
+  const listEl = document.getElementById('set-ko-list');
+  listEl.innerHTML = prefill.map(p=>{
+    const matchNo = 73 + p.i;
+    return `<div class="set-ko-row" data-idx="${p.i}" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;margin-bottom:7px">
+      <div style="font-size:10px;color:var(--muted);margin-bottom:4px">M${matchNo} · slot ${p.hDesc} v ${p.aDesc}</div>
+      <div style="display:flex;align-items:center;gap:6px">
+        <select class="ko-home" style="flex:1;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:6px;color:var(--text);font-size:12px">${teamOpts(p.h)}</select>
+        <span style="color:var(--muted);font-size:11px">v</span>
+        <select class="ko-away" style="flex:1;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:6px;color:var(--text);font-size:12px">${teamOpts(p.a)}</select>
+      </div>
+    </div>`;
+  }).join('');
+  document.getElementById('set-ko-modal').style.display = 'flex';
+});
+document.getElementById('close-set-ko-btn').addEventListener('click', () => {
+  document.getElementById('set-ko-modal').style.display = 'none';
+});
+
+document.getElementById('save-ko-fixtures-btn').addEventListener('click', async () => {
+  const g = await loadGame(me.code);
+  if(!g){ alert('Could not load game.'); return; }
+  if(g.status && g.status.startsWith('ko-bulk')){
+    alert('KO predictions have opened — can no longer change fixtures.');
+    document.getElementById('set-ko-modal').style.display = 'none';
+    return;
+  }
+  const r32Start = g.matches.findIndex(m => m.round === 'Round of 32');
+  if(r32Start === -1) return;
+
+  // Collect entered fixtures and validate
+  const rows = [...document.querySelectorAll('.set-ko-row')];
+  const chosen = rows.map(row=>({
+    i: parseInt(row.getAttribute('data-idx')),
+    home: row.querySelector('.ko-home').value,
+    away: row.querySelector('.ko-away').value
+  }));
+  // Validation: no team appears more than once across all ties (each qualified team plays one R32 tie)
+  const seen = {};
+  let dup = null;
+  chosen.forEach(c=>{
+    [c.home, c.away].forEach(t=>{
+      if(t==='TBD') return;
+      if(seen[t]){ dup = t; } else seen[t] = true;
+    });
+  });
+  if(dup){
+    if(!confirm(`⚠️ "${dup}" appears in more than one tie. A team can only be in one Round-of-32 fixture. Save anyway?`)) return;
+  }
+
+  if(!confirm('Save these Round of 32 fixtures? Players will predict against them.')) return;
+
+  chosen.forEach(c=>{
+    const match = g.matches[r32Start + c.i];
+    if(!match) return;
+    match.home = c.home;
+    match.away = c.away;
+    match.koSlot = false;
+  });
+  g.koFixturesManual = true; // tells populateKnockoutBracket not to overwrite these
+  await saveGame(g);
+  saveLocalBackup(g, 'KO fixtures set manually');
+  document.getElementById('set-ko-modal').style.display = 'none';
+  showToast('✏️ KO fixtures saved');
 });
 
 document.getElementById('locked-ko-btn').addEventListener('click', async () => {
