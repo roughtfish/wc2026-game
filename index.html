@@ -5613,6 +5613,40 @@ async function correctHistoricResult(g, targetIdx) {
 let koBulkDraft = {};
 
 async function startKOBulk(g, round) {
+  // Host-only safety check: before Round of 32 predictions open, make sure the
+  // third-place ties have been verified against the official bracket. The auto-resolver
+  // approximates 3rd-place placement and can diverge from the official table.
+  if(me.role === 'host' && round === 'Round of 32' && !g.koWarningAcknowledged){
+    const r32Start = g.matches.findIndex(m => m.round === 'Round of 32');
+    if(r32Start !== -1){
+      // Find 3rd-place ties that are NOT host-locked (i.e. left to the auto-resolver)
+      const unverified = [];
+      R32_FIXED.forEach((slot, i)=>{
+        const m = g.matches[r32Start + i];
+        const hasThird = slot[0].startsWith('3') || slot[1].startsWith('3');
+        if(hasThird && m && !m.koLocked){
+          unverified.push(`M${73+i}: ${m.home} v ${m.away}`);
+        }
+      });
+      if(unverified.length > 0){
+        const proceed = confirm(
+          `⚠️ BEFORE OPENING KO PREDICTIONS\n\n` +
+          `${unverified.length} third-place tie(s) were filled automatically and may NOT match the official bracket:\n\n` +
+          unverified.join('\n') +
+          `\n\nThe auto-resolver approximates third-place placement. Please check these against the official bracket and use "✏️ Set KO Fixtures" to correct & lock any that are wrong.\n\n` +
+          `OK = open predictions anyway · Cancel = go back and fix first`
+        );
+        if(!proceed){
+          // Bounce back to the host game screen so they can use Set KO Fixtures
+          enterGame(g);
+          return;
+        }
+        // Remember they acknowledged so we don't nag on every re-render
+        g.koWarningAcknowledged = true;
+        try{ await saveGame(g); }catch(e){}
+      }
+    }
+  }
   koBulkDraft = {};
   document.getElementById('bulk-player-name').textContent = me.name + (me.role === 'host' ? ' (Host)' : '');
   document.getElementById('bulk-round-label').textContent = 'Predicting ' + round + ' matches';
