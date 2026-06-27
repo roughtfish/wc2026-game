@@ -1383,9 +1383,6 @@ function resolveTeam(desc,winners,runners,thirds){
 }
 
 function populateKnockoutBracket(g){
-  // If the host set the R32 fixtures manually (to match the official bracket),
-  // don't overwrite them with the auto-resolver.
-  if(g.koFixturesManual) return;
   const{winners,runners,thirds}=getGroupFinishers(g);
   const r32Start=g.matches.findIndex(m=>m.round==='Round of 32');
   if(r32Start===-1)return;
@@ -1415,9 +1412,8 @@ function populateKnockoutBracket(g){
   R32_FIXED.forEach((slot,i)=>{
     const match=g.matches[r32Start+i];
     if(!match)return;
-    // Never overwrite a slot that already holds real teams — preserves host-set
-    // (official) fixtures even if the manual flag was dropped by another save path.
-    if(match.home && match.home!=='TBD' && match.away && match.away!=='TBD') return;
+    // Skip ties the host has locked manually — leave them exactly as set.
+    if(match.koLocked) return;
     const[homeDesc,awayDesc]=slot;
     match.home=homeDesc.startsWith('3')?(thirdMap[i]||'TBD'):resolveTeam(homeDesc,winners,runners,[]);
     match.away=awayDesc.startsWith('3')?(thirdMap[i]||'TBD'):resolveTeam(awayDesc,winners,runners,[]);
@@ -3139,9 +3135,9 @@ function reverseResult(g, matchIdx){
     const idx=g.matches.indexOf(groupMatches[i]);
     return g.results&&g.results[idx];
   });
-  if(!hasAllGroupResults && !g.koFixturesManual){
-    // Reset KO bracket slots back to TBD (unless the host set them manually)
-    g.matches.forEach(m=>{if(!m.group){m.home='TBD';m.away='TBD';m.koSlot=true;}});
+  if(!hasAllGroupResults){
+    // Reset KO bracket slots back to TBD, but keep any ties the host locked manually
+    g.matches.forEach(m=>{if(!m.group && !m.koLocked){m.home='TBD';m.away='TBD';m.koSlot=true;}});
   }
 }
 
@@ -4148,11 +4144,12 @@ document.getElementById('set-ko-btn').addEventListener('click', async () => {
   const prefill = [];
   R32_FIXED.forEach((slot, i)=>{
     const [hDesc, aDesc] = slot;
-    // Use the existing match if it already has real teams; else resolve from standings
     const match = g.matches[r32Start + i];
+    const locked = !!(match && match.koLocked);
+    // Use the existing match if it already has real teams; else resolve from standings
     const h = (match && match.home && match.home !== 'TBD') ? match.home : resolveTeam(hDesc, fin.winners, fin.runners, fin.thirds);
     const a = (match && match.away && match.away !== 'TBD') ? match.away : resolveTeam(aDesc, fin.winners, fin.runners, fin.thirds);
-    prefill.push({ i, hDesc, aDesc, h, a });
+    prefill.push({ i, hDesc, aDesc, h, a, locked });
   });
 
   const teamOpts = (selected) => '<option value="TBD"'+(selected==='TBD'||!selected?' selected':'')+'>— TBD —</option>' +
@@ -4161,8 +4158,8 @@ document.getElementById('set-ko-btn').addEventListener('click', async () => {
   const listEl = document.getElementById('set-ko-list');
   listEl.innerHTML = prefill.map(p=>{
     const matchNo = 73 + p.i;
-    return `<div class="set-ko-row" data-idx="${p.i}" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;margin-bottom:7px">
-      <div style="font-size:10px;color:var(--muted);margin-bottom:4px">M${matchNo} · slot ${p.hDesc} v ${p.aDesc}</div>
+    return `<div class="set-ko-row" data-idx="${p.i}" style="background:var(--surface2);border:1px solid ${p.locked?'var(--accent)':'var(--border)'};border-radius:8px;padding:8px 10px;margin-bottom:7px">
+      <div style="font-size:10px;color:var(--muted);margin-bottom:4px">M${matchNo} · slot ${p.hDesc} v ${p.aDesc}${p.locked?' · <span style="color:var(--accent)">🔒 locked</span>':''}</div>
       <div style="display:flex;align-items:center;gap:6px">
         <select class="ko-home" style="flex:1;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:6px;color:var(--text);font-size:12px">${teamOpts(p.h)}</select>
         <span style="color:var(--muted);font-size:11px">v</span>
@@ -4216,27 +4213,45 @@ document.getElementById('save-ko-fixtures-btn').addEventListener('click', async 
 
   if(!confirm('Save these Round of 32 fixtures? Players will predict against them.')) return;
 
+  // TBD ties are fine — they stay unlocked and auto-resolve as those groups finish.
+  const lockCount = chosen.filter(c=>c.home!=='TBD'&&c.away!=='TBD').length;
+  if(lockCount===0){
+    if(!confirm('No ties have two real teams set, so nothing will be locked. Continue anyway?')) return;
+  }
+
+  // Update the TBD warning wording — TBD ties stay unlocked on purpose now
   chosen.forEach(c=>{
     const match = g.matches[r32Start + c.i];
     if(!match) return;
-    match.home = c.home;
-    match.away = c.away;
-    match.koSlot = false;
+    const bothReal = c.home !== 'TBD' && c.away !== 'TBD';
+    if(bothReal){
+      // Lock this tie — the host has confirmed it from the official bracket
+      match.home = c.home;
+      match.away = c.away;
+      match.koSlot = false;
+      match.koLocked = true;
+    } else {
+      // Leave unlocked so the auto-resolver fills it as groups finish.
+      // Keep any real team the host did set, but don't lock.
+      match.home = c.home;
+      match.away = c.away;
+      match.koSlot = (c.home==='TBD' && c.away==='TBD');
+      match.koLocked = false;
+    }
   });
-  g.koFixturesManual = true; // tells populateKnockoutBracket not to overwrite these
   try{
     await saveGame(g);
   }catch(e){
     alert('Save failed — fixtures not stored. Check your connection and try again.');
     return;
   }
-  // Verify the save persisted by reading it straight back
+  // Verify the save persisted by reading it straight back — check the LOCKED ties
   const check = await loadGame(me.code);
   const cr32 = check ? check.matches.findIndex(m=>m.round==='Round of 32') : -1;
-  const ok = check && check.koFixturesManual && cr32 !== -1 &&
-    chosen.every(c=>{
+  const ok = check && cr32 !== -1 &&
+    chosen.filter(c=>c.home!=='TBD'&&c.away!=='TBD').every(c=>{
       const m = check.matches[cr32 + c.i];
-      return m && m.home === c.home && m.away === c.away;
+      return m && m.home === c.home && m.away === c.away && m.koLocked === true;
     });
   saveLocalBackup(g, 'KO fixtures set manually');
   document.getElementById('set-ko-modal').style.display = 'none';
