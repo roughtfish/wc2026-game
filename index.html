@@ -1043,13 +1043,39 @@ function getMatchDateTime(matchIdx, match) {
   
   if(match.round === 'Round of 32'){
     if(match.date) return match.date;
+    // Map by the actual teams in the tie (UK dates), so it's correct regardless of
+    // which bracket slot the tie ended up in. Post-midnight US kickoffs fall on the
+    // next UK calendar day.
+    const r32UKDates = {
+      'Canada|South Africa':'June 28',
+      'Brazil|Japan':'June 29',
+      'Germany|Paraguay':'June 29',
+      'Morocco|Netherlands':'June 30',      // 2am BST
+      'Ivory Coast|Norway':'June 30',
+      'France|Sweden':'June 30',
+      'Ecuador|Mexico':'July 1',            // 2am BST
+      'DR Congo|England':'July 1',
+      'Belgium|Senegal':'July 1',
+      'Bosnia|USA':'July 2', 'Bosnia and Herzegovina|USA':'July 2', // 1am BST
+      'Austria|Spain':'July 2',
+      'Croatia|Portugal':'July 3',          // midnight BST
+      'Algeria|Switzerland':'July 3',       // 4am BST
+      'Australia|Egypt':'July 3',
+      'Argentina|Cape Verde':'July 3',
+      'Colombia|Ghana':'July 4',            // 2:30am BST
+    };
+    if(match.home && match.away && match.home!=='TBD' && match.away!=='TBD'){
+      const key=[match.home, match.away].sort().join('|');
+      if(r32UKDates[key]) return r32UKDates[key];
+    }
+    // Fallback: slot-position map (only used before teams resolve)
     const start = getMatchDateTime._roundStarts?.['Round of 32'] ?? 72;
     const pos = matchIdx - start;
     const gameDayR32 = {
-      0:'June 28', 1:'June 29', 2:'June 30', 3:'June 30',
-      4:'July 1', 5:'July 1', 6:'July 2', 7:'July 2',
-      8:'July 3', 9:'July 3', 10:'July 3', 11:'July 4',
-      12:'July 1', 13:'June 29', 14:'June 30', 15:'July 4',
+      0:'June 28', 1:'June 29', 2:'June 29', 3:'June 29',
+      4:'June 30', 5:'June 30', 6:'June 30', 7:'July 1',
+      8:'July 1', 9:'July 1', 10:'July 2', 11:'July 2',
+      12:'July 2', 13:'July 3', 14:'July 3', 15:'July 3',
     };
     return gameDayR32[pos] || 'June 28';
   }
