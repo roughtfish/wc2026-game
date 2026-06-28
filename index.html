@@ -612,6 +612,7 @@
         <button class="btn btn-secondary btn-sm" id="locked-ko-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="See which Round of 32 ties are already mathematically locked in">🔓 Locked KO Ties</button>
         <button class="btn btn-secondary btn-sm" id="set-ko-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Set the Round of 32 fixtures to match the official bracket">✏️ Set KO Fixtures</button>
         <button class="btn btn-secondary btn-sm" id="recompute-rivals-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Recalculate all rival head-to-head victories from the completed days">⚔️ Recompute Rival Stats</button>
+        <button class="btn btn-secondary btn-sm" id="recompute-scores-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Recalculate every player's correct count, lives and score bonuses from scratch — fixes any drift">🔢 Recompute Scores</button>
         <button class="btn btn-secondary btn-sm" id="backup-game-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Download full game backup (JSON) — restore later if anything goes wrong">💾 Backup</button>
         <button class="btn btn-secondary btn-sm" id="restore-game-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Restore a game from a backup JSON file">📂 Restore</button>
         <button class="btn btn-secondary btn-sm" id="export-csv-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Export all player picks to a CSV spreadsheet">📊 Export CSV</button>
@@ -4106,6 +4107,52 @@ document.getElementById('export-csv-btn').addEventListener('click', async () => 
 
 // ─── LOCAL BACKUPS MODAL ──────────────────────────────────────────────────────
 // ─── ADJUST LIVES ─────────────────────────────────────────────────────────────
+document.getElementById('recompute-scores-btn').addEventListener('click', async () => {
+  const g = await loadGame(me.code);
+  if(!g){ alert('Could not load game.'); return; }
+  if(!confirm('Recompute every player\'s CORRECT count and score-bonus count from scratch?\n\nThis replays all stored results to fix any drift in the correct/score-bonus counters. It does NOT touch lives (so manual life adjustments are preserved), results, or predictions.')) return;
+
+  // Snapshot before, to report what changed
+  const before = {};
+  g.players.forEach(p => { before[p.name] = { correct: p.correct||0, scoreBonus: p.scoreBonus||0 }; });
+
+  // Reset only the results-derived counters (NOT lives — those carry manual adjustments)
+  g.players.forEach(p => {
+    p.correct = 0;
+    p.scoreBonus = 0;
+  });
+
+  // Replay every stored result in match order, counting each exactly once
+  const playedIdxs = Object.keys(g.results||{}).map(Number)
+    .filter(n=>!isNaN(n) && g.results[n]!=null).sort((a,b)=>a-b);
+  playedIdxs.forEach(idx => {
+    const res = g.results[idx];
+    const actual = actualOutcome(res);
+    const preds = g.predictions[idx] || {};
+    g.players.forEach(p => {
+      const pick = preds[p.name];
+      if(pick === actual){ p.correct++; }
+      // Exact score bonus count (lives already reflect this; we only recount the tally)
+      const sc = preds[p.name+'_score'];
+      if(sc && sc.home===res.home && sc.away===res.away){ p.scoreBonus++; }
+    });
+  });
+
+  await saveGame(g);
+  saveLocalBackup(g, 'Correct counts recomputed');
+
+  // Report any corrections
+  const changes = g.players.filter(p =>
+    before[p.name].correct !== p.correct ||
+    (before[p.name].scoreBonus||0) !== (p.scoreBonus||0)
+  ).map(p => `${p.name}: ${before[p.name].correct}→${p.correct}✓${(before[p.name].scoreBonus||0)!==(p.scoreBonus||0)?` · ${before[p.name].scoreBonus||0}→${p.scoreBonus}🎯`:''}`);
+
+  alert(changes.length > 0
+    ? `✅ Correct counts recomputed. Corrected:\n\n${changes.join('\n')}`
+    : '✅ Recomputed — all correct counts were already right.');
+  showToast('🔢 Counts recomputed');
+});
+
 document.getElementById('recompute-rivals-btn').addEventListener('click', async () => {
   const g = await loadGame(me.code);
   if(!g){ alert('Could not load game.'); return; }
@@ -5540,8 +5587,8 @@ async function correctHistoricResult(g, targetIdx) {
       // Apply correction to stored results
       fresh.results[targetIdx] = { home: newHome, away: newAway, ...(newPenWinner?{penWinner:newPenWinner}:{}) };
 
-      // Reset KO bracket to TBD before re-populating
-      fresh.matches.forEach(m => { if (!m.group) { m.home = 'TBD'; m.away = 'TBD'; m.koSlot = true; } });
+      // Reset KO bracket to TBD before re-populating — but keep host-locked fixtures
+      fresh.matches.forEach(m => { if (!m.group && !m.koLocked) { m.home = 'TBD'; m.away = 'TBD'; m.koSlot = true; } });
 
       // Re-apply ALL results in match order
       const playedIdxs = Object.keys(fresh.results).map(Number).filter(n=>!isNaN(n)&&fresh.results[n]!=null).sort((a, b) => a - b);
