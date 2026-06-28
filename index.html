@@ -5619,6 +5619,28 @@ async function startKOBulk(g, round) {
   if(me.role === 'host' && round === 'Round of 32' && !g.koWarningAcknowledged){
     const r32Start = g.matches.findIndex(m => m.round === 'Round of 32');
     if(r32Start !== -1){
+      // Detect duplicate teams across the bracket (a team should appear in exactly one tie)
+      const teamSlots = {};
+      for(let i=0;i<16;i++){
+        const m = g.matches[r32Start + i];
+        if(!m) continue;
+        [m.home, m.away].forEach(t=>{
+          if(!t || t==='TBD') return;
+          (teamSlots[t] = teamSlots[t] || []).push(73+i);
+        });
+      }
+      const dupes = Object.entries(teamSlots).filter(([t,slots])=>slots.length>1);
+      if(dupes.length>0){
+        const proceedDup = confirm(
+          `🚨 BRACKET ERROR — DUPLICATE TEAMS\n\n` +
+          dupes.map(([t,slots])=>`${t} appears in M${slots.join(' AND M')}`).join('\n') +
+          `\n\nEach team should be in exactly ONE Round-of-32 tie. The bracket is wrong and players would predict impossible fixtures.\n\n` +
+          `Cancel and fix this with "✏️ Set KO Fixtures" before opening predictions.\n\n` +
+          `OK = open anyway (not recommended) · Cancel = go fix it`
+        );
+        if(!proceedDup){ enterGame(g); return; }
+      }
+
       // Find 3rd-place ties that are NOT host-locked (i.e. left to the auto-resolver)
       const unverified = [];
       R32_FIXED.forEach((slot, i)=>{
@@ -5731,14 +5753,14 @@ function renderKOBulkForm(g, round) {
   html += `</div>
     <div style="padding:12px 0 6px;border-top:0.5px solid var(--border);margin-top:10px;">
       <div style="font-size:10px;color:var(--muted);text-align:center;margin-bottom:7px;letter-spacing:1px;">Each team can only win <b>5</b> times across all predictions · Pen wins don't count · No draws in knockout rounds</div>
-      ${!isLocked && !isWatchModeKO ? `<button class="btn btn-primary" id="ko-bulk-submit-btn">${rem > 0 ? 'Predict ' + rem + ' more to continue' : 'Lock in my predictions ✓'}</button>` : ''}
-      ${!isLocked && done > 0 && !isWatchModeKO ? '<button class="btn btn-secondary" id="ko-bulk-clear-btn" style="margin-top:8px;font-size:13px;letter-spacing:1px;opacity:0.7;">↺ Reset Picks!</button>' : ''}
-      ${isWatchModeKO ? '<button class="btn btn-secondary" id="ko-bulk-back-btn" style="margin-top:8px">← Back</button>' : ''}
+      ${!isLocked && !koReadOnly ? `<button class="btn btn-primary" id="ko-bulk-submit-btn">${rem > 0 ? 'Predict ' + rem + ' more to continue' : 'Lock in my predictions ✓'}</button>` : ''}
+      ${!isLocked && done > 0 && !koReadOnly ? '<button class="btn btn-secondary" id="ko-bulk-clear-btn" style="margin-top:8px;font-size:13px;letter-spacing:1px;opacity:0.7;">↺ Reset Picks!</button>' : ''}
+      ${koReadOnly ? '<button class="btn btn-secondary" id="ko-bulk-back-btn" style="margin-top:8px">← Back</button>' : ''}
     </div>`;
 
   area.innerHTML = html;
 
-  if(!isLocked && !isWatchModeKO){
+  if(!isLocked && !koReadOnly){
     const sb = area.querySelector('#ko-bulk-submit-btn');
     if(sb){
       if (rem > 0) { sb.disabled = true; sb.style.opacity = '0.42'; sb.style.cursor = 'not-allowed'; }
@@ -5752,7 +5774,7 @@ function renderKOBulkForm(g, round) {
     if (cb) cb.addEventListener('click', () => { koBulkDraft = {}; saveDraft(koBulkDraft); renderKOBulkForm(g, round); });
   }
   
-  if(isWatchModeKO){
+  if(koReadOnly){
     const backBtn = area.querySelector('#ko-bulk-back-btn');
     if(backBtn) backBtn.addEventListener('click',async()=>{
       area._watchCommit=null;
@@ -5762,8 +5784,14 @@ function renderKOBulkForm(g, round) {
     });
   }
 
-  if(!isLocked && !isWatchModeKO){
+  // Toggles are interactive whenever the player hasn't locked in their picks.
+  // (Watch/commit paths set _watchCommit but the host/player is still actively
+  // picking, so they must stay clickable — only a genuinely locked submission
+  // or a read-only view makes them inert.)
+  const koReadOnly = isLocked || (isWatchModeKO && area._watchReadOnly);
+  if(!koReadOnly){
     area.querySelectorAll('.bulk-toggle button').forEach(btn => {
+      if(btn.disabled) return; // leave limit-disabled buttons alone
       btn.addEventListener('click', () => {
         koBulkDraft[parseInt(btn.dataset.idx)] = btn.dataset.val;
         saveDraft(koBulkDraft);
