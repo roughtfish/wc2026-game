@@ -615,6 +615,7 @@
         <button class="btn btn-secondary btn-sm" id="award-rival-bonus-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Award the end-of-group-stage rival victory bonus lives">🏅 Award Rival Bonus</button>
         <button class="btn btn-secondary btn-sm" id="recompute-scores-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Recalculate every player's correct count, lives and score bonuses from scratch — fixes any drift">🔢 Recompute Scores</button>
         <button class="btn btn-secondary btn-sm" id="player-breakdown-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Show a full per-player accounting: correct, wrong, missed, score bonuses and expected vs actual lives">📋 Player Breakdown</button>
+        <button class="btn btn-secondary btn-sm" id="rebuild-lives-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Rebuild every player's lives purely from the stored results and baseline — fixes drift">❤️ Rebuild Lives</button>
         <button class="btn btn-secondary btn-sm" id="backup-game-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Download full game backup (JSON) — restore later if anything goes wrong">💾 Backup</button>
         <button class="btn btn-secondary btn-sm" id="restore-game-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Restore a game from a backup JSON file">📂 Restore</button>
         <button class="btn btn-secondary btn-sm" id="export-csv-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Export all player picks to a CSV spreadsheet">📊 Export CSV</button>
@@ -4120,6 +4121,55 @@ document.getElementById('export-csv-btn').addEventListener('click', async () => 
 
 // ─── LOCAL BACKUPS MODAL ──────────────────────────────────────────────────────
 // ─── ADJUST LIVES ─────────────────────────────────────────────────────────────
+document.getElementById('rebuild-lives-btn').addEventListener('click', async () => {
+  const g = await loadGame(me.code);
+  if(!g){ alert('Could not load game.'); return; }
+  const baseline = g.lives;
+
+  let warn = `Rebuild every player's lives from scratch?\n\nEach player's lives will be set to:\nbaseline (${baseline}) − wrong − (2 × missed) + score bonuses\n\nThis fixes any drift in the life totals.`;
+  if(g.rivalBonusAwarded){
+    warn += `\n\n⚠️ The rival bonus was already awarded — rebuilding will REMOVE it. You'd need to re-award it afterward with "🏅 Award Rival Bonus".`;
+  }
+  warn += `\n\n⚠️ Any manual life adjustments (Adjust Lives) NOT part of the baseline will also be removed.\n\nContinue?`;
+  if(!confirm(warn)) return;
+
+  const playedIdxs = Object.keys(g.results||{}).map(Number)
+    .filter(n=>!isNaN(n) && g.results[n]!=null).sort((a,b)=>a-b);
+
+  const before = {};
+  g.players.forEach(p => { before[p.name] = p.lives; });
+
+  g.players.forEach(p => {
+    let wrong=0, missed=0, scores=0;
+    playedIdxs.forEach(idx => {
+      const res = g.results[idx];
+      const actual = actualOutcome(res);
+      const pick = (g.predictions[idx]||{})[p.name];
+      if(pick == null) missed++;
+      else if(pick !== actual) wrong++;
+      const sc = (g.predictions[idx]||{})[p.name+'_score'];
+      if(sc && Number(sc.home)===Number(res.home) && Number(sc.away)===Number(res.away)) scores++;
+    });
+    const newLives = baseline - wrong - (2*missed) + scores;
+    p.lives = newLives;
+    p.eliminated = newLives <= 0;
+  });
+
+  // If we removed a previously-awarded rival bonus, clear the flag so it can be re-awarded
+  if(g.rivalBonusAwarded) g.rivalBonusAwarded = false;
+
+  await saveGame(g);
+  saveLocalBackup(g, 'Lives rebuilt from results');
+
+  const changes = g.players
+    .filter(p => before[p.name] !== p.lives)
+    .map(p => `${p.name}: ${before[p.name]}→${p.lives} ❤️`);
+  alert(changes.length > 0
+    ? `✅ Lives rebuilt. Changed:\n\n${changes.join('\n')}${g.rivalBonusAwarded===false ? '\n\n(Rival bonus flag cleared — re-award with 🏅 if needed.)' : ''}`
+    : '✅ Lives rebuilt — everything was already correct.');
+  showToast('❤️ Lives rebuilt');
+});
+
 document.getElementById('player-breakdown-btn').addEventListener('click', async () => {
   const g = await loadGame(me.code);
   if(!g){ alert('Could not load game.'); return; }
@@ -4137,7 +4187,7 @@ document.getElementById('player-breakdown-btn').addEventListener('click', async 
       else if(pick === actual){ correct++; }
       else { wrong++; }
       const sc = (g.predictions[idx]||{})[p.name+'_score'];
-      if(sc && sc.home===res.home && sc.away===res.away) scores++;
+      if(sc && Number(sc.home)===Number(res.home) && Number(sc.away)===Number(res.away)) scores++;
     });
     const expected = baseline - wrong - (2*missed) + scores;
     const rivalBonus = (p.lives - expected); // any difference = manual adj / rival bonus
@@ -4163,7 +4213,14 @@ document.getElementById('player-breakdown-btn').addEventListener('click', async 
   }).join('');
 
   document.getElementById('breakdown-list').innerHTML =
-    `<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>
+    `<div style="font-size:11px;color:var(--accent);margin-bottom:8px">Baseline lives (g.lives) = <b>${baseline}</b> · Played results = <b>${playedIdxs.length}</b>${(()=>{
+      // Detect duplicate fixtures (same teams in 2+ matches)
+      const seen={}, dupes=[];
+      g.matches.forEach((m,i)=>{ if(m.home==='TBD'||!m.home)return; const k=[m.home,m.away].sort().join(' v '); (seen[k]=seen[k]||[]).push(i); });
+      Object.entries(seen).forEach(([k,idxs])=>{ if(idxs.length>1) dupes.push(`${k} (×${idxs.length})`); });
+      return dupes.length?` · <span style="color:var(--red)">⚠️ DUPLICATES: ${dupes.join(', ')}</span>`:'';
+    })()}</div>
+     <table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>
      <div style="font-size:10px;color:var(--muted);margin-top:10px;line-height:1.5">Δ (Actual − Expected) should equal each player's rival bonus + any manual life adjustments. A Δ of 0 with no rival bonus means the lives are exactly results-driven.</div>`;
   document.getElementById('breakdown-modal').style.display = 'flex';
 });
