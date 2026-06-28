@@ -1042,6 +1042,7 @@ function getMatchDateTime(matchIdx, match) {
   }
   
   if(match.round === 'Round of 32'){
+    if(match.date) return match.date;
     const start = getMatchDateTime._roundStarts?.['Round of 32'] ?? 72;
     const pos = matchIdx - start;
     const gameDayR32 = {
@@ -1054,6 +1055,7 @@ function getMatchDateTime(matchIdx, match) {
   }
   
   if(match.round === 'Round of 16'){
+    if(match.date) return match.date;
     const start = getMatchDateTime._roundStarts?.['Round of 16'] ?? 88;
     const pos = matchIdx - start;
     const gameDayR16 = {
@@ -1064,6 +1066,7 @@ function getMatchDateTime(matchIdx, match) {
   }
   
   if(match.round === 'Quarter-final'){
+    if(match.date) return match.date;
     const start = getMatchDateTime._roundStarts?.['Quarter-final'] ?? 96;
     const pos = matchIdx - start;
     const gameDayQF = {0:'July 9', 1:'July 10', 2:'July 11', 3:'July 11'};
@@ -1071,6 +1074,7 @@ function getMatchDateTime(matchIdx, match) {
   }
   
   if(match.round === 'Semi-final'){
+    if(match.date) return match.date;
     const start = getMatchDateTime._roundStarts?.['Semi-final'] ?? 100;
     const pos = matchIdx - start;
     return pos === 0 ? 'July 14' : 'July 15';
@@ -2701,7 +2705,9 @@ async function renderGameHost(g){
   }
   
   let isLastMatchOfDay = false;
-  if(g.currentMatchIdx < g.matches.length - 1){
+  if(currentMatch && !currentMatch.group){
+    isLastMatchOfDay = true; // KO: each match is its own completion unit
+  } else if(g.currentMatchIdx < g.matches.length - 1){
     const nextMatch = g.matches[g.currentMatchIdx + 1];
     const nextMatchDate = getMatchDateTime(g.currentMatchIdx + 1, nextMatch);
     isLastMatchOfDay = currentMatchDate !== nextMatchDate;
@@ -2720,6 +2726,7 @@ async function renderGameHost(g){
     // 3. This is the LAST match of the day
     const shouldShow = isInRevealState && hasResultForCurrentMatch && isLastMatchOfDay;
     completeDayBtn.style.display = shouldShow ? 'inline-block' : 'none';
+    completeDayBtn.textContent = (currentMatch && !currentMatch.group) ? '🏁 Complete Game' : '📊 Complete Day';
     
     if(shouldShow){
       completeDayBtn.style.background = 'var(--accent)';
@@ -2977,8 +2984,9 @@ function renderResultEntry(g,match,area){
   // Check if this is the last match of the current day
   const currentMatchDate = getMatchDateTime(g.currentMatchIdx, match);
   let isLastMatchOfDay = false;
-  
-  if(g.currentMatchIdx < g.matches.length - 1){
+  if(match && !match.group){
+    isLastMatchOfDay = true; // KO: each match is its own completion unit
+  } else if(g.currentMatchIdx < g.matches.length - 1){
     const nextMatch = g.matches[g.currentMatchIdx + 1];
     const nextMatchDate = getMatchDateTime(g.currentMatchIdx + 1, nextMatch);
     isLastMatchOfDay = currentMatchDate !== nextMatchDate;
@@ -2994,8 +3002,8 @@ function renderResultEntry(g,match,area){
     </div>
     ${isLastMatchOfDay ? `
       <div style="background:linear-gradient(135deg,#f59e0b,#d97706);color:#000;padding:12px 16px;border-radius:8px;margin-bottom:16px;text-align:center;font-weight:600;font-size:13px;border:2px solid #fbbf24;">
-        ⚠️ LAST MATCH OF THE DAY ⚠️<br>
-        <span style="font-size:11px;font-weight:500;margin-top:4px;display:block;">Remember to click "COMPLETE DAY" after entering this result!</span>
+        ${match.group ? '⚠️ LAST MATCH OF THE DAY ⚠️' : '🏁 KNOCKOUT MATCH 🏁'}<br>
+        <span style="font-size:11px;font-weight:500;margin-top:4px;display:block;">Remember to click "${match.group ? 'COMPLETE DAY' : 'COMPLETE GAME'}" after entering this result!</span>
       </div>
     ` : ''}
     <div class="teams-row">
@@ -3178,7 +3186,9 @@ async function renderReveal(g){
   
   const currentMatchDate = getMatchDateTime(g.currentMatchIdx, match);
   let isLastMatchOfDay = false;
-  if(g.currentMatchIdx < g.matches.length - 1){
+  if(match && !match.group){
+    isLastMatchOfDay = true; // KO: each match is its own completion unit
+  } else if(g.currentMatchIdx < g.matches.length - 1){
     const nextMatch = g.matches[g.currentMatchIdx + 1];
     const nextMatchDate = getMatchDateTime(g.currentMatchIdx + 1, nextMatch);
     isLastMatchOfDay = currentMatchDate !== nextMatchDate;
@@ -4411,7 +4421,8 @@ document.getElementById('set-ko-btn').addEventListener('click', async () => {
     // Use the existing match if it already has real teams; else resolve from standings
     const h = (match && match.home && match.home !== 'TBD') ? match.home : resolveTeam(hDesc, fin.winners, fin.runners, fin.thirds);
     const a = (match && match.away && match.away !== 'TBD') ? match.away : resolveTeam(aDesc, fin.winners, fin.runners, fin.thirds);
-    prefill.push({ i, hDesc, aDesc, h, a, locked });
+    const date = (match && match.date) ? match.date : '';
+    prefill.push({ i, hDesc, aDesc, h, a, locked, date });
   });
 
   const teamOpts = (selected) => '<option value="TBD"'+(selected==='TBD'||!selected?' selected':'')+'>— TBD —</option>' +
@@ -4426,6 +4437,10 @@ document.getElementById('set-ko-btn').addEventListener('click', async () => {
         <select class="ko-home" style="flex:1;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:6px;color:var(--text);font-size:12px">${teamOpts(p.h)}</select>
         <span style="color:var(--muted);font-size:11px">v</span>
         <select class="ko-away" style="flex:1;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:6px;color:var(--text);font-size:12px">${teamOpts(p.a)}</select>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;margin-top:6px">
+        <span style="color:var(--muted);font-size:10px;min-width:32px">Date</span>
+        <input class="ko-date" type="text" value="${p.date}" placeholder="e.g. June 29" style="flex:1;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:6px;color:var(--text);font-size:12px">
       </div>
     </div>`;
   }).join('');
@@ -4458,7 +4473,8 @@ document.getElementById('save-ko-fixtures-btn').addEventListener('click', async 
   const chosen = rows.map(row=>({
     i: parseInt(row.getAttribute('data-idx')),
     home: row.querySelector('.ko-home').value,
-    away: row.querySelector('.ko-away').value
+    away: row.querySelector('.ko-away').value,
+    date: (row.querySelector('.ko-date').value || '').trim()
   }));
   // Validation: no team appears more than once across all ties (each qualified team plays one R32 tie)
   const seen = {};
@@ -4485,6 +4501,8 @@ document.getElementById('save-ko-fixtures-btn').addEventListener('click', async 
   chosen.forEach(c=>{
     const match = g.matches[r32Start + c.i];
     if(!match) return;
+    // Store the real fixture date (used by getMatchDateTime for day-grouping)
+    if(c.date) match.date = c.date; else delete match.date;
     const bothReal = c.home !== 'TBD' && c.away !== 'TBD';
     if(bothReal){
       // Lock this tie — the host has confirmed it from the official bracket
@@ -7716,7 +7734,12 @@ async function completeDayAsHost(g) {
   const currentMatchDate = getMatchDateTime(g.currentMatchIdx, currentMatch);
   
   const calculatedTodaysMatches = [];
-  if(g.results){
+  if(currentMatch && !currentMatch.group){
+    // KNOCKOUT: each match is its own unit — complete just the current match
+    if(g.results && g.results[g.currentMatchIdx] != null){
+      calculatedTodaysMatches.push(g.currentMatchIdx);
+    }
+  } else if(g.results){
     Object.keys(g.results).forEach(idx => {
       const matchIdx = parseInt(idx);
       const match = g.matches[matchIdx];
