@@ -4155,8 +4155,13 @@ document.getElementById('rebuild-lives-btn').addEventListener('click', async () 
     p.eliminated = newLives <= 0;
   });
 
-  // If we removed a previously-awarded rival bonus, clear the flag so it can be re-awarded
+  // If we removed a previously-awarded rival bonus, clear the AWARDED flag so it
+  // can be re-awarded. Also set rivalBonusManual so the AUTOMATIC award can never
+  // fire again — once the host has rebuilt lives, they're managing the bonus by hand
+  // via the 🏅 Award Rival Bonus button. This is safe even if the bonus was
+  // originally awarded automatically.
   if(g.rivalBonusAwarded) g.rivalBonusAwarded = false;
+  g.rivalBonusManual = true;
 
   await saveGame(g);
   saveLocalBackup(g, 'Lives rebuilt from results');
@@ -4318,6 +4323,7 @@ document.getElementById('award-rival-bonus-btn').addEventListener('click', async
     if(p) p.lives += a.amount;
   });
   g.rivalBonusAwarded = true;
+  g.rivalBonusManual = true; // permanently disable the automatic award — host is in control now
   await saveGame(g);
   saveLocalBackup(g, 'Rival bonus awarded manually');
   alert(`✅ Rival bonuses applied:\n\n${preview.join('\n')}`);
@@ -7377,7 +7383,7 @@ async function hostContinueFromSummary() {
   
   // Check if we just finished the group stage (next match is first KO match)
   const isEndOfGroupStage = prevMatch && prevMatch.group && nextMatch && !nextMatch.group;
-  if(isEndOfGroupStage && !g.rivalBonusAwarded){
+  if(isEndOfGroupStage && !g.rivalBonusAwarded && !g.rivalBonusManual){
     // Award bonus lives by DISTINCT victory total: top total +3, next +2, next +1.
     // Tied players share the same (higher) bonus. Only players with >0 wins count.
     const bonuses = [];
