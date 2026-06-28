@@ -614,6 +614,7 @@
         <button class="btn btn-secondary btn-sm" id="recompute-rivals-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Recalculate all rival head-to-head victories from the completed days">⚔️ Recompute Rival Stats</button>
         <button class="btn btn-secondary btn-sm" id="award-rival-bonus-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Award the end-of-group-stage rival victory bonus lives">🏅 Award Rival Bonus</button>
         <button class="btn btn-secondary btn-sm" id="recompute-scores-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Recalculate every player's correct count, lives and score bonuses from scratch — fixes any drift">🔢 Recompute Scores</button>
+        <button class="btn btn-secondary btn-sm" id="player-breakdown-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Show a full per-player accounting: correct, wrong, missed, score bonuses and expected vs actual lives">📋 Player Breakdown</button>
         <button class="btn btn-secondary btn-sm" id="backup-game-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Download full game backup (JSON) — restore later if anything goes wrong">💾 Backup</button>
         <button class="btn btn-secondary btn-sm" id="restore-game-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Restore a game from a backup JSON file">📂 Restore</button>
         <button class="btn btn-secondary btn-sm" id="export-csv-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Export all player picks to a CSV spreadsheet">📊 Export CSV</button>
@@ -709,6 +710,17 @@
       </div>
       <button class="btn btn-secondary" id="import-preview-btn" style="width:100%">🔍 Preview migration</button>
       <div id="import-report" style="margin-top:14px"></div>
+    </div>
+  </div>
+
+  <div id="breakdown-modal" class="modal" style="display:none">
+    <div class="modal-content" style="max-width:600px;max-height:85vh;overflow-y:auto">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <h2 style="margin:0;font-size:18px">📋 Player Breakdown</h2>
+        <button id="close-breakdown-btn" style="background:none;border:none;color:var(--muted);font-size:24px;cursor:pointer;padding:0;line-height:1">&times;</button>
+      </div>
+      <p style="font-size:11px;color:var(--muted);margin-bottom:12px">Full accounting from stored results. <b>Expected lives</b> = baseline − wrong − (2 × missed) + score bonuses. If <b>Actual</b> differs from Expected, that player had a manual life adjustment (or a drift to investigate).</p>
+      <div id="breakdown-list" style="overflow-x:auto"></div>
     </div>
   </div>
 
@@ -4108,6 +4120,57 @@ document.getElementById('export-csv-btn').addEventListener('click', async () => 
 
 // ─── LOCAL BACKUPS MODAL ──────────────────────────────────────────────────────
 // ─── ADJUST LIVES ─────────────────────────────────────────────────────────────
+document.getElementById('player-breakdown-btn').addEventListener('click', async () => {
+  const g = await loadGame(me.code);
+  if(!g){ alert('Could not load game.'); return; }
+  const baseline = g.lives;
+  const playedIdxs = Object.keys(g.results||{}).map(Number)
+    .filter(n=>!isNaN(n) && g.results[n]!=null).sort((a,b)=>a-b);
+
+  const rows = g.players.map(p => {
+    let correct=0, wrong=0, missed=0, scores=0;
+    playedIdxs.forEach(idx => {
+      const res = g.results[idx];
+      const actual = actualOutcome(res);
+      const pick = (g.predictions[idx]||{})[p.name];
+      if(pick == null){ missed++; }
+      else if(pick === actual){ correct++; }
+      else { wrong++; }
+      const sc = (g.predictions[idx]||{})[p.name+'_score'];
+      if(sc && sc.home===res.home && sc.away===res.away) scores++;
+    });
+    const expected = baseline - wrong - (2*missed) + scores;
+    const rivalBonus = (p.lives - expected); // any difference = manual adj / rival bonus
+    return { name:p.name, correct, wrong, missed, scores, expected, actual:p.lives, diff:p.lives-expected };
+  }).sort((a,b)=>b.actual-a.actual);
+
+  const cell = (v,style='') => `<td style="padding:6px 8px;text-align:center;${style}">${v}</td>`;
+  const head = ['Player','✓','✗ wrong','— missed','🎯','Expected','Actual','Δ']
+    .map((h,i)=>`<th style="padding:6px 8px;text-align:${i===0?'left':'center'};font-size:10px;color:var(--muted);white-space:nowrap">${h}</th>`).join('');
+  const body = rows.map(r=>{
+    const diffColor = r.diff===0 ? 'var(--muted)' : r.diff>0 ? 'var(--green)' : 'var(--red)';
+    const diffTxt = r.diff===0 ? '—' : (r.diff>0?'+':'')+r.diff;
+    return `<tr style="border-top:1px solid var(--border)">
+      <td style="padding:6px 8px;font-weight:600;white-space:nowrap">${r.name}</td>
+      ${cell(r.correct,'color:var(--accent2)')}
+      ${cell(r.wrong)}
+      ${cell(r.missed, r.missed>0?'color:var(--red)':'')}
+      ${cell(r.scores,'color:var(--accent)')}
+      ${cell(r.expected)}
+      ${cell(`<b>${r.actual}</b>`)}
+      ${cell(diffTxt,`color:${diffColor};font-weight:600`)}
+    </tr>`;
+  }).join('');
+
+  document.getElementById('breakdown-list').innerHTML =
+    `<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>
+     <div style="font-size:10px;color:var(--muted);margin-top:10px;line-height:1.5">Δ (Actual − Expected) should equal each player's rival bonus + any manual life adjustments. A Δ of 0 with no rival bonus means the lives are exactly results-driven.</div>`;
+  document.getElementById('breakdown-modal').style.display = 'flex';
+});
+document.getElementById('close-breakdown-btn').addEventListener('click', () => {
+  document.getElementById('breakdown-modal').style.display = 'none';
+});
+
 document.getElementById('recompute-scores-btn').addEventListener('click', async () => {
   const g = await loadGame(me.code);
   if(!g){ alert('Could not load game.'); return; }
