@@ -613,6 +613,7 @@
         <button class="btn btn-secondary btn-sm" id="set-ko-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Set the Round of 32 fixtures to match the official bracket">✏️ Set KO Fixtures</button>
         <button class="btn btn-secondary btn-sm" id="recompute-rivals-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Recalculate all rival head-to-head victories from the completed days">⚔️ Recompute Rival Stats</button>
         <button class="btn btn-secondary btn-sm" id="award-rival-bonus-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Award the end-of-group-stage rival victory bonus lives">🏅 Award Rival Bonus</button>
+        <button class="btn btn-secondary btn-sm" id="reset-password-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Clear a player's password so they can rejoin and set a new one">🔑 Reset Player Password</button>
         <button class="btn btn-secondary btn-sm" id="recompute-scores-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Recalculate every player's correct count, lives and score bonuses from scratch — fixes any drift">🔢 Recompute Scores</button>
         <button class="btn btn-secondary btn-sm" id="player-breakdown-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Show a full per-player accounting: correct, wrong, missed, score bonuses and expected vs actual lives">📋 Player Breakdown</button>
         <button class="btn btn-secondary btn-sm" id="rebuild-lives-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Rebuild every player's lives purely from the stored results and baseline — fixes drift">❤️ Rebuild Lives</button>
@@ -2176,6 +2177,12 @@ document.getElementById('join-game-btn').addEventListener("click",async()=>{
     const testPwMatch=isTestPlayer&&pw==='test';
     if(!testPwMatch&&existing.pwHash&&existing.pwHash!==pwHash){
       err.textContent='Wrong password for this name.';err.style.display='block';return;
+    }
+    // Host reset this player's password (pwHash cleared): the password they type now
+    // becomes their new password.
+    if(!existing.pwHash){
+      existing.pwHash=pwHash;
+      try{ await saveGame(g); }catch(e){}
     }
     me.name=name;me.code=g.code;me.role=existing.isHost?'host':'player';saveSession();
     if(g.status==='lobby'){
@@ -4277,6 +4284,31 @@ document.getElementById('recompute-scores-btn').addEventListener('click', async 
     ? `✅ Correct counts recomputed. Corrected:\n\n${changes.join('\n')}`
     : '✅ Recomputed — all correct counts were already right.');
   showToast('🔢 Counts recomputed');
+});
+
+document.getElementById('reset-password-btn').addEventListener('click', async () => {
+  const g = await loadGame(me.code);
+  if(!g){ alert('Could not load game.'); return; }
+  const players = (g.players||[]).filter(p => !p.isHost);
+  if(players.length === 0){ alert('No players to reset.'); return; }
+
+  const list = players.map((p,i) => `${i+1}. ${p.name}`).join('\n');
+  const input = prompt(`🔑 RESET A PLAYER'S PASSWORD\n\nEnter the NUMBER of the player whose password to clear:\n\n${list}\n\nAfter clearing, that player rejoins by entering their name + code + a NEW password, which then becomes their password.`);
+  if(input === null) return;
+  const n = parseInt(input);
+  if(isNaN(n) || n < 1 || n > players.length){ alert('Invalid selection.'); return; }
+
+  const target = players[n-1];
+  if(!confirm(`Clear the password for "${target.name}"?\n\nThey'll be able to rejoin with any new password of their choice, which becomes their new one. Their lives, picks and stats are untouched.`)) return;
+
+  // Find the actual player object in g.players (not the filtered copy) and clear the hash
+  const realPlayer = g.players.find(p => p.name === target.name && !p.isHost);
+  if(!realPlayer){ alert('Could not find that player.'); return; }
+  delete realPlayer.pwHash;
+  await saveGame(g);
+  saveLocalBackup(g, `Password reset for ${target.name}`);
+  alert(`✅ Password cleared for "${target.name}".\n\nTell them to rejoin with:\n• Name: ${target.name} (exactly, case-sensitive)\n• Code: ${g.code}\n• A new password of their choice\n\nThe new password they enter becomes their password.`);
+  showToast(`🔑 Password reset for ${target.name}`);
 });
 
 document.getElementById('award-rival-bonus-btn').addEventListener('click', async () => {
