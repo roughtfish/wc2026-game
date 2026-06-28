@@ -2671,10 +2671,13 @@ async function renderGameHost(g){
   if(rivalDisplay && rivalName && myPlayer) {
     // Rivals are a group-stage mechanic only
     const inGroupStage = g.matches[g.currentMatchIdx] && g.matches[g.currentMatchIdx].group;
+    const hostChangeBtn = document.getElementById('host-set-rival-btn');
     if(myPlayer.currentRival) {
       rivalDisplay.style.display = 'block';
       rivalName.textContent = myPlayer.currentRival;
       if(hostNoRival) hostNoRival.style.display = 'none';
+      // Hide the "change" button once the group stage is over
+      if(hostChangeBtn) hostChangeBtn.style.display = inGroupStage ? 'inline' : 'none';
     } else {
       rivalDisplay.style.display = 'none';
       if(hostNoRival) hostNoRival.style.display = inGroupStage ? 'block' : 'none';
@@ -3422,11 +3425,14 @@ async function renderWatchScreen(g){
   const curMatchRival = g.matches[g.currentMatchIdx];
   const isGroupStageRival = curMatchRival && curMatchRival.group;
   if(myPlayer) {
+    const changeBtn = document.getElementById('watch-set-rival-btn');
     if(myPlayer.currentRival) {
       if(rivalDisplay) rivalDisplay.style.display = 'block';
       if(rivalName) rivalName.textContent = myPlayer.currentRival;
       if(noRivalDisplay) noRivalDisplay.style.display = 'none';
       if(rivalCta) rivalCta.style.display = 'none';
+      // Rivals are group-stage only — hide the "change" button once KO begins
+      if(changeBtn) changeBtn.style.display = isGroupStageRival ? 'inline' : 'none';
     } else {
       if(rivalDisplay) rivalDisplay.style.display = 'none';
       // Prominent CTA only during the group stage; small button hidden when CTA shows
@@ -7586,6 +7592,16 @@ function closeRivalModal() {
 async function saveRival() {
   const g = await loadGame(me.code);
   if(!g) return;
+  
+  // Rivals are a GROUP-STAGE-ONLY mechanic. Once the knockouts begin, block any
+  // rival selection/change regardless of which button triggered this.
+  const koStarted = (g.status && g.status.startsWith('ko-bulk')) ||
+    (g.matches[g.currentMatchIdx] && !g.matches[g.currentMatchIdx].group);
+  if(koStarted){
+    closeRivalModal();
+    showToast('⚔️ Rivals are group-stage only — the knockouts have started.', 'error');
+    return;
+  }
   
   const rivalName = document.getElementById('rival-select').value;
   if(!rivalName) {
