@@ -612,6 +612,7 @@
         <button class="btn btn-secondary btn-sm" id="locked-ko-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="See which Round of 32 ties are already mathematically locked in">🔓 Locked KO Ties</button>
         <button class="btn btn-secondary btn-sm" id="set-ko-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Set the Round of 32 fixtures to match the official bracket">✏️ Set KO Fixtures</button>
         <button class="btn btn-secondary btn-sm" id="recompute-rivals-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Recalculate all rival head-to-head victories from the completed days">⚔️ Recompute Rival Stats</button>
+        <button class="btn btn-secondary btn-sm" id="award-rival-bonus-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Award the end-of-group-stage rival victory bonus lives">🏅 Award Rival Bonus</button>
         <button class="btn btn-secondary btn-sm" id="recompute-scores-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Recalculate every player's correct count, lives and score bonuses from scratch — fixes any drift">🔢 Recompute Scores</button>
         <button class="btn btn-secondary btn-sm" id="backup-game-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Download full game backup (JSON) — restore later if anything goes wrong">💾 Backup</button>
         <button class="btn btn-secondary btn-sm" id="restore-game-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Restore a game from a backup JSON file">📂 Restore</button>
@@ -4151,6 +4152,56 @@ document.getElementById('recompute-scores-btn').addEventListener('click', async 
     ? `✅ Correct counts recomputed. Corrected:\n\n${changes.join('\n')}`
     : '✅ Recomputed — all correct counts were already right.');
   showToast('🔢 Counts recomputed');
+});
+
+document.getElementById('award-rival-bonus-btn').addEventListener('click', async () => {
+  const g = await loadGame(me.code);
+  if(!g){ alert('Could not load game.'); return; }
+
+  if(g.rivalBonusAwarded){
+    if(!confirm('⚠️ The rival bonus has ALREADY been awarded for this game.\n\nAwarding again would add the bonus lives a SECOND time. Only do this if you\'re sure it wasn\'t actually applied.\n\nAward again anyway?')) return;
+  }
+
+  // Make sure victory totals are current before awarding
+  rebuildRivalVictories(g);
+
+  // Compute bonuses by DISTINCT victory total: top +3, next +2, next +1. Ties share.
+  const distinctTotals = [...new Set(g.players
+    .map(p => g.rivalVictories?.[p.name] || 0)
+    .filter(v => v > 0))].sort((a,b) => b - a);
+
+  if(distinctTotals.length === 0){
+    alert('No player has any rival victories, so there are no bonuses to award.');
+    return;
+  }
+
+  const tierAmounts = [3, 2, 1];
+  const tierMedals = ['🥇','🥈','🥉'];
+  const preview = [];
+  const awards = []; // {name, amount}
+  distinctTotals.forEach((total, tierIdx) => {
+    if(tierIdx >= tierAmounts.length) return;
+    const amount = tierAmounts[tierIdx];
+    const medal = tierMedals[tierIdx];
+    g.players.forEach(p => {
+      if((g.rivalVictories?.[p.name] || 0) === total){
+        awards.push({ name: p.name, amount });
+        preview.push(`${medal} ${p.name}: +${amount} ❤️  (${total} rival wins)`);
+      }
+    });
+  });
+
+  if(!confirm(`⚔️ RIVAL VICTORY BONUSES\n\n${preview.join('\n')}\n\nApply these bonus lives now?`)) return;
+
+  awards.forEach(a => {
+    const p = g.players.find(pp => pp.name === a.name);
+    if(p) p.lives += a.amount;
+  });
+  g.rivalBonusAwarded = true;
+  await saveGame(g);
+  saveLocalBackup(g, 'Rival bonus awarded manually');
+  alert(`✅ Rival bonuses applied:\n\n${preview.join('\n')}`);
+  showToast('🏅 Rival bonus awarded');
 });
 
 document.getElementById('recompute-rivals-btn').addEventListener('click', async () => {
