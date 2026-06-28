@@ -5750,6 +5750,9 @@ function renderKOBulkForm(g, round) {
 
   const area = document.getElementById('bulk-area');
   const isWatchModeKO = !!area._watchCommit;
+  // KO toggles are interactive whenever picks aren't locked. All KO-form watch
+  // paths are genuine commits, so watch-mode alone is NOT read-only.
+  const koReadOnly = isLocked || (isWatchModeKO && area._watchReadOnly);
   html += `</div>
     <div style="padding:12px 0 6px;border-top:0.5px solid var(--border);margin-top:10px;">
       <div style="font-size:10px;color:var(--muted);text-align:center;margin-bottom:7px;letter-spacing:1px;">Each team can only win <b>5</b> times across all predictions · Pen wins don't count · No draws in knockout rounds</div>
@@ -5788,7 +5791,6 @@ function renderKOBulkForm(g, round) {
   // (Watch/commit paths set _watchCommit but the host/player is still actively
   // picking, so they must stay clickable — only a genuinely locked submission
   // or a read-only view makes them inert.)
-  const koReadOnly = isLocked || (isWatchModeKO && area._watchReadOnly);
   if(!koReadOnly){
     area.querySelectorAll('.bulk-toggle button').forEach(btn => {
       if(btn.disabled) return; // leave limit-disabled buttons alone
