@@ -1338,7 +1338,7 @@ function autoFillKORound(g, round){
       const winner=pred==='home'?m.home:pred==='away'?m.away:null;
       if(!winner)return;
       const r=(g.results||{})[i];
-      if(r&&r.penWinner&&!m.group)return;
+      if(r&&r.penWinner&&!m.group&&r.penWinner===pred)return;
       teamPicks[winner]=(teamPicks[winner]||0)+1;
     });
     gms.forEach(({m,i})=>{
@@ -1578,7 +1578,8 @@ function checkPickLimit(fresh, draft) {
     const pred = (fresh.predictions[i] || {})[me.name];
     if(!pred) return;
     const r = (fresh.results || {})[i];
-    if(r && r.penWinner && !m.group) return; // pen wins are free picks
+    // Only a pick on the team that WON on penalties is free — backing the loser counts.
+    if(r && r.penWinner && !m.group && r.penWinner === pred) return;
     const team = pred === 'home' ? m.home : pred === 'away' ? m.away : null;
     if(team && team !== 'TBD') counts[team] = (counts[team] || 0) + 1;
   });
@@ -2360,7 +2361,7 @@ function renderBulkForm(g){
     const pred=(g.predictions[i]||{})[me.name];
     if(!pred) return;
     const r=(g.results||{})[i];
-    if(r&&r.penWinner&&!m.group) return; // pen win — doesn't count
+    if(r&&r.penWinner&&!m.group&&r.penWinner===pred) return; // pen WIN — doesn't count
     if(pred==='home'){teamPicks[m.home]=(teamPicks[m.home]||0)+1;}
     else if(pred==='away'){teamPicks[m.away]=(teamPicks[m.away]||0)+1;}
   });
@@ -4349,33 +4350,55 @@ document.getElementById('player-team-picks-btn').addEventListener('click', async
 
   // Count a given player's picks per team (all matches; pen-wins are free)
   const countFor = (name) => {
-    const teamCounts = {};
+    // Per team: { picks: counts toward the 5-limit, pens: free penalty-shootout picks }
+    const teams = {};
+    const bump = (team, key) => {
+      if(!team || team === 'TBD') return;
+      if(!teams[team]) teams[team] = { picks:0, pens:0 };
+      teams[team][key]++;
+    };
     g.matches.forEach((m, i) => {
       const pred = g.predictions[i]?.[name];
+      if(pred !== 'home' && pred !== 'away') return;
+      const backed = pred === 'home' ? m.home : m.away;
       const r = (g.results || {})[i];
-      if(r && r.penWinner && !m.group) return; // free pick
-      if(pred === 'home' && m.home !== 'TBD') teamCounts[m.home] = (teamCounts[m.home]||0)+1;
-      else if(pred === 'away' && m.away !== 'TBD') teamCounts[m.away] = (teamCounts[m.away]||0)+1;
+      // Rule: picking the team that WON on penalties is free (doesn't count to limit).
+      // Backing the pen LOSER is a normal (wrong) pick and DOES count.
+      const isPenWin = r && r.penWinner && !m.group && r.penWinner === pred;
+      if(isPenWin) bump(backed, 'pens');
+      else bump(backed, 'picks');
     });
-    return teamCounts;
+    return teams;
   };
 
   const renderFor = (name) => {
-    const counts = countFor(name);
-    const entries = Object.entries(counts).filter(([t,c])=>c>0)
-      .sort((a,b)=> b[1]-a[1] || a[0].localeCompare(b[0]));
+    const teams = countFor(name);
+    const entries = Object.entries(teams).filter(([t,v])=> (v.picks + v.pens) > 0)
+      .sort((a,b)=> (b[1].picks - a[1].picks) || ((b[1].picks+b[1].pens)-(a[1].picks+a[1].pens)) || a[0].localeCompare(b[0]));
     const listEl = document.getElementById('player-picks-list');
     if(entries.length === 0){
       listEl.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:12px 0">No team picks yet.</div>';
       return;
     }
-    listEl.innerHTML = entries.map(([team,count])=>{
-      const atLimit = count >= MAX_PICKS;
-      const remaining = Math.max(0, MAX_PICKS - count);
-      const col = atLimit ? 'var(--red)' : count>=4 ? 'var(--accent2)' : 'var(--text)';
-      return `<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 10px;background:var(--surface2);border:1px solid ${atLimit?'var(--red)':'var(--border)'};border-radius:8px;margin-bottom:6px">
-        <span style="font-weight:600">${team}</span>
-        <span style="font-family:'Bebas Neue',sans-serif;font-size:18px;color:${col}">${count}/${MAX_PICKS}${atLimit?' 🚫':` · ${remaining} left`}</span>
+    listEl.innerHTML = entries.map(([team,v])=>{
+      const picks = v.picks, pens = v.pens;
+      const overLimit = picks > MAX_PICKS;
+      const atLimit = picks === MAX_PICKS;
+      const remaining = Math.max(0, MAX_PICKS - picks);
+      const col = overLimit ? 'var(--red)' : atLimit ? 'var(--red)' : picks>=4 ? 'var(--accent2)' : 'var(--text)';
+      // Breakdown line: e.g. "2 picks · 1 pen win (free)"
+      const parts = [];
+      parts.push(`${picks} pick${picks===1?'':'s'}`);
+      if(pens>0) parts.push(`${pens} pen win${pens===1?'':'s'} (free)`);
+      const breakdown = parts.join(' · ');
+      const status = overLimit ? `⚠️ OVER BY ${picks-MAX_PICKS}` : atLimit ? 'LIMIT 🚫' : `${remaining} remaining`;
+      const borderCol = overLimit ? 'var(--red)' : atLimit ? 'var(--red)' : 'var(--border)';
+      return `<div style="padding:7px 10px;background:${overLimit?'rgba(239,68,68,0.12)':'var(--surface2)'};border:1px solid ${borderCol};border-radius:8px;margin-bottom:6px">
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <span style="font-weight:600">${team}</span>
+          <span style="font-family:'Bebas Neue',sans-serif;font-size:18px;color:${col}">${status}</span>
+        </div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px">${breakdown}</div>
       </div>`;
     }).join('');
   };
@@ -5669,7 +5692,7 @@ function showMyStatsModal(g) {
     const pred = g.predictions[i]?.[me.name];
     // Pen wins are free picks and don't count toward the 5-pick limit
     const r = (g.results || {})[i];
-    if(r && r.penWinner && !m.group) return;
+    if(r && r.penWinner && !m.group && r.penWinner === pred) return;
     if(pred === 'home' && m.home !== 'TBD') {
       teamCounts[m.home] = (teamCounts[m.home] || 0) + 1;
     } else if(pred === 'away' && m.away !== 'TBD') {
@@ -6071,7 +6094,8 @@ function renderKOBulkForm(g, round) {
     const winner = pred === 'home' ? m.home : pred === 'away' ? m.away : null;
     if (!winner) return;
     const r = (g.results || {})[i];
-    if (r && r.penWinner && !m.group) return; // pen wins are free picks
+    // Only a pick on the team that WON on penalties is free — backing the loser counts.
+    if (r && r.penWinner && !m.group && r.penWinner === pred) return;
     teamPicks[winner] = (teamPicks[winner] || 0) + 1;
   });
 
@@ -6720,9 +6744,9 @@ async function showDailySummary(g, matchIndices, revisit) {
         const pred = (g.predictions[i] || {})[p.name];
         const winner = pred === 'home' ? m.home : pred === 'away' ? m.away : null;
         if (!winner) return;
-        // Skip if this KO match was decided on pens
+        // Free only if the picked team WON on pens
         const r = (g.results || {})[i];
-        if (r && r.penWinner && !m.group) return;
+        if (r && r.penWinner && !m.group && r.penWinner === pred) return;
         
         if(!teamPickCounts[winner]) teamPickCounts[winner] = 0;
         playerPicks[winner] = (playerPicks[winner] || 0) + 1;
@@ -6754,9 +6778,9 @@ async function showDailySummary(g, matchIndices, revisit) {
         const pred = (g.predictions[i] || {})[p.name];
         const winner = pred === 'home' ? m.home : pred === 'away' ? m.away : null;
         if (!winner) return;
-        // Skip if this KO match was decided on pens
+        // Free only if the picked team WON on pens
         const r = (g.results || {})[i];
-        if (r && r.penWinner && !m.group) return;
+        if (r && r.penWinner && !m.group && r.penWinner === pred) return;
         teamPicks[winner] = (teamPicks[winner] || 0) + 1;
       });
       
