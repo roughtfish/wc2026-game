@@ -4386,11 +4386,15 @@ document.getElementById('player-team-picks-btn').addEventListener('click', async
       const atLimit = picks === MAX_PICKS;
       const remaining = Math.max(0, MAX_PICKS - picks);
       const col = overLimit ? 'var(--red)' : atLimit ? 'var(--red)' : picks>=4 ? 'var(--accent2)' : 'var(--text)';
-      // Breakdown line: e.g. "2 picks · 1 pen win (free)"
-      const parts = [];
-      parts.push(`${picks} pick${picks===1?'':'s'}`);
-      if(pens>0) parts.push(`${pens} pen win${pens===1?'':'s'} (free)`);
-      const breakdown = parts.join(' · ');
+      // Breakdown line: lead with the TOTAL times the team was picked, then explain
+      // how many of those count. e.g. "Picked 3× — 2 count, 1 free pen win"
+      const total = picks + pens;
+      let breakdown;
+      if(pens > 0){
+        breakdown = `Picked ${total}× — ${picks} count, ${pens} free pen win${pens===1?'':'s'}`;
+      } else {
+        breakdown = `Picked ${total}× — all count`;
+      }
       const status = overLimit ? `⚠️ OVER BY ${picks-MAX_PICKS}` : atLimit ? 'LIMIT 🚫' : `${remaining} remaining`;
       const borderCol = overLimit ? 'var(--red)' : atLimit ? 'var(--red)' : 'var(--border)';
       return `<div style="padding:7px 10px;background:${overLimit?'rgba(239,68,68,0.12)':'var(--surface2)'};border:1px solid ${borderCol};border-radius:8px;margin-bottom:6px">
