@@ -600,6 +600,7 @@
         </div>
         <div style="display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end">
         <button class="btn btn-secondary btn-sm" id="host-my-stats-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7;display:none">📋 Team Pick Qty</button>
+        <button class="btn btn-secondary btn-sm" id="player-team-picks-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="See how many of the 5 per-team picks any player has used">👥 Player Team Picks</button>
         <button class="btn btn-secondary btn-sm" id="view-schedule-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7">📅 Schedule</button>
         <button class="btn btn-secondary btn-sm" id="complete-day-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7;display:none">📊 Complete Day</button>
         <button class="btn btn-secondary btn-sm" id="open-group-preds-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7;display:none">📋 My Group Picks</button>
@@ -712,6 +713,18 @@
       </div>
       <button class="btn btn-secondary" id="import-preview-btn" style="width:100%">🔍 Preview migration</button>
       <div id="import-report" style="margin-top:14px"></div>
+    </div>
+  </div>
+
+  <div id="player-picks-modal" class="modal" style="display:none">
+    <div class="modal-content" style="max-width:560px;max-height:85vh;overflow-y:auto">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <h2 style="margin:0;font-size:18px">👥 Player Team Picks</h2>
+        <button id="close-player-picks-btn" style="background:none;border:none;color:var(--muted);font-size:24px;cursor:pointer;padding:0;line-height:1">&times;</button>
+      </div>
+      <p style="font-size:11px;color:var(--muted);margin-bottom:10px">How many of the 5 per-team picks each player has used. Penalty-shootout wins are free and don't count.</p>
+      <select id="player-picks-select" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:8px;color:var(--text);font-size:13px;margin-bottom:12px"></select>
+      <div id="player-picks-list"></div>
     </div>
   </div>
 
@@ -4326,6 +4339,55 @@ document.getElementById('recompute-scores-btn').addEventListener('click', async 
     ? `✅ Correct counts recomputed. Corrected:\n\n${changes.join('\n')}`
     : '✅ Recomputed — all correct counts were already right.');
   showToast('🔢 Counts recomputed');
+});
+
+document.getElementById('player-team-picks-btn').addEventListener('click', async () => {
+  const g = await loadGame(me.code);
+  if(!g){ alert('Could not load game.'); return; }
+  const players = (g.players||[]);
+  if(players.length === 0){ alert('No players yet.'); return; }
+
+  // Count a given player's picks per team (all matches; pen-wins are free)
+  const countFor = (name) => {
+    const teamCounts = {};
+    g.matches.forEach((m, i) => {
+      const pred = g.predictions[i]?.[name];
+      const r = (g.results || {})[i];
+      if(r && r.penWinner && !m.group) return; // free pick
+      if(pred === 'home' && m.home !== 'TBD') teamCounts[m.home] = (teamCounts[m.home]||0)+1;
+      else if(pred === 'away' && m.away !== 'TBD') teamCounts[m.away] = (teamCounts[m.away]||0)+1;
+    });
+    return teamCounts;
+  };
+
+  const renderFor = (name) => {
+    const counts = countFor(name);
+    const entries = Object.entries(counts).filter(([t,c])=>c>0)
+      .sort((a,b)=> b[1]-a[1] || a[0].localeCompare(b[0]));
+    const listEl = document.getElementById('player-picks-list');
+    if(entries.length === 0){
+      listEl.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:12px 0">No team picks yet.</div>';
+      return;
+    }
+    listEl.innerHTML = entries.map(([team,count])=>{
+      const atLimit = count >= MAX_PICKS;
+      const remaining = Math.max(0, MAX_PICKS - count);
+      const col = atLimit ? 'var(--red)' : count>=4 ? 'var(--accent2)' : 'var(--text)';
+      return `<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 10px;background:var(--surface2);border:1px solid ${atLimit?'var(--red)':'var(--border)'};border-radius:8px;margin-bottom:6px">
+        <span style="font-weight:600">${team}</span>
+        <span style="font-family:'Bebas Neue',sans-serif;font-size:18px;color:${col}">${count}/${MAX_PICKS}${atLimit?' 🚫':` · ${remaining} left`}</span>
+      </div>`;
+    }).join('');
+  };
+
+  const sel = document.getElementById('player-picks-select');
+  sel.innerHTML = players.map(p=>`<option value="${p.name.replace(/"/g,'&quot;')}">${p.name}${p.isHost?' (host)':''}</option>`).join('');
+  sel.onchange = () => renderFor(sel.value);
+  renderFor(players[0].name);
+  document.getElementById('player-picks-modal').style.display = 'flex';
+});
+document.getElementById('close-player-picks-btn').addEventListener('click', () => {
+  document.getElementById('player-picks-modal').style.display = 'none';
 });
 
 document.getElementById('reset-password-btn').addEventListener('click', async () => {
