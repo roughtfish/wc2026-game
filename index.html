@@ -520,7 +520,7 @@
   <div id="screen-host-lobby" class="screen">
     <div class="card">
       <h2>WAITING FOR PLAYERS</h2>
-      <button class="btn btn-primary" id="resume-tournament-btn" style="margin-bottom:14px;display:none;background:linear-gradient(135deg,#22c55e,#16a34a)" title="This game is already in progress — resume it">⏩ Resume Tournament (in progress)</button>
+      <button class="btn btn-primary" id="resume-tournament-btn" style="margin-bottom:14px;background:linear-gradient(135deg,#22c55e,#16a34a)" title="This game is already in progress — resume it">⏩ Resume Tournament (if in progress)</button>
       <p style="font-size:12px;color:var(--muted);margin-bottom:14px;">Share this code with your players — they open this same page, choose "Join", and paste it:</p>
       <div class="lobby-code" id="lobby-code-display" style="font-size:22px;letter-spacing:4px;word-break:break-all;">----</div>
       <button class="btn btn-secondary" id="copy-code-btn" style="margin-bottom:16px;">📋 Copy code</button>
@@ -2150,8 +2150,6 @@ async function pollHostLobby(){
   if(g.status==='playing'){stopPolling();enterGame(g);return;}
   // Detect a game that's actually in progress but stuck on 'lobby' status
   const hasProgress = g.results && Object.keys(g.results).some(k=>!isNaN(k) && g.results[k]!=null);
-  const resumeBtn = document.getElementById('resume-tournament-btn');
-  if(resumeBtn) resumeBtn.style.display = hasProgress ? 'block' : 'none';
   // Hide the dangerous "Start" button if the game is already underway
   const startBtnEl = document.getElementById('start-game-btn');
   if(hasProgress && startBtnEl) startBtnEl.style.display = 'none';
