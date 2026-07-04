@@ -614,6 +614,7 @@
         <button class="btn btn-secondary btn-sm" id="locked-ko-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="See which Round of 32 ties are already mathematically locked in">🔓 Locked KO Ties</button>
         <button class="btn btn-secondary btn-sm" id="set-ko-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Set the Round of 32 fixtures to match the official bracket">✏️ Set KO Fixtures</button>
         <button class="btn btn-secondary btn-sm" id="fix-ko-round-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Correct the matchups for the current knockout round (R16/QF/SF)">🔧 Fix KO Matchups</button>
+        <button class="btn btn-secondary btn-sm" id="reopen-my-picks-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Re-open your own current-round predictions so you can edit them">✏️ Edit My Picks</button>
         <button class="btn btn-secondary btn-sm" id="recompute-rivals-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Recalculate all rival head-to-head victories from the completed days">⚔️ Recompute Rival Stats</button>
         <button class="btn btn-secondary btn-sm" id="award-rival-bonus-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Award the end-of-group-stage rival victory bonus lives">🏅 Award Rival Bonus</button>
         <button class="btn btn-secondary btn-sm" id="reset-password-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Clear a player's password so they can rejoin and set a new one">🔑 Reset Player Password</button>
@@ -4558,6 +4559,39 @@ document.getElementById('recompute-rivals-btn').addEventListener('click', async 
   const changed = before !== after;
   alert(`${changed ? '✅ Rival stats recalculated.' : '✅ Rival stats checked — already correct.'}\n\nCurrent victories:\n${summary}`);
   showToast('⚔️ Rival stats recomputed');
+});
+
+document.getElementById('reopen-my-picks-btn').addEventListener('click', async () => {
+  const g = await loadGame(me.code);
+  if(!g){ alert('Could not load game.'); return; }
+
+  // Determine the current predicting round
+  let round = null;
+  if(g.status && g.status.startsWith('ko-bulk:')) round = g.status.slice(8);
+
+  // If we're not in an open bulk-prediction phase, we can still re-open the
+  // most recent KO round for the host to correct their picks.
+  const curM = g.matches[g.currentMatchIdx];
+  if(!round && curM && !curM.group) round = curM.round;
+
+  if(!confirm('Re-open your own predictions for editing?\n\nThis lets you correct your picks. Your existing picks stay until you change and re-submit them. Only affects YOUR predictions.')) return;
+
+  // Clear the host's submitted flag so the pick form re-opens for them
+  if(g.koBulkSubmitted && g.koBulkSubmitted[me.name]) delete g.koBulkSubmitted[me.name];
+  if(g.bulkSubmitted && g.bulkSubmitted[me.name]) delete g.bulkSubmitted[me.name];
+  await saveGame(g);
+  saveLocalBackup(g, 'Host re-opened own picks');
+  stopPolling();
+
+  // Route to the correct pick form
+  if(round){
+    startKOBulk(g, round);
+  } else if(g.status === 'bulk'){
+    startBulk(g);
+  } else {
+    alert('Your picks have been re-opened. Go to your pick screen to edit them.');
+    enterGame(g);
+  }
 });
 
 document.getElementById('fix-ko-round-btn').addEventListener('click', async () => {
