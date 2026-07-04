@@ -2161,6 +2161,19 @@ function showH2HComparison(){
   
   const p1Acc = playedIdxs.length > 0 ? Math.round(p1.correct / playedIdxs.length * 100) : 0;
   const p2Acc = playedIdxs.length > 0 ? Math.round(p2.correct / playedIdxs.length * 100) : 0;
+
+  // Count exact-score predictions each player nailed (type-tolerant comparison)
+  const countExactScores = (name) => {
+    let n = 0;
+    playedIdxs.forEach(idx => {
+      const r = results[idx];
+      const sc = (predictions[idx] || {})[name + '_score'];
+      if(sc && Number(sc.home) === Number(r.home) && Number(sc.away) === Number(r.away)) n++;
+    });
+    return n;
+  };
+  const p1Scores = countExactScores(p1Name);
+  const p2Scores = countExactScores(p2Name);
   
   const streaks1 = calcStreaks(p1Name, playedIdxs, results, predictions);
   const streaks2 = calcStreaks(p2Name, playedIdxs, results, predictions);
@@ -2173,6 +2186,7 @@ function showH2HComparison(){
         <div class="h2h-player-stats">
           <span>❤️ ${p1.lives}</span>
           <span>✓ ${p1.correct}</span>
+          <span>🎯 ${p1Scores}</span>
           <span>${p1Acc}%</span>
         </div>
       </div>
@@ -2182,6 +2196,7 @@ function showH2HComparison(){
         <div class="h2h-player-stats">
           <span>❤️ ${p2.lives}</span>
           <span>✓ ${p2.correct}</span>
+          <span>🎯 ${p2Scores}</span>
           <span>${p2Acc}%</span>
         </div>
       </div>
@@ -2201,6 +2216,17 @@ function showH2HComparison(){
         <div class="h2h-stat-label">${p2Name} Wins</div>
       </div>
     </div>
+
+    <div class="h2h-summary" style="margin-top:8px">
+      <div class="h2h-stat-card">
+        <div class="h2h-stat-value" style="color:${p1Scores > p2Scores ? 'var(--green)' : p1Scores < p2Scores ? 'var(--red)' : 'var(--accent)'}">🎯 ${p1Scores}</div>
+        <div class="h2h-stat-label">${p1Name} Exact Scores</div>
+      </div>
+      <div class="h2h-stat-card">
+        <div class="h2h-stat-value" style="color:${p2Scores > p1Scores ? 'var(--green)' : p2Scores < p1Scores ? 'var(--red)' : 'var(--accent)'}">🎯 ${p2Scores}</div>
+        <div class="h2h-stat-label">${p2Name} Exact Scores</div>
+      </div>
+    </div>
     
     ${disagreements.length > 0 ? `
       <div class="h2h-section-title">Disagreements (${disagreements.length} matches)</div>
@@ -2208,13 +2234,17 @@ function showH2HComparison(){
         const resultLabel = d.actual === 'home' ? d.match.home : d.actual === 'away' ? d.match.away : 'Draw';
         const p1Label = d.pred1 === 'home' ? d.match.home : d.pred1 === 'away' ? d.match.away : 'Draw';
         const p2Label = d.pred2 === 'home' ? d.match.home : d.pred2 === 'away' ? d.match.away : 'Draw';
+        const p1sc = (predictions[d.idx]||{})[p1Name+'_score'];
+        const p2sc = (predictions[d.idx]||{})[p2Name+'_score'];
+        const p1Exact = p1sc && Number(p1sc.home)===Number(d.result.home) && Number(p1sc.away)===Number(d.result.away);
+        const p2Exact = p2sc && Number(p2sc.home)===Number(d.result.home) && Number(p2sc.away)===Number(d.result.away);
         
         return `
           <div class="h2h-match-row">
             <div class="h2h-match-name">${flag(d.match.home, 16)}${d.match.home} vs ${flag(d.match.away, 16)}${d.match.away}</div>
             <div class="h2h-match-result">${d.result.home}-${d.result.away}${d.result.penWinner ? ' (p)' : ''}<br><span style="font-size:10px;color:var(--muted)">${resultLabel}</span></div>
-            <div class="h2h-match-pred ${d.p1Correct ? 'correct' : 'wrong'}">${d.p1Correct ? '✅' : '❌'} ${p1Label}</div>
-            <div class="h2h-match-pred ${d.p2Correct ? 'correct' : 'wrong'}">${d.p2Correct ? '✅' : '❌'} ${p2Label}</div>
+            <div class="h2h-match-pred ${d.p1Correct ? 'correct' : 'wrong'}">${d.p1Correct ? '✅' : '❌'} ${p1Label}${p1Exact ? ' 🎯' : ''}</div>
+            <div class="h2h-match-pred ${d.p2Correct ? 'correct' : 'wrong'}">${d.p2Correct ? '✅' : '❌'} ${p2Label}${p2Exact ? ' 🎯' : ''}</div>
           </div>
         `;
       }).join('')}
