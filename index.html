@@ -520,6 +520,7 @@
   <div id="screen-host-lobby" class="screen">
     <div class="card">
       <h2>WAITING FOR PLAYERS</h2>
+      <button class="btn btn-primary" id="resume-tournament-btn" style="margin-bottom:14px;display:none;background:linear-gradient(135deg,#22c55e,#16a34a)" title="This game is already in progress — resume it">⏩ Resume Tournament (in progress)</button>
       <p style="font-size:12px;color:var(--muted);margin-bottom:14px;">Share this code with your players — they open this same page, choose "Join", and paste it:</p>
       <div class="lobby-code" id="lobby-code-display" style="font-size:22px;letter-spacing:4px;word-break:break-all;">----</div>
       <button class="btn btn-secondary" id="copy-code-btn" style="margin-bottom:16px;">📋 Copy code</button>
@@ -2147,6 +2148,13 @@ async function pollHostLobby(){
   const g=await loadGame(me.code);if(!g)return;
   if(g.status==='bulk'){stopPolling();startBulk(g);return;}
   if(g.status==='playing'){stopPolling();enterGame(g);return;}
+  // Detect a game that's actually in progress but stuck on 'lobby' status
+  const hasProgress = g.results && Object.keys(g.results).some(k=>!isNaN(k) && g.results[k]!=null);
+  const resumeBtn = document.getElementById('resume-tournament-btn');
+  if(resumeBtn) resumeBtn.style.display = hasProgress ? 'block' : 'none';
+  // Hide the dangerous "Start" button if the game is already underway
+  const startBtnEl = document.getElementById('start-game-btn');
+  if(hasProgress && startBtnEl) startBtnEl.style.display = 'none';
   renderRoster(g,'host-roster');
   const btn=document.getElementById('start-game-btn');
   const n=g.players.length;
@@ -2181,6 +2189,32 @@ document.getElementById('host-make-picks-btn').addEventListener('click', async (
   }
   stopPolling();
   startBulk(g);
+});
+
+document.getElementById('resume-tournament-btn').addEventListener('click', async () => {
+  const g = await loadGame(me.code);
+  if(!g){ alert('Could not load game.'); return; }
+
+  // Work out where the tournament actually is from the match data.
+  const lastResultIdx = Object.keys(g.results||{}).map(Number)
+    .filter(n=>!isNaN(n) && g.results[n]!=null).sort((a,b)=>a-b).pop();
+  if(lastResultIdx === undefined){
+    alert('No results found — this game hasn\'t actually started. Nothing to resume.');
+    return;
+  }
+
+  // Find the first unplayed match; that's where play continues.
+  let nextIdx = 0;
+  while(nextIdx < g.matches.length && g.results && g.results[nextIdx] != null) nextIdx++;
+
+  if(!confirm('Resume the tournament in progress?\n\nThis restores you to the live game (all results and picks are kept). It does NOT restart anything.')) return;
+
+  g.status = 'playing';
+  g.currentMatchIdx = Math.min(nextIdx, g.matches.length - 1);
+  await saveGame(g);
+  saveLocalBackup(g, 'Tournament resumed from lobby');
+  stopPolling();
+  enterGame(g);
 });
 
 document.getElementById('start-game-btn').addEventListener("click",async()=>{
