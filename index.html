@@ -612,6 +612,7 @@
         <button class="btn btn-secondary btn-sm" id="set-baseline-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Set the starting-lives baseline used for the stats page bars">📊 Set Baseline</button>
         <button class="btn btn-secondary btn-sm" id="locked-ko-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="See which Round of 32 ties are already mathematically locked in">🔓 Locked KO Ties</button>
         <button class="btn btn-secondary btn-sm" id="set-ko-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Set the Round of 32 fixtures to match the official bracket">✏️ Set KO Fixtures</button>
+        <button class="btn btn-secondary btn-sm" id="fix-ko-round-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Correct the matchups for the current knockout round (R16/QF/SF)">🔧 Fix KO Matchups</button>
         <button class="btn btn-secondary btn-sm" id="recompute-rivals-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Recalculate all rival head-to-head victories from the completed days">⚔️ Recompute Rival Stats</button>
         <button class="btn btn-secondary btn-sm" id="award-rival-bonus-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Award the end-of-group-stage rival victory bonus lives">🏅 Award Rival Bonus</button>
         <button class="btn btn-secondary btn-sm" id="reset-password-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Clear a player's password so they can rejoin and set a new one">🔑 Reset Player Password</button>
@@ -713,6 +714,18 @@
       </div>
       <button class="btn btn-secondary" id="import-preview-btn" style="width:100%">🔍 Preview migration</button>
       <div id="import-report" style="margin-top:14px"></div>
+    </div>
+  </div>
+
+  <div id="fix-ko-modal" class="modal" style="display:none">
+    <div class="modal-content" style="max-width:560px;max-height:85vh;overflow-y:auto">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <h2 style="margin:0;font-size:18px">🔧 Fix KO Matchups</h2>
+        <button id="close-fix-ko-btn" style="background:none;border:none;color:var(--muted);font-size:24px;cursor:pointer;padding:0;line-height:1">&times;</button>
+      </div>
+      <p id="fix-ko-desc" style="font-size:12px;color:var(--muted);margin-bottom:12px"></p>
+      <div id="fix-ko-list"></div>
+      <button class="btn btn-primary" id="save-fix-ko-btn" style="width:100%;margin-top:12px">Save matchups</button>
     </div>
   </div>
 
@@ -1535,8 +1548,11 @@ function populateNextKORound(g, justFinishedMatchIdx){
   if(r32Start>=0&&justFinishedMatchIdx>=r32Start&&justFinishedMatchIdx<r32Start+16&&r16Start>=0){
     const pos=justFinishedMatchIdx-r32Start;
     const {idx,slot}=R32_TO_R16[pos];
-    g.matches[r16Start+idx][slot]=winner;
-    g.matches[r16Start+idx].koSlot=false;
+    // Don't overwrite a matchup the host corrected/locked manually
+    if(!g.matches[r16Start+idx].koLocked){
+      g.matches[r16Start+idx][slot]=winner;
+      g.matches[r16Start+idx].koSlot=false;
+    }
   }
   else if(r16Start>=0&&justFinishedMatchIdx>=r16Start&&justFinishedMatchIdx<r16Start+8&&qfStart>=0){
     const pos=justFinishedMatchIdx-r16Start;
@@ -4510,6 +4526,98 @@ document.getElementById('recompute-rivals-btn').addEventListener('click', async 
   const changed = before !== after;
   alert(`${changed ? '✅ Rival stats recalculated.' : '✅ Rival stats checked — already correct.'}\n\nCurrent victories:\n${summary}`);
   showToast('⚔️ Rival stats recomputed');
+});
+
+document.getElementById('fix-ko-round-btn').addEventListener('click', async () => {
+  const g = await loadGame(me.code);
+  if(!g){ alert('Could not load game.'); return; }
+
+  // Determine which KO round to fix: the round of the current match, or from ko-bulk status
+  let round = null;
+  if(g.status && g.status.startsWith('ko-bulk:')) round = g.status.slice(8);
+  const curM = g.matches[g.currentMatchIdx];
+  if(!round && curM && !curM.group) round = curM.round;
+  // If current match is a group match but KO exists, find the first KO round with no results
+  if(!round){
+    const koRounds = ['Round of 32','Round of 16','Quarter-final','Semi-final','Final'];
+    for(const r of koRounds){
+      const idxs = g.matches.map((m,i)=>({m,i})).filter(x=>x.m.round===r);
+      if(idxs.length && idxs.some(x=>x.m.home!=='TBD'||x.m.away!=='TBD')){ round = r; }
+    }
+  }
+  if(!round){ alert('No active knockout round found to fix.'); return; }
+
+  const roundIdxs = g.matches.map((m,i)=>({m,i})).filter(x=>x.m.round===round);
+  if(roundIdxs.length===0){ alert('No matches found for '+round+'.'); return; }
+
+  // Pool of candidate teams: all real teams currently sitting in this round's ties,
+  // plus (as a fallback) winners of the previous round.
+  const poolSet = new Set();
+  roundIdxs.forEach(({m})=>{ [m.home,m.away].forEach(t=>{ if(t && t!=='TBD') poolSet.add(t); }); });
+  const pool = [...poolSet].sort();
+
+  const teamOpts = (selected) => '<option value="TBD"'+(selected==='TBD'||!selected?' selected':'')+'>— TBD —</option>' +
+    pool.map(t=>`<option value="${t}"${t===selected?' selected':''}>${t}</option>`).join('');
+
+  document.getElementById('fix-ko-desc').textContent =
+    `Correcting ${round} matchups. Reassign teams into the correct ties (the teams are right, just paired wrong). Each team should appear once.`;
+
+  const listEl = document.getElementById('fix-ko-list');
+  listEl.innerHTML = roundIdxs.map(({m,i}, n)=>{
+    const played = (g.results||{})[i] != null;
+    return `<div class="fix-ko-row" data-match-idx="${i}" style="background:var(--surface2);border:1px solid ${played?'var(--red)':'var(--border)'};border-radius:8px;padding:8px 10px;margin-bottom:7px">
+      <div style="font-size:10px;color:var(--muted);margin-bottom:4px">Tie ${n+1}${played?' · <span style="color:var(--red)">⚠️ already has a result</span>':''}</div>
+      <div style="display:flex;align-items:center;gap:6px">
+        <select class="fko-home" style="flex:1;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:6px;color:var(--text);font-size:12px">${teamOpts(m.home)}</select>
+        <span style="color:var(--muted);font-size:11px">v</span>
+        <select class="fko-away" style="flex:1;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:6px;color:var(--text);font-size:12px">${teamOpts(m.away)}</select>
+      </div>
+    </div>`;
+  }).join('');
+  document.getElementById('fix-ko-modal').style.display = 'flex';
+  stopPolling();
+});
+document.getElementById('close-fix-ko-btn').addEventListener('click', () => {
+  document.getElementById('fix-ko-modal').style.display = 'none';
+});
+
+document.getElementById('save-fix-ko-btn').addEventListener('click', async () => {
+ try {
+  const g = await loadGame(me.code);
+  if(!g){ alert('Could not load game.'); return; }
+  const rows = [...document.querySelectorAll('.fix-ko-row')];
+  const chosen = rows.map(r=>({
+    idx: parseInt(r.getAttribute('data-match-idx')),
+    home: r.querySelector('.fko-home').value,
+    away: r.querySelector('.fko-away').value
+  }));
+
+  // Warn on duplicate teams across the round
+  const seen={}; let dup=null;
+  chosen.forEach(c=>[c.home,c.away].forEach(t=>{ if(t==='TBD')return; if(seen[t])dup=t; else seen[t]=true; }));
+  if(dup && !confirm(`⚠️ "${dup}" appears in more than one tie. A team should only be in one. Save anyway?`)) return;
+
+  if(!confirm('Save these matchups? Players will predict against them.')) return;
+
+  chosen.forEach(c=>{
+    const m = g.matches[c.idx];
+    if(!m) return;
+    m.home = c.home;
+    m.away = c.away;
+    m.koSlot = (c.home==='TBD' && c.away==='TBD');
+    m.koLocked = (c.home!=='TBD' && c.away!=='TBD'); // lock so the auto-advancer won't re-scramble
+  });
+  await saveGame(g);
+  saveLocalBackup(g, 'KO matchups corrected');
+  // Verify
+  const check = await loadGame(me.code);
+  const ok = check && chosen.every(c=>{ const m=check.matches[c.idx]; return m && m.home===c.home && m.away===c.away; });
+  document.getElementById('fix-ko-modal').style.display = 'none';
+  alert(ok ? '✅ Matchups saved.' : '⚠️ Saved but didn\'t read back as expected — try again.');
+  showToast('🔧 Matchups updated');
+ } catch(err){
+  alert('⚠️ Error saving matchups: ' + (err && err.message ? err.message : err));
+ }
 });
 
 document.getElementById('set-ko-btn').addEventListener('click', async () => {
