@@ -422,6 +422,9 @@
     <div id="underdog-picks"></div>
     <div class="section-title">MOST PICKED TEAMS 🌟</div>
     <div id="most-picked-teams"></div>
+    <div class="section-title">TEAM LOCKOUTS 🚫</div>
+    <div style="font-size:11px;color:var(--muted);line-height:1.5;margin:-6px 0 12px">Teams in the current round where players have maxed out their 5 picks — those players can't back them again. High numbers mean the group over-invested. (Penalty-shootout wins are free and don't count.)</div>
+    <div id="team-lockouts"></div>
     <div class="section-title">WORST TEAM TO BACK 💀</div>
     <div style="font-size:11px;color:var(--muted);line-height:1.5;margin:-6px 0 12px">Teams that let their backers down — picked to win but didn't. A "betrayal" is each time someone backed this team and they failed to win. Only teams picked 2+ times appear.</div>
     <div id="worst-team"></div>
@@ -599,6 +602,7 @@ function render(g){
   renderExactScores(g);
   renderUnderdogPicks(g);
   renderMostPickedTeams(g);
+  renderTeamLockouts(g);
   renderWorstTeam(g);
   renderPickAgreement(g);
   renderBoldnessIndex(g);
@@ -1442,6 +1446,77 @@ function renderMostPickedTeams(g){
       </div>
     </div>`;
   }).join('')}</div>`;
+}
+
+// TEAM LOCKOUTS — for teams in the current round, how many players have maxed
+// out their 5 picks on that team (pen-shootout WINS are free and don't count).
+function renderTeamLockouts(g){
+  const el = document.getElementById('team-lockouts');
+  if(!el) return;
+  const MAX_PICKS = 5;
+  const players = Array.isArray(g.players) ? g.players : Object.values(g.players||{});
+
+  // Determine the current round
+  let round = null;
+  if(g.status && g.status.startsWith('ko-bulk:')) round = g.status.slice(8);
+  if(!round && typeof g.currentMatchIdx === 'number'){
+    const cm = g.matches[g.currentMatchIdx];
+    if(cm && !cm.group) round = cm.round;
+  }
+  if(!round || round === 'Group Stage'){
+    el.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:12px 0;font-style:italic">Only shown during the knockout rounds.</div>';
+    return;
+  }
+
+  // Teams competing in the current round
+  const roundTeams = [...new Set(
+    g.matches.filter(m => m.round === round && m.home!=='TBD' && m.away!=='TBD')
+      .flatMap(m => [m.home, m.away])
+  )];
+  if(roundTeams.length === 0){
+    el.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:12px 0;font-style:italic">No teams resolved for this round yet.</div>';
+    return;
+  }
+
+  // Per-player team pick counts (pen wins free)
+  const countsFor = (name) => {
+    const counts = {};
+    g.matches.forEach((m, i) => {
+      const pred = (g.predictions[i]||{})[name];
+      if(pred !== 'home' && pred !== 'away') return;
+      const r = (g.results||{})[i];
+      if(r && r.penWinner && !m.group && r.penWinner === pred) return; // free pen win
+      const backed = pred === 'home' ? m.home : m.away;
+      if(backed && backed !== 'TBD') counts[backed] = (counts[backed]||0) + 1;
+    });
+    return counts;
+  };
+  const allCounts = players.map(p => ({ name:p.name, counts: countsFor(p.name) }));
+
+  // For each round team, how many players are maxed out
+  const rows = roundTeams.map(team => {
+    const locked = allCounts.filter(pc => (pc.counts[team]||0) >= MAX_PICKS).length;
+    return { team, locked };
+  }).filter(r => r.locked > 0)
+    .sort((a,b) => b.locked - a.locked || a.team.localeCompare(b.team));
+
+  if(rows.length === 0){
+    el.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:12px 0;font-style:italic">No lockouts — everyone can still back every team in this round.</div>';
+    return;
+  }
+
+  const maxLocked = rows[0].locked;
+  el.innerHTML = '<div class="leaderboard" style="margin-bottom:22px">' + rows.map((r,i)=>{
+    const pct = Math.round(r.locked / players.length * 100);
+    const barW = Math.round(r.locked / maxLocked * 100);
+    const col = pct >= 50 ? 'var(--red)' : pct >= 25 ? 'var(--accent)' : 'var(--accent2)';
+    return `<div class="lb-row" style="grid-template-columns:36px 1fr auto auto">
+      <div class="lb-rank">${i+1}</div>
+      <div class="lb-name">${flag(r.team,18)} ${r.team}<div style="font-size:10px;color:var(--muted)">${pct}% of players maxed out</div></div>
+      <div style="min-width:80px"><div style="height:6px;background:var(--surface2);border-radius:3px;overflow:hidden"><div style="height:100%;width:${barW}%;background:${col}"></div></div></div>
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:18px;color:${col};min-width:70px;text-align:right">${r.locked} locked</div>
+    </div>`;
+  }).join('') + '</div>';
 }
 
 function renderWorstTeam(g){
