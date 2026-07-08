@@ -615,6 +615,7 @@
         <button class="btn btn-secondary btn-sm" id="set-ko-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Set the Round of 32 fixtures to match the official bracket">✏️ Set KO Fixtures</button>
         <button class="btn btn-secondary btn-sm" id="fix-ko-round-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Correct the matchups for the current knockout round (R16/QF/SF)">🔧 Fix KO Matchups</button>
         <button class="btn btn-secondary btn-sm" id="reopen-my-picks-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Re-open your own current-round predictions so you can edit them">✏️ Edit My Picks</button>
+        <button class="btn btn-secondary btn-sm" id="who-picked-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="See who has submitted their predictions for the current round">✅ Who's Picked?</button>
         <button class="btn btn-secondary btn-sm" id="recompute-rivals-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Recalculate all rival head-to-head victories from the completed days">⚔️ Recompute Rival Stats</button>
         <button class="btn btn-secondary btn-sm" id="award-rival-bonus-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Award the end-of-group-stage rival victory bonus lives">🏅 Award Rival Bonus</button>
         <button class="btn btn-secondary btn-sm" id="reset-password-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Clear a player's password so they can rejoin and set a new one">🔑 Reset Player Password</button>
@@ -1939,8 +1940,12 @@ function renderProgress(g,elId){
 }
 function renderRoster(g,elId){
   const el=document.getElementById(elId);if(!el)return;
+  // In the KO stage, "ready" should reflect the KO submission flag, not the group one
+  const inKO = g.status && g.status.startsWith('ko-bulk:');
   el.innerHTML=g.players.map(p=>{
-    const sub=g.bulkSubmitted&&g.bulkSubmitted[p.name];
+    const sub = inKO
+      ? (g.koBulkSubmitted && g.koBulkSubmitted[p.name])
+      : (g.bulkSubmitted && g.bulkSubmitted[p.name]);
     const badge=p.isHost?`<span class="roster-badge badge-host">Host</span>`
       :sub?`<span class="roster-badge badge-ready">✓ Ready</span>`
       :`<span class="roster-badge badge-waiting pulse">Waiting…</span>`;
@@ -4559,6 +4564,51 @@ document.getElementById('recompute-rivals-btn').addEventListener('click', async 
   const changed = before !== after;
   alert(`${changed ? '✅ Rival stats recalculated.' : '✅ Rival stats checked — already correct.'}\n\nCurrent victories:\n${summary}`);
   showToast('⚔️ Rival stats recomputed');
+});
+
+document.getElementById('who-picked-btn').addEventListener('click', async () => {
+  const g = await loadGame(me.code);
+  if(!g){ alert('Could not load game.'); return; }
+
+  // Determine the current round and its matches
+  let round = null;
+  if(g.status && g.status.startsWith('ko-bulk:')) round = g.status.slice(8);
+  const curM = g.matches[g.currentMatchIdx];
+  if(!round && curM){ round = curM.group ? 'Group Stage' : curM.round; }
+
+  // The matches players should have picked for this round
+  let roundIdxs;
+  if(round === 'Group Stage'){
+    roundIdxs = g.matches.map((m,i)=>({m,i})).filter(x=>x.m.group).map(x=>x.i);
+  } else {
+    roundIdxs = g.matches.map((m,i)=>({m,i}))
+      .filter(x=>x.m.round===round && x.m.home!=='TBD' && x.m.away!=='TBD').map(x=>x.i);
+  }
+  if(roundIdxs.length === 0){ alert('No pickable matches found for '+round+'.'); return; }
+
+  // For each player, count how many of this round's matches they've predicted
+  const lines = g.players.map(p => {
+    let made = 0;
+    roundIdxs.forEach(idx => {
+      const pred = (g.predictions[idx]||{})[p.name];
+      if(pred === 'home' || pred === 'away' || pred === 'draw') made++;
+    });
+    const flagSubmitted = round === 'Group Stage'
+      ? !!(g.bulkSubmitted && g.bulkSubmitted[p.name])
+      : !!(g.koBulkSubmitted && g.koBulkSubmitted[p.name]);
+    const complete = made === roundIdxs.length;
+    const icon = complete ? '✅' : made > 0 ? '🟡' : '❌';
+    const submittedNote = flagSubmitted ? '' : ' (not submitted)';
+    return `${icon} ${p.name}${p.isHost?' (host)':''} — ${made}/${roundIdxs.length}${complete?'':submittedNote}`;
+  });
+
+  const doneCount = g.players.filter(p => roundIdxs.every(idx => {
+    const pr = (g.predictions[idx]||{})[p.name];
+    return pr==='home'||pr==='away'||pr==='draw';
+  })).length;
+
+  alert(`📋 ${round} predictions — ${doneCount}/${g.players.length} complete\n\n` +
+    `✅ all picked · 🟡 some · ❌ none\n\n` + lines.join('\n'));
 });
 
 document.getElementById('reopen-my-picks-btn').addEventListener('click', async () => {
