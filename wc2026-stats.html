@@ -390,7 +390,11 @@
     <div class="section-title">STREAKS 🔥</div>
     <div id="streak-stats"></div>
     <div class="section-title">PERFECT DAYS ⭐</div>
+    <div style="font-size:11px;color:var(--muted);line-height:1.5;margin:-6px 0 12px">Group-stage days where a player got every match right.</div>
     <div id="perfect-days"></div>
+    <div class="section-title">KNOCKOUT LEADERS 🏆</div>
+    <div style="font-size:11px;color:var(--muted);line-height:1.5;margin:-6px 0 12px">Total correct knockout predictions per player (Round of 32 onwards). Penalty-shootout results count.</div>
+    <div id="ko-leaders"></div>
     <div class="section-title" style="cursor:pointer;user-select:none;display:flex;align-items:center;justify-content:space-between" id="rival-victories-header">
       <span>RIVAL VICTORIES ⚔️</span>
       <span style="font-size:11px;color:var(--muted);transition:transform 0.2s" id="rival-victories-arrow">▼</span>
@@ -595,6 +599,7 @@ function render(g){
   renderLeaderboard(g);
   renderStreakStats(g);
   renderPerfectDays(g);
+  renderKOLeaders(g);
   renderRivalStats(g);
   renderMostPickedRival(g);
   renderScorePredictors(g);
@@ -723,6 +728,9 @@ function renderPerfectDays(g){
   completedDays.forEach(day=>{
     const matchIndices=day.matches||[];
     if(matchIndices.length===0)return;
+    // Group stage only — skip any day whose matches are knockout matches
+    const isGroupDay = matchIndices.every(idx => g.matches[idx] && g.matches[idx].group);
+    if(!isGroupDay) return;
     
     players.forEach(p=>{
       let allCorrect=true;
@@ -773,6 +781,51 @@ function renderPerfectDays(g){
       💡 A perfect day = 100% correct predictions for all matches that day
     </div>
   `;
+}
+
+// ─── KNOCKOUT LEADERS ────────────────────────────────────────────────────────
+// Total correct knockout predictions per player (R32 onwards).
+function renderKOLeaders(g){
+  const el=document.getElementById('ko-leaders');
+  if(!el)return;
+  const players=Array.isArray(g.players)?g.players:Object.values(g.players||{});
+  const results=g.results||{};
+
+  // KO matches that have been played
+  const koPlayed=g.matches.map((m,i)=>({m,i}))
+    .filter(x=>!x.m.group && results[x.i]!=null)
+    .map(x=>x.i);
+
+  if(koPlayed.length===0){
+    el.innerHTML='<div style="color:var(--muted);font-size:13px;padding:12px 0;font-style:italic">No knockout matches played yet.</div>';
+    return;
+  }
+
+  const correctFor=(name)=>{
+    let n=0;
+    koPlayed.forEach(idx=>{
+      const r=results[idx];
+      const actual=r.penWinner?r.penWinner:(r.home>r.away?'home':r.away>r.home?'away':'draw');
+      const pred=g.predictions[idx]?.[name];
+      if(pred && pred===actual) n++;
+    });
+    return n;
+  };
+
+  const rows=players.map(p=>({name:p.name, correct:correctFor(p.name)}))
+    .sort((a,b)=> b.correct-a.correct || a.name.localeCompare(b.name));
+
+  const total=koPlayed.length;
+  el.innerHTML='<div class="leaderboard">'+rows.map((r,i)=>{
+    const rank=i+1;
+    const medal=rank===1?'🏆':rank===2?'🥈':rank===3?'🥉':'';
+    const pct=total>0?Math.round(r.correct/total*100):0;
+    return `<div class="lb-row" style="grid-template-columns:50px 1fr auto">
+      <div class="lb-rank" style="font-size:${medal?'22px':'16px'}">${medal||rank}</div>
+      <div class="lb-name">${r.name}<div style="font-size:10px;color:var(--muted)">${pct}% of ${total} KO games</div></div>
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:18px;color:var(--accent2);text-align:right">${r.correct}</div>
+    </div>`;
+  }).join('')+'</div>';
 }
 
 // ─── UNDERDOG PICKS ──────────────────────────────────────────────────────────
