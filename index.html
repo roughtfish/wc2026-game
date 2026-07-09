@@ -574,10 +574,10 @@
       <button class="top-back" id="bulk-done-top-back" style="float:left">← Lobby</button>
       <div style="font-size:50px;margin-bottom:12px;">✅</div>
       <h2 style="text-align:center;">LOCKED IN!</h2>
-      <p style="font-size:13px;color:var(--muted);margin-bottom:18px;">Waiting for everyone else to submit…</p>
+      <p style="font-size:13px;color:var(--muted);margin-bottom:18px;">Waiting for everyone else to submit… you can still change your picks below.</p>
       <div class="player-roster" id="bulk-done-roster"></div>
       <div style="margin-top:14px;font-size:12px;color:var(--muted);" id="bulk-done-status"><span class="spinner"></span>Waiting…</div>
-      <button class="btn btn-secondary" id="view-locked-picks-btn" style="margin-top:16px;font-size:13px;letter-spacing:1px;opacity:0.8;">🎯 View My Picks</button>
+      <button class="btn btn-secondary" id="view-locked-picks-btn" style="margin-top:16px;font-size:13px;letter-spacing:1px;opacity:0.8;">✏️ View / Change My Picks</button>
       <div id="force-start-wrap" style="display:none;margin-top:16px">
         <div class="warn-box" style="margin-bottom:10px;font-size:12px">Players who haven't submitted will lose 2 lives per unpredicted match.</div>
         <button class="btn btn-primary" id="force-start-btn">⚡ Force Start</button>
@@ -2908,13 +2908,24 @@ async function renderGameHost(g){
     koPredsBtn.style.display=isKORound?'block':'none';
     koPredsBtn.onclick=null;
     if(isKORound){
-      koPredsBtn.onclick=()=>{
+      koPredsBtn.onclick=async ()=>{
         stopPolling();
+        const fresh = await loadGame(me.code) || g;
+        const roundHasResults = fresh.matches.some((m,i) =>
+          m.round===match.round && (fresh.results||{})[i] != null
+        );
+        if(roundHasResults){
+          alert('Some ' + match.round + ' matches have already been played, so picks for this round are now locked.');
+          return;
+        }
+        let needsSave=false;
+        if(fresh.koBulkSubmitted && fresh.koBulkSubmitted[me.name]){ delete fresh.koBulkSubmitted[me.name]; needsSave=true; }
+        if(needsSave) await saveGame(fresh);
         koBulkDraft={};
         // Pre-populate with existing picks for this round
-        g.matches.forEach((m,i)=>{
+        fresh.matches.forEach((m,i)=>{
           if(m.round===match.round&&m.home!=='TBD'&&m.away!=='TBD'){
-            const existing=g.predictions[i]&&g.predictions[i][me.name];
+            const existing=fresh.predictions[i]&&fresh.predictions[i][me.name];
             if(existing) koBulkDraft[i]=existing;
           }
         });
@@ -2922,8 +2933,8 @@ async function renderGameHost(g){
         document.getElementById('bulk-round-label').textContent='Predicting '+match.round+' matches';
         show('screen-bulk');
         const area2=document.getElementById('bulk-area');
-        area2._watchCommit=()=>commitKOBulkFromWatch(g,match.round);
-        renderKOBulkForm(g,match.round);
+        area2._watchCommit=()=>commitKOBulkFromWatch(fresh,match.round);
+        renderKOBulkForm(fresh,match.round);
       };
     }
   }
@@ -3606,12 +3617,28 @@ async function renderWatchScreen(g){
     watchKoBtn.style.display=isKORound?'block':'none';
     watchKoBtn.onclick=null;
     if(isKORound){
-      watchKoBtn.onclick=()=>{
+      watchKoBtn.onclick=async ()=>{
         stopPolling();
+        const fresh = await loadGame(me.code) || g;
+        // Safety: if any match in this round has already been played, don't allow
+        // wholesale re-opening — that could let a player change a pick retroactively
+        // on a match whose result is already known. Only allow editing before any
+        // of the round's matches have been decided.
+        const roundHasResults = fresh.matches.some((m,i) =>
+          m.round===curMatch.round && (fresh.results||{})[i] != null
+        );
+        if(roundHasResults){
+          alert('Some ' + curMatch.round + ' matches have already been played, so picks for this round are now locked. You can still view them from the stats page.');
+          return;
+        }
+        // Clear the submitted flag so the form is actually editable, not stuck read-only
+        let needsSave=false;
+        if(fresh.koBulkSubmitted && fresh.koBulkSubmitted[me.name]){ delete fresh.koBulkSubmitted[me.name]; needsSave=true; }
+        if(needsSave) await saveGame(fresh);
         koBulkDraft={};
-        g.matches.forEach((m,i)=>{
+        fresh.matches.forEach((m,i)=>{
           if(m.round===curMatch.round&&m.home!=='TBD'&&m.away!=='TBD'){
-            const existing=g.predictions[i]&&g.predictions[i][me.name];
+            const existing=fresh.predictions[i]&&fresh.predictions[i][me.name];
             if(existing) koBulkDraft[i]=existing;
           }
         });
@@ -3619,8 +3646,8 @@ async function renderWatchScreen(g){
         document.getElementById('bulk-round-label').textContent='Predicting '+curMatch.round+' matches';
         show('screen-bulk');
         const area2=document.getElementById('bulk-area');
-        area2._watchCommit=()=>commitKOBulkFromWatch(g,curMatch.round);
-        renderKOBulkForm(g,curMatch.round);
+        area2._watchCommit=()=>commitKOBulkFromWatch(fresh,curMatch.round);
+        renderKOBulkForm(fresh,curMatch.round);
       };
     }
   }
