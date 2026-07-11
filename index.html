@@ -610,6 +610,7 @@
         <button class="btn btn-secondary btn-sm" id="open-history-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7;display:none">✎ Edit Result</button>
         <button class="btn btn-secondary btn-sm" id="host-view-yesterday-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7;display:none">📊 Last Day's Results</button>
         <button class="btn btn-secondary btn-sm" id="adjust-lives-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Add or remove lives from all active players">❤️ Adjust Lives</button>
+        <button class="btn btn-secondary btn-sm" id="adjust-one-life-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Add or remove lives from a single player (e.g. to correct a bug-caused over-penalty)">➕ Adjust One Player</button>
         <button class="btn btn-secondary btn-sm" id="set-baseline-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Set the starting-lives baseline used for the stats page bars">📊 Set Baseline</button>
         <button class="btn btn-secondary btn-sm" id="locked-ko-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="See which Round of 32 ties are already mathematically locked in">🔓 Locked KO Ties</button>
         <button class="btn btn-secondary btn-sm" id="set-ko-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Set the Round of 32 fixtures to match the official bracket">✏️ Set KO Fixtures</button>
@@ -5015,6 +5016,32 @@ document.getElementById('set-baseline-btn').addEventListener('click', async () =
   await saveGame(g);
   saveLocalBackup(g, `Baseline lives set to ${val}`);
   showToast(`📊 Baseline set to ${val}`);
+});
+
+document.getElementById('adjust-one-life-btn').addEventListener('click', async () => {
+  const g = await loadGame(me.code);
+  if(!g){ alert('Could not load game.'); return; }
+  const list = g.players.map((p,i)=>`${i+1}. ${p.name} (${p.lives} lives)`).join('\n');
+  const sel = prompt(`➕ ADJUST ONE PLAYER'S LIVES\n\nEnter the NUMBER of the player to correct:\n\n${list}`);
+  if(sel === null) return;
+  const n = parseInt(sel);
+  if(isNaN(n) || n < 1 || n > g.players.length){ alert('Invalid selection.'); return; }
+  const target = g.players[n-1];
+
+  const input = prompt(`Adjust lives for "${target.name}" (currently ${target.lives}).\n\nEnter a number to add (e.g. 6) or remove (e.g. -3):`);
+  if(input === null) return;
+  const delta = parseInt(input);
+  if(isNaN(delta) || delta === 0){ alert('Please enter a non-zero whole number.'); return; }
+
+  if(!confirm(`${delta>0?'Add '+delta:'Remove '+Math.abs(delta)} lives ${delta>0?'to':'from'} ${target.name}? (${target.lives} → ${Math.max(0,target.lives+delta)})`)) return;
+
+  target.lives = Math.max(0, target.lives + delta);
+  if(target.lives === 0){ target.eliminated = true; }
+  else if(target.eliminated && target.lives > 0){ target.eliminated = false; }
+  await saveGame(g);
+  saveLocalBackup(g, `${target.name} lives adjusted by ${delta>0?'+':''}${delta}`);
+  alert(`✅ ${target.name}: ${target.lives - delta} → ${target.lives} lives`);
+  showToast(`❤️ ${target.name} adjusted`);
 });
 
 document.getElementById('adjust-lives-btn').addEventListener('click', async () => {
