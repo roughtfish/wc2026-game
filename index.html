@@ -2941,7 +2941,9 @@ async function renderGameHost(g){
   const area=document.getElementById('match-area');
   if(match.koSlot||(match.home==='TBD'&&match.away==='TBD')){renderKOWaiting(g,match,area);return;}
   const preds=g.predictions[g.currentMatchIdx]||{};
-  const allDone=match.group||alive.every(p=>preds[p.name]!=null);
+  // A player's slot is "resolved" once they have a real pick OR it's been explicitly
+  // set to null by Force Start (meaning: handled as a deliberate miss, not still pending)
+  const allDone=match.group||alive.every(p=>preds[p.name]!==undefined);
   if(!allDone){
     const isKO=!match.group;
     // For KO matches, check if host has unpredicted matches in this round
