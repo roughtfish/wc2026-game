@@ -3012,7 +3012,11 @@ async function renderGameHost(g){
         fresh.players.forEach(p=>{
           if(p.eliminated) return;
           roundMatchIndices.forEach(idx=>{
-            if(!fresh.predictions[idx]||!fresh.predictions[idx][p.name]){
+            // Only deduct if this player has NEVER had a prediction recorded (undefined).
+            // If it's already null, a previous Force Start already handled (and penalized)
+            // this match for this player — don't do it again.
+            if(!fresh.predictions[idx]) fresh.predictions[idx]={};
+            if(fresh.predictions[idx][p.name]===undefined){
               p.lives=Math.max(0,p.lives-2);
               if(p.lives===0) p.eliminated=true;
             }
