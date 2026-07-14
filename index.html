@@ -2977,7 +2977,7 @@ async function renderGameHost(g){
       if(m.round===match.round&&m.home!=='TBD'&&m.away!=='TBD')acc.push({m,i});
       return acc;
     },[]):[];
-    const hostUnpredicted=roundMatches.filter(({i})=>!(g.predictions[i]&&g.predictions[i][me.name]));
+    const hostUnpredicted=filterGenuinelyPickable(g, me.name, roundMatches);
     const done=alive.filter(p=>preds[p.name]!=null);
     const pending=alive.filter(p=>preds[p.name]==null);
     area.innerHTML=`<div class="round-label"><span class="step-dot"></span>${match.round}</div>
@@ -3264,6 +3264,28 @@ function renderResultEntry(g,match,area){
 
 
 // Determine actual outcome from a result — respects penalty winner for KO draws
+// Given a set of {m,i} round matches, return only the ones the player has NOT
+// predicted AND can still genuinely pick a winner for (not boxed out — i.e. not
+// both teams already at their 5-pick limit for this player). Pen wins are free.
+function filterGenuinelyPickable(g, name, roundMatches){
+  const counts = {};
+  g.matches.forEach((m, i) => {
+    const pred = (g.predictions[i]||{})[name];
+    if(pred !== 'home' && pred !== 'away') return;
+    const r = (g.results||{})[i];
+    if(r && r.penWinner && !m.group && r.penWinner === pred) return; // free pen win
+    const backed = pred === 'home' ? m.home : m.away;
+    if(backed && backed !== 'TBD') counts[backed] = (counts[backed]||0) + 1;
+  });
+  return roundMatches.filter(({m,i}) => {
+    const already = (g.predictions[i]||{})[name];
+    if(already) return false; // already predicted
+    const hc = counts[m.home] || 0;
+    const ac = counts[m.away] || 0;
+    return !(hc >= MAX_PICKS && ac >= MAX_PICKS); // exclude boxed-out matches
+  });
+}
+
 function actualOutcome(r){
   if(r.home>r.away)return'home';
   if(r.away>r.home)return'away';
@@ -3720,7 +3742,7 @@ async function renderWatchScreen(g){
       if(m.round===match.round&&m.home!=='TBD'&&m.away!=='TBD') acc.push({m,i});
       return acc;
     },[]) : [];
-    const unpredicted = roundMatches.filter(({i})=>!(g.predictions[i]&&g.predictions[i][me.name]));
+    const unpredicted = filterGenuinelyPickable(g, me.name, roundMatches);
     const hasUnpredicted = unpredicted.length > 0;
 
     area.innerHTML=`<div class="round-label">${match.group?'Group '+match.group:match.round||''}</div>
