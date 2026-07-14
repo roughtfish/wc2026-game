@@ -1948,6 +1948,7 @@ function renderRoster(g,elId){
       ? (g.koBulkSubmitted && g.koBulkSubmitted[p.name])
       : (g.bulkSubmitted && g.bulkSubmitted[p.name]);
     const badge=p.isHost?`<span class="roster-badge badge-host">Host</span>`
+      :p.eliminated?`<span class="roster-badge" style="background:var(--surface2);color:var(--muted);border:1px solid var(--border)">💀 Eliminated</span>`
       :sub?`<span class="roster-badge badge-ready">✓ Ready</span>`
       :`<span class="roster-badge badge-waiting pulse">Waiting…</span>`;
     const delBtn=(me.role==='host'&&!p.isHost)?`<button class="roster-del-btn" data-del-player="${encodeURIComponent(p.name)}" title="Remove ${p.name} from the game" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:16px;padding:0 4px;margin-left:4px;line-height:1">×</button>`:'';
@@ -2691,7 +2692,7 @@ async function pollBulkDone(){
   
   const forceWrap=document.getElementById('force-start-wrap');
   if(forceWrap){
-    const pending=g.players.filter(p=>!submitted[p.name]);
+    const pending=g.players.filter(p=>!p.eliminated&&!p.isHost&&!submitted[p.name]);
     forceWrap.style.display=(me.role==='host'&&pending.length>0)?'block':'none';
   }
   if(g.status==='playing'){stopPolling();if(me.role==='host')enterGame(g);else watchGame(g);}
