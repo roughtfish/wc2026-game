@@ -1941,8 +1941,14 @@ function renderProgress(g,elId){
 }
 function renderRoster(g,elId){
   const el=document.getElementById(elId);if(!el)return;
-  // In the KO stage, "ready" should reflect the KO submission flag, not the group one
-  const inKO = g.status && g.status.startsWith('ko-bulk:');
+  // In the KO stage, "ready" should reflect the KO submission flag, not the group one.
+  // Detect KO by status OR by the current match actually being a knockout match —
+  // g.status can be 'playing'/'reveal:...' once results are being entered, so relying
+  // on the 'ko-bulk:' string alone misses that and wrongly falls back to the old
+  // group-stage flag (which is always true for anyone who played the groups).
+  const curMatchForRoster = g.matches[g.currentMatchIdx];
+  const inKO = (g.status && g.status.startsWith('ko-bulk:')) ||
+    (curMatchForRoster && !curMatchForRoster.group);
   el.innerHTML=g.players.map(p=>{
     const sub = inKO
       ? (g.koBulkSubmitted && g.koBulkSubmitted[p.name])
