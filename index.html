@@ -4656,17 +4656,21 @@ document.getElementById('who-picked-btn').addEventListener('click', async () => 
     const flagSubmitted = round === 'Group Stage'
       ? !!(g.bulkSubmitted && g.bulkSubmitted[p.name])
       : !!(g.koBulkSubmitted && g.koBulkSubmitted[p.name]);
-    const complete = made === roundIdxs.length;
+    // Pickable total excludes matches this player is boxed out of (no pick needed there)
+    const pickableTotal = roundIdxs.length - blocked.length;
+    // "Complete" means they've actually submitted — that's the real source of truth,
+    // not just whether made == pickableTotal (a player could still be drafting).
+    const complete = flagSubmitted;
     const icon = complete ? '✅' : made > 0 ? '🟡' : '❌';
     const submittedNote = flagSubmitted ? '' : ' (not submitted)';
     const blockNote = blocked.length ? ` 🚫 ${blocked.length} blocked` : '';
-    return `${icon} ${p.name}${p.isHost?' (host)':''} — ${made}/${roundIdxs.length}${complete?'':submittedNote}${blockNote}`;
+    return `${icon} ${p.name}${p.isHost?' (host)':''} — ${made}/${pickableTotal}${complete?'':submittedNote}${blockNote}`;
   });
 
-  const doneCount = g.players.filter(p => roundIdxs.every(idx => {
-    const pr = (g.predictions[idx]||{})[p.name];
-    return pr==='home'||pr==='away'||pr==='draw';
-  })).length;
+  const doneCount = g.players.filter(p => round === 'Group Stage'
+    ? !!(g.bulkSubmitted && g.bulkSubmitted[p.name])
+    : !!(g.koBulkSubmitted && g.koBulkSubmitted[p.name])
+  ).length;
 
   // Build a blocked-players detail section if any exist
   let blockedSection = '';
