@@ -2208,6 +2208,23 @@ document.getElementById('resume-tournament-btn').addEventListener('click', async
   const g = await loadGame(me.code);
   if(!g){ alert('Could not load game.'); return; }
 
+  // Safety: if the game is still legitimately mid-predictions (ko-bulk / bulk), don't
+  // force it into 'playing' — that would skip past players who haven't submitted yet
+  // and strand them with an incomplete round (as happened before this guard existed).
+  if(g.status === 'bulk'){
+    if(!confirm('This game is still collecting GROUP STAGE predictions (not stuck).\n\nContinue to the predictions screen instead of force-resuming?')) return;
+    stopPolling();
+    startBulk(g);
+    return;
+  }
+  if(g.status && g.status.startsWith('ko-bulk:')){
+    const round = g.status.slice(8);
+    if(!confirm(`This game is still collecting ${round} predictions (not stuck).\n\nContinue to the predictions screen instead of force-resuming?`)) return;
+    stopPolling();
+    startKOBulk(g, round);
+    return;
+  }
+
   // Work out where the tournament actually is from the match data.
   const lastResultIdx = Object.keys(g.results||{}).map(Number)
     .filter(n=>!isNaN(n) && g.results[n]!=null).sort((a,b)=>a-b).pop();
@@ -6640,10 +6657,14 @@ async function commitKOBulkFromWatch(g, round) {
       if (!fresh.predictions[idx]) fresh.predictions[idx] = {};
       fresh.predictions[idx][me.name] = v;
     });
-    // Mark this player as submitted so host sees accurate count and force-start applies correctly
+    // Mark this player as submitted so host sees accurate count and force-start applies
+    // correctly. This must happen regardless of the current g.status — if someone
+    // genuinely submits (e.g. via "My Picks" mid-round, after status has already moved
+    // to 'playing'), they ARE submitted and the flag must reflect that.
+    if(!fresh.koBulkSubmitted) fresh.koBulkSubmitted={};
+    fresh.koBulkSubmitted[me.name]=true;
+    // Only auto-advance status if we're still in the pure predictions-collection phase
     if(fresh.status&&fresh.status.startsWith('ko-bulk:')){
-      if(!fresh.koBulkSubmitted) fresh.koBulkSubmitted={};
-      fresh.koBulkSubmitted[me.name]=true;
       const allDone=fresh.players.every(p=>fresh.koBulkSubmitted[p.name]);
       if(allDone) fresh.status='playing';
     }
