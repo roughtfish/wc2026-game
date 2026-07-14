@@ -4686,8 +4686,17 @@ document.getElementById('who-picked-btn').addEventListener('click', async () => 
       blockedNames.map(n => `• ${n}: ${blockedByPlayer[n].join(', ')}`).join('\n');
   }
 
+  // Raw diagnostic footer — shows the literal stored values so we can pin down any
+  // discrepancy with the roster's "Ready" badge (temporary, for debugging)
+  const debugLines = g.players.map(p => {
+    const koFlag = g.koBulkSubmitted ? g.koBulkSubmitted[p.name] : undefined;
+    const grpFlag = g.bulkSubmitted ? g.bulkSubmitted[p.name] : undefined;
+    return `${p.name}: koBulkSubmitted=${koFlag} · bulkSubmitted=${grpFlag}`;
+  }).join('\n');
+  const debugSection = `\n\n🔧 RAW DEBUG\nstatus="${g.status}" · currentMatchIdx=${g.currentMatchIdx} · detected round="${round}"\n${debugLines}`;
+
   alert(`📋 ${round} predictions — ${doneCount}/${g.players.length} complete\n\n` +
-    `✅ all picked · 🟡 some · ❌ none · 🚫 boxed out\n\n` + lines.join('\n') + blockedSection);
+    `✅ all picked · 🟡 some · ❌ none · 🚫 boxed out\n\n` + lines.join('\n') + blockedSection + debugSection);
 });
 
 document.getElementById('reopen-my-picks-btn').addEventListener('click', async () => {
