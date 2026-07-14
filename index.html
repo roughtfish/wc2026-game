@@ -2967,9 +2967,14 @@ async function renderGameHost(g){
   const area=document.getElementById('match-area');
   if(match.koSlot||(match.home==='TBD'&&match.away==='TBD')){renderKOWaiting(g,match,area);return;}
   const preds=g.predictions[g.currentMatchIdx]||{};
-  // A player's slot is "resolved" once they have a real pick OR it's been explicitly
-  // set to null by Force Start (meaning: handled as a deliberate miss, not still pending)
-  const allDone=match.group||alive.every(p=>preds[p.name]!==undefined);
+  // A player's slot is "resolved" once: they have a real pick, OR it's been explicitly
+  // set to null by Force Start (a deliberate miss), OR their overall round submission
+  // is already complete — which covers a player who's boxed out of THIS specific match
+  // (both teams already at their 5-pick limit) and therefore never got a prediction
+  // written for it at all, even though they've genuinely finished the round.
+  const isPlayerResolved = (p) =>
+    preds[p.name] !== undefined || (g.koBulkSubmitted && g.koBulkSubmitted[p.name]);
+  const allDone=match.group||alive.every(isPlayerResolved);
   if(!allDone){
     const isKO=!match.group;
     // For KO matches, check if host has unpredicted matches in this round
@@ -2978,8 +2983,8 @@ async function renderGameHost(g){
       return acc;
     },[]):[];
     const hostUnpredicted=filterGenuinelyPickable(g, me.name, roundMatches);
-    const done=alive.filter(p=>preds[p.name]!=null);
-    const pending=alive.filter(p=>preds[p.name]==null);
+    const done=alive.filter(isPlayerResolved);
+    const pending=alive.filter(p=>!isPlayerResolved(p));
     area.innerHTML=`<div class="round-label"><span class="step-dot"></span>${match.round}</div>
     <div class="match-card">
       <div class="match-header">
@@ -3084,8 +3089,9 @@ function renderKOWaiting(g,match,area){
 }
 
 function renderKOPredCollect(g,match,area,preds,alive){
-  const pending=alive.find(p=>preds[p.name]===undefined);
-  const done=alive.filter(p=>preds[p.name]!=null);
+  const isPlayerResolved=(p)=>preds[p.name]!==undefined||(g.koBulkSubmitted&&g.koBulkSubmitted[p.name]);
+  const pending=alive.find(p=>!isPlayerResolved(p));
+  const done=alive.filter(isPlayerResolved);
   area.innerHTML=`<div class="round-label"><span class="step-dot"></span>${match.round}</div>
   <div class="match-card">
     <div class="match-header"><span class="group-badge">${match.round}</span><span class="match-num">Match ${g.currentMatchIdx+1}/${g.matches.length}</span></div>
