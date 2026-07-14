@@ -617,6 +617,7 @@
         <button class="btn btn-secondary btn-sm" id="fix-ko-round-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Correct the matchups for the current knockout round (R16/QF/SF)">🔧 Fix KO Matchups</button>
         <button class="btn btn-secondary btn-sm" id="reopen-my-picks-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Re-open your own current-round predictions so you can edit them">✏️ Edit My Picks</button>
         <button class="btn btn-secondary btn-sm" id="who-picked-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="See who has submitted their predictions for the current round">✅ Who's Picked?</button>
+        <button class="btn btn-secondary btn-sm" id="check-player-flag-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Check one player's raw submission status (short, won't get cut off)">🔧 Check Player</button>
         <button class="btn btn-secondary btn-sm" id="recompute-rivals-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Recalculate all rival head-to-head victories from the completed days">⚔️ Recompute Rival Stats</button>
         <button class="btn btn-secondary btn-sm" id="award-rival-bonus-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Award the end-of-group-stage rival victory bonus lives">🏅 Award Rival Bonus</button>
         <button class="btn btn-secondary btn-sm" id="reset-password-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Clear a player's password so they can rejoin and set a new one">🔑 Reset Player Password</button>
@@ -4605,6 +4606,47 @@ document.getElementById('recompute-rivals-btn').addEventListener('click', async 
   const changed = before !== after;
   alert(`${changed ? '✅ Rival stats recalculated.' : '✅ Rival stats checked — already correct.'}\n\nCurrent victories:\n${summary}`);
   showToast('⚔️ Rival stats recomputed');
+});
+
+document.getElementById('check-player-flag-btn').addEventListener('click', async () => {
+  const g = await loadGame(me.code);
+  if(!g){ alert('Could not load game.'); return; }
+  const list = g.players.map((p,i)=>`${i+1}. ${p.name}`).join('\n');
+  const sel = prompt(`Check which player?\n\n${list}`);
+  if(sel === null) return;
+  const n = parseInt(sel);
+  if(isNaN(n) || n<1 || n>g.players.length){ alert('Invalid selection.'); return; }
+  const p = g.players[n-1];
+
+  let round = null;
+  if(g.status && g.status.startsWith('ko-bulk:')) round = g.status.slice(8);
+  const curM = g.matches[g.currentMatchIdx];
+  if(!round && curM){ round = curM.group ? 'Group Stage' : curM.round; }
+
+  const koFlag = g.koBulkSubmitted ? g.koBulkSubmitted[p.name] : undefined;
+  const grpFlag = g.bulkSubmitted ? g.bulkSubmitted[p.name] : undefined;
+
+  // Count real predictions made for the current round
+  let roundIdxs;
+  if(round === 'Group Stage'){
+    roundIdxs = g.matches.map((m,i)=>({m,i})).filter(x=>x.m.group).map(x=>x.i);
+  } else {
+    roundIdxs = g.matches.map((m,i)=>({m,i}))
+      .filter(x=>x.m.round===round && x.m.home!=='TBD' && x.m.away!=='TBD').map(x=>x.i);
+  }
+  let realPicks = 0;
+  roundIdxs.forEach(idx=>{
+    const pred = (g.predictions[idx]||{})[p.name];
+    if(pred==='home'||pred==='away'||pred==='draw') realPicks++;
+  });
+
+  alert(`🔧 ${p.name}\n\n` +
+    `status="${g.status}"\n` +
+    `currentMatchIdx=${g.currentMatchIdx}\n` +
+    `detected round="${round}"\n\n` +
+    `koBulkSubmitted=${koFlag}\n` +
+    `bulkSubmitted=${grpFlag}\n\n` +
+    `real picks this round: ${realPicks}/${roundIdxs.length}`);
 });
 
 document.getElementById('who-picked-btn').addEventListener('click', async () => {
