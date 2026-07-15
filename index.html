@@ -1321,6 +1321,7 @@ function autoFillPredictions(g){
   // Mark all as submitted
   g.bulkSubmitted={};
   g.koBulkSubmitted={};
+  g.koForceLocked={}; // new round — clear any previous force-lock
   g.players.forEach(p=>{
     g.bulkSubmitted[p.name]=true;
     g.koBulkSubmitted[p.name]=true;
@@ -2143,9 +2144,11 @@ document.getElementById('skip-to-ko-btn').addEventListener('click', async () => 
   // Auto-fill R32 predictions and set to ko-bulk
   autoFillKORound(g, 'Round of 32');
   g.koBulkSubmitted = {};
+  g.koForceLocked={}; // new round — clear any previous force-lock
   g.players.forEach(p => { g.koBulkSubmitted[p.name] = true; });
   g.status = 'ko-bulk:Round of 32';
   g.koBulkSubmitted = {}; // reset so players can pick
+  g.koForceLocked={}; // new round — clear any previous force-lock
 
   // Cache round starts
   getMatchDateTime._roundStarts = {};
@@ -2268,6 +2271,7 @@ document.getElementById('start-game-btn').addEventListener("click",async()=>{
     // KO-only mode: go straight to R32 predictions
     g.status='ko-bulk:Round of 32';
     g.koBulkSubmitted={};
+    g.koForceLocked={}; // new round — clear any previous force-lock
     await saveGame(g);
     stopPolling();
     startKOBulk(g,'Round of 32');
@@ -2944,6 +2948,10 @@ async function renderGameHost(g){
           alert('Some ' + match.round + ' matches have already been played, so picks for this round are now locked.');
           return;
         }
+        if(fresh.koForceLocked && fresh.koForceLocked[me.name]){
+          alert('Your picks for this round were force-completed and penalized — they\'re locked and can\'t be changed.');
+          return;
+        }
         let needsSave=false;
         if(fresh.koBulkSubmitted && fresh.koBulkSubmitted[me.name]){ delete fresh.koBulkSubmitted[me.name]; needsSave=true; }
         if(needsSave) await saveGame(fresh);
@@ -3053,13 +3061,31 @@ async function renderGameHost(g){
             }
           });
         });
-        // Fill missing predictions with null so allDone check passes and result entry is shown
+        // Fill missing predictions with null so allDone check passes and result entry is shown.
+        // Track exactly which players actually got a null filled — those are the ones
+        // being genuinely force-completed (not players who'd already submitted normally).
+        const forcedNames = new Set();
         roundMatchIndices.forEach(idx=>{
           if(!fresh.predictions[idx]) fresh.predictions[idx]={};
           fresh.players.forEach(p=>{
-            if(fresh.predictions[idx][p.name]===undefined) fresh.predictions[idx][p.name]=null;
+            if(fresh.predictions[idx][p.name]===undefined){
+              fresh.predictions[idx][p.name]=null;
+              forcedNames.add(p.name);
+            }
           });
         });
+        // Lock out anyone genuinely force-completed — they took the penalty, they're
+        // done, no going back to submit real picks for this round after the fact.
+        if(forcedNames.size > 0){
+          if(!fresh.koForceLocked) fresh.koForceLocked = {};
+          forcedNames.forEach(name => { fresh.koForceLocked[name] = true; });
+        }
+        // Mark every player as fully submitted for this round — whether they genuinely
+        // locked in or were force-completed with penalties, they're now DONE with this
+        // round. This stops Force Start from ever being needed again for this round,
+        // even if it has further matches still to be entered.
+        if(!fresh.koBulkSubmitted) fresh.koBulkSubmitted={};
+        fresh.players.forEach(p=>{ fresh.koBulkSubmitted[p.name]=true; });
         await saveGame(fresh);
         renderGameHost(fresh);
       });
@@ -3421,6 +3447,7 @@ async function renderReveal(g){
         const finalMatch = f.matches[f.currentMatchIdx];
         f.status = 'ko-bulk:' + finalMatch.round;
         f.koBulkSubmitted = {};
+        f.koForceLocked={}; // new round — clear any previous force-lock
         f.currentResult = null;
         await saveGame(f);
         stopPolling();
@@ -3443,6 +3470,7 @@ async function renderReveal(g){
         } else {
           f.status='ko-bulk:'+nextMatch.round;
           f.koBulkSubmitted={};
+          f.koForceLocked={}; // new round — clear any previous force-lock
           f.currentResult=null;
           await saveGame(f);
           stopPolling();
@@ -3704,6 +3732,10 @@ async function renderWatchScreen(g){
         );
         if(roundHasResults){
           alert('Some ' + curMatch.round + ' matches have already been played, so picks for this round are now locked. You can still view them from the stats page.');
+          return;
+        }
+        if(fresh.koForceLocked && fresh.koForceLocked[me.name]){
+          alert('Your picks for this round were force-completed and penalized — they\'re locked and can\'t be changed.');
           return;
         }
         // Clear the submitted flag so the form is actually editable, not stuck read-only
@@ -4865,6 +4897,11 @@ document.getElementById('reopen-my-picks-btn').addEventListener('click', async (
   // most recent KO round for the host to correct their picks.
   const curM = g.matches[g.currentMatchIdx];
   if(!round && curM && !curM.group) round = curM.round;
+
+  if(round && g.koForceLocked && g.koForceLocked[me.name]){
+    alert('Your picks for this round were force-completed and penalized — they\'re locked and can\'t be changed.');
+    return;
+  }
 
   if(!confirm('Re-open your own predictions for editing?\n\nThis lets you correct your picks. Your existing picks stay until you change and re-submit them. Only affects YOUR predictions.')) return;
 
@@ -8104,6 +8141,7 @@ async function hostContinueFromSummary() {
     } else {
       g.status = 'ko-bulk:' + nextMatch.round;
       g.koBulkSubmitted = {};
+      g.koForceLocked={}; // new round — clear any previous force-lock
       g.currentResult = null;
       await saveGame(g);
       
