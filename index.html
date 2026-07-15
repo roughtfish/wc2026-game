@@ -3045,7 +3045,13 @@ async function renderGameHost(g){
         if(!fresh){hostForceBtn.textContent='⚡ Force Start Round';hostForceBtn.disabled=false;return;}
         const curRound=fresh.matches[fresh.currentMatchIdx].round;
         const roundMatchIndices=fresh.matches.reduce((acc,m,i)=>{
-          if(m.round===curRound&&!m.koSlot&&m.home!=='TBD'&&m.away!=='TBD') acc.push(i);
+          // Exclude matches that already have a result — those were already scored
+          // (with any missing pick already correctly penalized) when their result was
+          // entered. Re-including them here would deduct the same miss a second time,
+          // since normal result-scoring never writes anything back into predictions
+          // to mark a miss as "handled".
+          const alreadyPlayed = fresh.results && fresh.results[i] != null;
+          if(m.round===curRound&&!m.koSlot&&m.home!=='TBD'&&m.away!=='TBD'&&!alreadyPlayed) acc.push(i);
           return acc;
         },[]);
         fresh.players.forEach(p=>{
