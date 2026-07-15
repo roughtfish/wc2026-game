@@ -8353,8 +8353,13 @@ function rebuildRivalVictories(g){
   // Rebuilt authoritatively (idempotent) so re-renders/revisits can't corrupt it.
   (g.players||[]).forEach(p=>{ p.rivalryRecord = {}; });
   (g.completedDays||[]).forEach(day=>{
-    const sel = day.rivalSelections || {};
     const matchIdxs = day.matches || [];
+    // Rivals are group-stage only — skip any completed "day" whose matches aren't
+    // group matches (defends against already-corrupted historical entries from
+    // before this was fixed, as well as any future edge cases).
+    const isGroupDay = matchIdxs.length > 0 && matchIdxs.every(idx => g.matches[idx] && g.matches[idx].group);
+    if(!isGroupDay) return;
+    const sel = day.rivalSelections || {};
     Object.entries(sel).forEach(([playerName, rivalName])=>{
       if(!rivalName) return;
       // Only count if both still exist as players
@@ -8406,13 +8411,18 @@ async function completeDayAsHost(g) {
   // Mark in game state that this day is complete
   if (!g.completedDays) g.completedDays = [];
   
-  // Store rival selections for this day
+  // Store rival selections for this day — rivals are a GROUP-STAGE-ONLY mechanic,
+  // so never record them for a knockout match "day" (per-match KO completion would
+  // otherwise keep adding rival victories from leftover/stale currentRival values
+  // that were never cleared when the group stage ended).
   const rivalSelections = {};
-  g.players.forEach(p => {
-    if(p.currentRival) {
-      rivalSelections[p.name] = p.currentRival;
-    }
-  });
+  if(currentMatch && currentMatch.group){
+    g.players.forEach(p => {
+      if(p.currentRival) {
+        rivalSelections[p.name] = p.currentRival;
+      }
+    });
+  }
   
   // Snapshot each player's rank at this day-close (for "movement since last day" on stats)
   const rankSorted = [...g.players].sort((a,b)=>b.lives-a.lives||b.correct-a.correct||(b.scoreBonus||0)-(a.scoreBonus||0));
