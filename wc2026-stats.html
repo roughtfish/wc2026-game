@@ -630,8 +630,10 @@ function renderQuickStats(g){
   const players=Array.isArray(g.players)?g.players:Object.values(g.players||{});
   const results=g.results||{};
   const playedIdxs=Object.keys(results).map(Number).filter(n=>!isNaN(n)&&results[n]!=null).sort((a,b)=>a-b);
-  const totalMatches=g.matches.length;
-  const progress=Math.round((g.currentMatchIdx/totalMatches)*100);
+  // Exclude the 3rd Place Play-off — the game explicitly skips it, it's never played,
+  // so it shouldn't count toward the total or "remaining" matches.
+  const totalMatches=g.matches.filter(m=>m.round!=='3rd Place Play-off').length;
+  const progress=totalMatches>0?Math.round((playedIdxs.length/totalMatches)*100):0;
   
   // Calculate average correct per match
   let totalCorrect=0;
@@ -694,7 +696,7 @@ function renderQuickStats(g){
     <div style="background:var(--surface);border-radius:8px;padding:12px;border-left:3px solid var(--accent)">
       <div style="font-size:10px;color:var(--muted);letter-spacing:1px;margin-bottom:4px">PROGRESS</div>
       <div style="font-family:'Bebas Neue',sans-serif;font-size:24px;color:var(--accent)">${progress}%</div>
-      <div style="font-size:10px;color:var(--muted);margin-top:2px">${totalMatches-g.currentMatchIdx} remaining</div>
+      <div style="font-size:10px;color:var(--muted);margin-top:2px">${totalMatches-playedIdxs.length} remaining</div>
     </div>
     <div style="background:var(--surface);border-radius:8px;padding:12px;border-left:3px solid var(--green)">
       <div style="font-size:10px;color:var(--muted);letter-spacing:1px;margin-bottom:4px">AVG ACCURACY</div>
@@ -917,8 +919,10 @@ function renderSurvivalProb(g){
   const players=Array.isArray(g.players)?g.players:Object.values(g.players||{});
   const results=g.results||{};
   const playedIdxs=Object.keys(results).map(Number).filter(n=>!isNaN(n)&&results[n]!=null);
-  const totalMatches=Array.isArray(g.matches)?g.matches.length:Object.values(g.matches||{}).length;
-  const remaining=totalMatches-g.currentMatchIdx;
+  // Exclude the 3rd Place Play-off — it's explicitly skipped and never actually played,
+  // so simulating it would add one phantom match's worth of random risk that can't happen.
+  const totalMatches=(Array.isArray(g.matches)?g.matches:Object.values(g.matches||{})).filter(m=>m.round!=='3rd Place Play-off').length;
+  const remaining=totalMatches-playedIdxs.length;
 
   // If game is done or no remaining matches, skip
   if(g.status==='done'||remaining<=0){el.innerHTML='';return;}
