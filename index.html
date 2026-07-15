@@ -4451,12 +4451,54 @@ document.getElementById('player-breakdown-btn').addEventListener('click', async 
        if(flagged.length === 0) return '';
        return `<div style="background:rgba(239,68,68,0.12);border:1px solid var(--red);border-radius:8px;padding:10px 12px;margin-bottom:12px">
          <div style="font-weight:700;color:var(--red);font-size:12px;margin-bottom:4px">⚠️ FLAGGED — unexplained life loss (never legitimate; investigate)</div>
-         ${flagged.map(r=>`<div style="font-size:12px;padding:2px 0">${r.name}: Δ ${r.diff} <span style="color:var(--muted)">(add back ${Math.abs(r.diff)} to correct via ➕ Adjust One Player)</span></div>`).join('')}
+         ${flagged.map(r=>`<div style="font-size:12px;padding:2px 0">${r.name}: Δ ${r.diff} <span style="color:var(--muted)">(add back ${Math.abs(r.diff)})</span></div>`).join('')}
+         <button id="fix-all-flagged-btn" class="btn btn-primary btn-sm" style="margin-top:10px;width:100%">🔧 Fix All Flagged (+${flagged.reduce((s,r)=>s+Math.abs(r.diff),0)} total)</button>
        </div>`;
      })()}
      <table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>
      <div style="font-size:10px;color:var(--muted);margin-top:10px;line-height:1.5">Δ (Actual − Expected) should equal each player's rival bonus + any manual life adjustments. A Δ of 0 with no rival bonus means the lives are exactly results-driven. A NEGATIVE Δ is never legitimate — it always means lives were lost somewhere they shouldn't have been.</div>`;
   document.getElementById('breakdown-modal').style.display = 'flex';
+
+  const fixAllBtn = document.getElementById('fix-all-flagged-btn');
+  if(fixAllBtn){
+    fixAllBtn.addEventListener('click', async () => {
+      // Recompute fresh at the moment of fixing, in case anything changed since opening
+      const fresh = await loadGame(me.code);
+      if(!fresh){ alert('Could not load game.'); return; }
+      const freshBaseline = fresh.lives;
+      const freshPlayed = Object.keys(fresh.results||{}).map(Number)
+        .filter(n=>!isNaN(n) && fresh.results[n]!=null).sort((a,b)=>a-b);
+      const freshFlagged = fresh.players.map(p => {
+        let wrong=0, missed=0, scores=0;
+        freshPlayed.forEach(idx => {
+          const res = fresh.results[idx];
+          const actual = actualOutcome(res);
+          const pick = (fresh.predictions[idx]||{})[p.name];
+          if(pick == null) missed++;
+          else if(pick !== actual) wrong++;
+          const sc = (fresh.predictions[idx]||{})[p.name+'_score'];
+          if(sc && Number(sc.home)===Number(res.home) && Number(sc.away)===Number(res.away)) scores++;
+        });
+        const expected = freshBaseline - wrong - (2*missed) + scores;
+        return { player:p, diff: p.lives - expected };
+      }).filter(r => r.diff < 0);
+
+      if(freshFlagged.length === 0){ alert('Nothing to fix — no flagged players right now.'); document.getElementById('breakdown-modal').style.display='none'; return; }
+
+      const preview = freshFlagged.map(r => `${r.player.name}: +${Math.abs(r.diff)} ❤️`).join('\n');
+      if(!confirm(`Apply corrections to ${freshFlagged.length} flagged player(s)?\n\n${preview}\n\nThis brings each back to exactly their results-based total. No other players are touched.`)) return;
+
+      freshFlagged.forEach(r => {
+        r.player.lives += Math.abs(r.diff);
+        if(r.player.eliminated && r.player.lives > 0) r.player.eliminated = false;
+      });
+      await saveGame(fresh);
+      saveLocalBackup(fresh, 'Fixed all flagged players (double-scoring correction)');
+      alert(`✅ Fixed:\n\n${preview}`);
+      showToast('🔧 Flagged players corrected');
+      document.getElementById('breakdown-modal').style.display = 'none';
+    });
+  }
 });
 document.getElementById('close-breakdown-btn').addEventListener('click', () => {
   document.getElementById('breakdown-modal').style.display = 'none';
