@@ -2405,8 +2405,10 @@ function renderLeaderboard(g){
   const playedIdxsLb=Object.keys(g.results||{}).map(Number).filter(n=>!isNaN(n)&&(g.results||{})[n]!=null);
   if(!g.predictions)g.predictions={};
 
-  // Determine the current round, to find how many of ITS matches each player is
-  // boxed out of (both teams already at their 5-pick limit, so no valid pick left).
+  // Determine the current round, to find how many of ITS ALREADY-PLAYED matches
+  // each player was boxed out of (both teams already at their 5-pick limit, so no
+  // valid pick was possible). Only counts settled results — a future tie they're
+  // currently blocked from doesn't show here until it's actually been played.
   const MAX_PICKS_LB = 5;
   let curRoundLb = null;
   if(g.status && g.status.startsWith('ko-bulk:')) curRoundLb = g.status.slice(8);
@@ -2414,11 +2416,11 @@ function renderLeaderboard(g){
     const cm = g.matches[g.currentMatchIdx];
     if(cm && !cm.group) curRoundLb = cm.round;
   }
-  const curRoundMatchesLb = curRoundLb
-    ? g.matches.map((m,i)=>({m,i})).filter(x => x.m.round === curRoundLb && x.m.home!=='TBD' && x.m.away!=='TBD')
+  const curRoundPlayedMatchesLb = curRoundLb
+    ? g.matches.map((m,i)=>({m,i})).filter(x => x.m.round === curRoundLb && x.m.home!=='TBD' && x.m.away!=='TBD' && (g.results||{})[x.i] != null)
     : [];
   const countBlockedFor = (name) => {
-    if(curRoundMatchesLb.length === 0) return 0;
+    if(curRoundPlayedMatchesLb.length === 0) return 0;
     const counts = {};
     g.matches.forEach((m,i) => {
       const pred = (g.predictions[i]||{})[name];
@@ -2429,7 +2431,7 @@ function renderLeaderboard(g){
       if(backed && backed !== 'TBD') counts[backed] = (counts[backed]||0) + 1;
     });
     let blocked = 0;
-    curRoundMatchesLb.forEach(({m,i}) => {
+    curRoundPlayedMatchesLb.forEach(({m,i}) => {
       const already = (g.predictions[i]||{})[name] != null;
       if(already) return;
       const hc = counts[m.home] || 0, ac = counts[m.away] || 0;
@@ -2499,7 +2501,7 @@ function renderLeaderboard(g){
       <div class="lb-pct lb-pct-tip" data-tip="Exact score bonuses" style="color:var(--accent2);font-size:12px">🎯 ${scoreBonusLb}</div>
       <div class="lb-pct lb-pct-tip" data-tip="Times they backed the team that went on to win on penalties" style="color:var(--accent2);font-size:12px">${penWinsLb>0?'🥅 '+penWinsLb:''}</div>
       <div class="lb-pct lb-pct-tip" data-tip="Longest correct prediction streak">${streakLb.best>0?'🔥 '+streakLb.best:''}</div>
-      <div class="lb-pct lb-pct-tip" style="color:var(--red);font-size:12px" data-tip="Matches this round they're blocked from picking — both teams already at their 5-pick limit">${blockedLb>0?'🚫 '+blockedLb:''}</div>
+      <div class="lb-pct lb-pct-tip" style="color:var(--red);font-size:12px" data-tip="Played matches this round where they had no valid pick — both teams were already at their 5-pick limit">${blockedLb>0?'🚫 '+blockedLb:''}</div>
       <div class="lb-pct lb-pct-tip" data-tip="Prediction accuracy (correct / matches played)">${accuracy}%</div>
     </div>`;
   }).join('');
