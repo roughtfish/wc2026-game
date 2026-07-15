@@ -3039,7 +3039,7 @@ async function renderGameHost(g){
     const hostForceBtn=area.querySelector('#host-force-start-btn');
     if(hostForceBtn){
       hostForceBtn.addEventListener('click',async()=>{
-        if(!confirm('Force start this round? Players who haven\'t predicted will lose 2 lives per unpredicted match.')) return;
+        if(!confirm('Force start this round? Players who haven\'t predicted will lose 2 lives per unpredicted match once that match\'s result is entered.')) return;
         hostForceBtn.textContent='Starting…'; hostForceBtn.disabled=true;
         const fresh=await loadGame(me.code);
         if(!fresh){hostForceBtn.textContent='⚡ Force Start Round';hostForceBtn.disabled=false;return;}
@@ -3054,20 +3054,13 @@ async function renderGameHost(g){
           if(m.round===curRound&&!m.koSlot&&m.home!=='TBD'&&m.away!=='TBD'&&!alreadyPlayed) acc.push(i);
           return acc;
         },[]);
-        fresh.players.forEach(p=>{
-          if(p.eliminated) return;
-          roundMatchIndices.forEach(idx=>{
-            // Only deduct if this player has NEVER had a prediction recorded (undefined).
-            // If it's already null, a previous Force Start already handled (and penalized)
-            // this match for this player — don't do it again.
-            if(!fresh.predictions[idx]) fresh.predictions[idx]={};
-            if(fresh.predictions[idx][p.name]===undefined){
-              p.lives=Math.max(0,p.lives-2);
-              if(p.lives===0) p.eliminated=true;
-            }
-          });
-        });
-        // Fill missing predictions with null so allDone check passes and result entry is shown.
+        // NOTE: no lives are deducted here. Force Start just fills in the missing
+        // picks with null and locks the player out — the actual -2 penalty (or +1
+        // exact-score bonus, correct/wrong count, etc.) is applied naturally by the
+        // normal result-scoring loop, at the same moment it happens for every other
+        // player, once each match's result is actually entered. This matches how a
+        // genuine miss (no Force Start involved) is always scored — at result-entry
+        // time, never earlier — so Force Start no longer behaves differently.
         // Track exactly which players actually got a null filled — those are the ones
         // being genuinely force-completed (not players who'd already submitted normally).
         const forcedNames = new Set();
