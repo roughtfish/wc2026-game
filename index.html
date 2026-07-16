@@ -2240,6 +2240,9 @@ document.getElementById('resume-tournament-btn').addEventListener('click', async
   // Find the first unplayed match; that's where play continues.
   let nextIdx = 0;
   while(nextIdx < g.matches.length && g.results && g.results[nextIdx] != null) nextIdx++;
+  // The 3rd Place Play-off never gets a result (it's skipped entirely) — if it's
+  // "first unplayed" simply because it's never played, skip past it too.
+  if(nextIdx < g.matches.length && g.matches[nextIdx] && g.matches[nextIdx].round === '3rd Place Play-off') nextIdx++;
 
   if(!confirm('Resume the tournament in progress?\n\nThis restores you to the live game (all results and picks are kept). It does NOT restart anything.')) return;
 
@@ -2322,6 +2325,31 @@ document.getElementById('join-game-btn').addEventListener("click",async()=>{
       else startBulk(g);
     } else if(g.status&&g.status.startsWith('ko-bulk:')){
       const round=g.status.slice(8);
+      // Self-heal: the 3rd Place Play-off is never played or predicted in this game.
+      // If the game somehow got left in this state, the host silently corrects it —
+      // skipping straight to the Final — the moment they next load the game.
+      if(round==='3rd Place Play-off'){
+        if(me.role==='host'){
+          let idx=g.currentMatchIdx;
+          while(idx<g.matches.length && g.matches[idx] && g.matches[idx].round==='3rd Place Play-off') idx++;
+          if(idx>=g.matches.length){ showFinalLeaderboard(g); return; }
+          g.currentMatchIdx=idx;
+          const finalMatch=g.matches[idx];
+          if(finalMatch && !finalMatch.group && finalMatch.home!=='TBD' && finalMatch.away!=='TBD'){
+            g.status='ko-bulk:'+finalMatch.round;
+            g.koBulkSubmitted={};
+            g.koForceLocked={};
+            saveGame(g).then(()=>{ startKOBulk(g, finalMatch.round); });
+          } else {
+            g.status='playing';
+            saveGame(g).then(()=>{ enterGame(g); });
+          }
+        } else {
+          show('screen-player-lobby');
+          startPolling(pollPlayerLobby);
+        }
+        return;
+      }
       if(g.koBulkSubmitted&&g.koBulkSubmitted[me.name]){show('screen-bulk-done');startPolling(pollBulkDone);}
       else startKOBulk(g,round);
     } else if(g.status==='playing'||g.status.startsWith('reveal:')){
@@ -8093,6 +8121,18 @@ async function hostContinueFromSummary() {
     await saveGame(g);
     showFinalLeaderboard(g);
     return;
+  }
+
+  // The 3rd Place Play-off is never played or predicted in this game — the bracket
+  // goes straight from the semi-finals to the Final. Skip straight past this slot
+  // if advancing has landed on it.
+  if(g.matches[g.currentMatchIdx] && g.matches[g.currentMatchIdx].round === '3rd Place Play-off'){
+    g.currentMatchIdx++;
+    if(g.currentMatchIdx >= g.matches.length){
+      await saveGame(g);
+      showFinalLeaderboard(g);
+      return;
+    }
   }
   
   // Check if any non-host players are still alive (host can continue even if eliminated)
