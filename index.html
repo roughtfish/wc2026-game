@@ -632,6 +632,7 @@
         <button class="btn btn-secondary btn-sm" id="enter-scores-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Enter exact-score predictions a player gave you, on their behalf">✍️ Enter Scores For Player</button>
         <button class="btn btn-secondary btn-sm" id="pregame-stats-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Generate anonymous pre-game stats to share (e.g. on WhatsApp)">📣 Pre-Game Stats</button>
         <button class="btn btn-secondary btn-sm" id="local-backups-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="View and restore automatic local backups (last 10)">⏱ Local Backups</button>
+        <button class="btn btn-secondary btn-sm" id="view-final-standings-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Jump to the final standings screen at any time — doesn't change the game state">🏆 View Final Standings</button>
         <input type="file" id="restore-file-input" accept=".json,application/json" style="display:none">
         <button class="btn btn-secondary btn-sm" id="quit-game-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7;color:var(--red);border-color:rgba(239,68,68,0.3)">✕ Quit</button>
       </div>
@@ -846,6 +847,7 @@
     </div>
     <div id="final-leaderboard" style="margin-top:14px;"></div>
     <button class="btn btn-secondary btn-sm" id="winner-breakdown-btn" style="display:none;margin:14px auto 0;font-size:11px;letter-spacing:1px;opacity:0.7">📋 Player Breakdown (fix any life discrepancies)</button>
+    <button class="btn btn-secondary btn-sm" id="winner-back-to-game-btn" style="display:none;margin:8px auto 0;font-size:11px;letter-spacing:1px;opacity:0.7">← Back to Game</button>
   </div>
   
   <!-- Daily Summary Screen -->
@@ -3941,8 +3943,13 @@ function showWinner(g){
   if(wbb) wbb.style.display = me.role==='host' ? 'block' : 'none';
   // Persist that the game has finished, so reloading (or a later rejoin) restores
   // straight back to this screen instead of trying to resume a finished match.
-  // Only the host writes this, to avoid every watching player racing to save it.
-  if(me.role==='host' && g.status!=='done'){
+  // Only the host writes this, to avoid every watching player racing to save it —
+  // and only if the tournament has actually concluded, so a manual "view standings"
+  // peek mid-game can never prematurely finalize things for everyone else.
+  const trulyOver = (g.currentMatchIdx >= g.matches.length) || (g.players.filter(p=>!p.eliminated).length <= 1);
+  const backBtn = document.getElementById('winner-back-to-game-btn');
+  if(backBtn) backBtn.style.display = (me.role==='host' && !trulyOver) ? 'block' : 'none';
+  if(me.role==='host' && g.status!=='done' && trulyOver){
     g.status='done';
     saveGame(g).catch(()=>{});
   }
@@ -3953,8 +3960,12 @@ function showFinalLeaderboard(g){
   renderFinalLB(g);
   const wbb=document.getElementById('winner-breakdown-btn');
   if(wbb) wbb.style.display = me.role==='host' ? 'block' : 'none';
-  // Same as showWinner — persist completion so the host can reload this screen later.
-  if(me.role==='host' && g.status!=='done'){
+  // Same as showWinner — persist completion so the host can reload this screen later,
+  // but only once the tournament has genuinely concluded (see comment above).
+  const trulyOver = (g.currentMatchIdx >= g.matches.length) || (g.players.filter(p=>!p.eliminated).length <= 1);
+  const backBtn = document.getElementById('winner-back-to-game-btn');
+  if(backBtn) backBtn.style.display = (me.role==='host' && !trulyOver) ? 'block' : 'none';
+  if(me.role==='host' && g.status!=='done' && trulyOver){
     g.status='done';
     saveGame(g).catch(()=>{});
   }
@@ -5937,6 +5948,16 @@ document.getElementById('copy-pregame-stats-btn').addEventListener('click', asyn
   }
 });
 
+document.getElementById('view-final-standings-btn').addEventListener('click', async () => {
+  const g = await loadGame(me.code);
+  if(!g){ alert('Could not load game.'); return; }
+  showFinalLeaderboard(g);
+});
+document.getElementById('winner-back-to-game-btn').addEventListener('click', async () => {
+  const g = await loadGame(me.code);
+  if(!g){ alert('Could not load game.'); return; }
+  enterGame(g);
+});
 document.getElementById('local-backups-btn').addEventListener('click', () => {
   renderLocalBackupsList();
   document.getElementById('local-backups-modal').style.display = 'flex';
