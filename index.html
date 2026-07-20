@@ -757,7 +757,7 @@
         <h2 style="margin:0;font-size:18px">📋 Player Breakdown</h2>
         <button id="close-breakdown-btn" style="background:none;border:none;color:var(--muted);font-size:24px;cursor:pointer;padding:0;line-height:1">&times;</button>
       </div>
-      <p style="font-size:11px;color:var(--muted);margin-bottom:12px">Full accounting from stored results. <b>Expected lives</b> = baseline − wrong − (2 × missed) + score bonuses. If <b>Actual</b> differs from Expected, that player had a manual life adjustment (or a drift to investigate).</p>
+      <p style="font-size:11px;color:var(--muted);margin-bottom:12px">Full accounting from stored results. <b>Expected lives</b> = baseline − wrong − (2 × missed) + score bonuses + rival bonus. If <b>Actual</b> differs from Expected, that player had a manual life adjustment (or a drift to investigate).</p>
       <div id="breakdown-list" style="overflow-x:auto"></div>
     </div>
   </div>
@@ -4447,11 +4447,8 @@ document.getElementById('rebuild-lives-btn').addEventListener('click', async () 
   if(!g){ alert('Could not load game.'); return; }
   const baseline = g.lives;
 
-  let warn = `Rebuild every player's lives from scratch?\n\nEach player's lives will be set to:\nbaseline (${baseline}) − wrong − (2 × missed) + score bonuses\n\nThis fixes any drift in the life totals.`;
-  if(g.rivalBonusAwarded){
-    warn += `\n\n⚠️ The rival bonus was already awarded — rebuilding will REMOVE it. You'd need to re-award it afterward with "🏅 Award Rival Bonus".`;
-  }
-  warn += `\n\n⚠️ Any manual life adjustments (Adjust Lives) NOT part of the baseline will also be removed.\n\nContinue?`;
+  let warn = `Rebuild every player's lives from scratch?\n\nEach player's lives will be set to:\nbaseline (${baseline}) − wrong − (2 × missed) + score bonuses + rival bonus\n\nThis fixes any drift in the life totals. Each player's rival bonus (if any) is preserved automatically.`;
+  warn += `\n\n⚠️ Any manual life adjustments (Adjust Lives) NOT part of the baseline or rival bonus will still be removed.\n\nContinue?`;
   if(!confirm(warn)) return;
 
   const playedIdxs = Object.keys(g.results||{}).map(Number)
@@ -4471,18 +4468,12 @@ document.getElementById('rebuild-lives-btn').addEventListener('click', async () 
       const sc = (g.predictions[idx]||{})[p.name+'_score'];
       if(sc && Number(sc.home)===Number(res.home) && Number(sc.away)===Number(res.away)) scores++;
     });
-    const newLives = baseline - wrong - (2*missed) + scores;
+    // Rival bonus is a persisted, named amount (p.rivalBonus) — re-applied here so a
+    // rebuild can never silently erase it the way it used to.
+    const newLives = baseline - wrong - (2*missed) + scores + (p.rivalBonus||0);
     p.lives = newLives;
     p.eliminated = newLives <= 0;
   });
-
-  // If we removed a previously-awarded rival bonus, clear the AWARDED flag so it
-  // can be re-awarded. Also set rivalBonusManual so the AUTOMATIC award can never
-  // fire again — once the host has rebuilt lives, they're managing the bonus by hand
-  // via the 🏅 Award Rival Bonus button. This is safe even if the bonus was
-  // originally awarded automatically.
-  if(g.rivalBonusAwarded) g.rivalBonusAwarded = false;
-  g.rivalBonusManual = true;
 
   await saveGame(g);
   saveLocalBackup(g, 'Lives rebuilt from results');
@@ -4491,7 +4482,7 @@ document.getElementById('rebuild-lives-btn').addEventListener('click', async () 
     .filter(p => before[p.name] !== p.lives)
     .map(p => `${p.name}: ${before[p.name]}→${p.lives} ❤️`);
   alert(changes.length > 0
-    ? `✅ Lives rebuilt. Changed:\n\n${changes.join('\n')}${g.rivalBonusAwarded===false ? '\n\n(Rival bonus flag cleared — re-award with 🏅 if needed.)' : ''}`
+    ? `✅ Lives rebuilt. Changed:\n\n${changes.join('\n')}`
     : '✅ Lives rebuilt — everything was already correct.');
   showToast('❤️ Lives rebuilt');
 });
@@ -4515,13 +4506,12 @@ async function showPlayerBreakdown() {
       const sc = (g.predictions[idx]||{})[p.name+'_score'];
       if(sc && Number(sc.home)===Number(res.home) && Number(sc.away)===Number(res.away)) scores++;
     });
-    const expected = baseline - wrong - (2*missed) + scores;
-    const rivalBonus = (p.lives - expected); // any difference = manual adj / rival bonus
-    return { name:p.name, correct, wrong, missed, scores, expected, actual:p.lives, diff:p.lives-expected };
+    const expected = baseline - wrong - (2*missed) + scores + (p.rivalBonus||0);
+    return { name:p.name, correct, wrong, missed, scores, rivalBonus:(p.rivalBonus||0), expected, actual:p.lives, diff:p.lives-expected };
   }).sort((a,b)=>b.actual-a.actual);
 
   const cell = (v,style='') => `<td style="padding:6px 8px;text-align:center;${style}">${v}</td>`;
-  const head = ['Player','✓','✗ wrong','— missed','🎯','Expected','Actual','Δ']
+  const head = ['Player','✓','✗ wrong','— missed','🎯','⚔️ rival','Expected','Actual','Δ']
     .map((h,i)=>`<th style="padding:6px 8px;text-align:${i===0?'left':'center'};font-size:10px;color:var(--muted);white-space:nowrap">${h}</th>`).join('');
   const body = rows.map(r=>{
     const diffColor = r.diff===0 ? 'var(--muted)' : r.diff>0 ? 'var(--green)' : 'var(--red)';
@@ -4532,6 +4522,7 @@ async function showPlayerBreakdown() {
       ${cell(r.wrong)}
       ${cell(r.missed, r.missed>0?'color:var(--red)':'')}
       ${cell(r.scores,'color:var(--accent)')}
+      ${cell(r.rivalBonus>0?'+'+r.rivalBonus:'—', r.rivalBonus>0?'color:var(--accent2)':'')}
       ${cell(r.expected)}
       ${cell(`<b>${r.actual}</b>`)}
       ${cell(diffTxt,`color:${diffColor};font-weight:600`)}
@@ -4795,7 +4786,7 @@ document.getElementById('award-rival-bonus-btn').addEventListener('click', async
 
   awards.forEach(a => {
     const p = g.players.find(pp => pp.name === a.name);
-    if(p) p.lives += a.amount;
+    if(p){ p.lives += a.amount; p.rivalBonus = (p.rivalBonus||0) + a.amount; }
   });
   g.rivalBonusAwarded = true;
   g.rivalBonusManual = true; // permanently disable the automatic award — host is in control now
@@ -6615,6 +6606,16 @@ async function correctHistoricResult(g, targetIdx) {
         }
       });
 
+      // Re-apply each player's persisted rival bonus — the full recalculation above
+      // resets everyone to baseline and replays only wrong/missed/scores, so without
+      // this step a rival bonus would silently vanish every time a result is corrected.
+      fresh.players.forEach(p => {
+        if(p.rivalBonus){
+          p.lives += p.rivalBonus;
+          p.eliminated = p.lives <= 0;
+        }
+      });
+
       // Update currentResult to the current match's result
       fresh.currentResult = fresh.results[fresh.currentMatchIdx] || null;
 
@@ -8221,6 +8222,7 @@ async function hostContinueFromSummary() {
       g.players.forEach(p => {
         if((g.rivalVictories?.[p.name] || 0) === total){
           p.lives += amount;
+          p.rivalBonus = (p.rivalBonus||0) + amount;
           bonuses.push(`${medal} ${p.name} (+${amount} ❤️ - ${total} rival wins)`);
         }
       });
