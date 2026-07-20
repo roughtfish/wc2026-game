@@ -2338,7 +2338,7 @@ document.getElementById('join-game-btn').addEventListener("click",async()=>{
         if(me.role==='host'){
           let idx=g.currentMatchIdx;
           while(idx<g.matches.length && g.matches[idx] && g.matches[idx].round==='3rd Place Play-off') idx++;
-          if(idx>=g.matches.length){ showFinalLeaderboard(g); return; }
+          if(idx>=g.matches.length){ showWinner(g); return; }
           g.currentMatchIdx=idx;
           const finalMatch=g.matches[idx];
           if(finalMatch && !finalMatch.group && finalMatch.home!=='TBD' && finalMatch.away!=='TBD'){
@@ -2934,7 +2934,7 @@ async function renderGameHost(g){
 
   // Don't advance past end without real results
   if(g.currentMatchIdx >= g.matches.length){
-    if(hasAnyResults) showFinalLeaderboard(g);
+    if(hasAnyResults) showWinner(g);
     return;
   }
 
@@ -2947,7 +2947,7 @@ async function renderGameHost(g){
   // Skip 3rd Place Play-off if somehow landed on it
   if(g.matches[g.currentMatchIdx]?.round==='3rd Place Play-off'){
     g.currentMatchIdx++;
-    if(g.currentMatchIdx>=g.matches.length){showFinalLeaderboard(g);return;}
+    if(g.currentMatchIdx>=g.matches.length){showWinner(g);return;}
   }
   const match=g.matches[g.currentMatchIdx];
   // Show "My Picks" button during KO rounds so host can always access round predictions
@@ -3475,20 +3475,20 @@ async function renderReveal(g){
       const al=f.players.filter(p=>!p.eliminated);
       if(al.length<=1){showWinner(f);return;}
       f.currentMatchIdx++;
-      if(f.currentMatchIdx>=f.matches.length){await saveGame(f);showFinalLeaderboard(f);return;}
+      if(f.currentMatchIdx>=f.matches.length){await saveGame(f);showWinner(f);return;}
       const nextMatch=f.matches[f.currentMatchIdx];
 
       // Skip 3rd Place Play-off entirely — auto-advance past it
       if(nextMatch && nextMatch.round==='3rd Place Play-off'){
         f.currentMatchIdx++;
-        if(f.currentMatchIdx>=f.matches.length){await saveGame(f);showFinalLeaderboard(f);return;}
+        if(f.currentMatchIdx>=f.matches.length){await saveGame(f);showWinner(f);return;}
       }
 
       const prevMatch=f.matches[f.currentMatchIdx-1];
       // Skip 3rd Place Play-off — advance to Final directly
       if(nextMatch && nextMatch.round === '3rd Place Play-off'){
         f.currentMatchIdx++;
-        if(f.currentMatchIdx >= f.matches.length){ await saveGame(f); showFinalLeaderboard(f); return; }
+        if(f.currentMatchIdx >= f.matches.length){ await saveGame(f); showWinner(f); return; }
         const finalMatch = f.matches[f.currentMatchIdx];
         f.status = 'ko-bulk:' + finalMatch.round;
         f.koBulkSubmitted = {};
@@ -3960,22 +3960,6 @@ function showWinner(g){
   // Only the host writes this, to avoid every watching player racing to save it —
   // and only if the tournament has actually concluded, so a manual "view standings"
   // peek mid-game can never prematurely finalize things for everyone else.
-  const trulyOver = (g.currentMatchIdx >= g.matches.length) || (g.players.filter(p=>!p.eliminated).length <= 1);
-  const backBtn = document.getElementById('winner-back-to-game-btn');
-  if(backBtn) backBtn.style.display = (me.role==='host' && !trulyOver) ? 'block' : 'none';
-  if(me.role==='host' && g.status!=='done' && trulyOver){
-    g.status='done';
-    saveGame(g).catch(()=>{});
-  }
-}
-function showFinalLeaderboard(g){
-  stopPolling();show('screen-winner');
-  setWinnerBanner(g);
-  renderFinalLB(g);
-  const wbb=document.getElementById('winner-breakdown-btn');
-  if(wbb) wbb.style.display = me.role==='host' ? 'block' : 'none';
-  // Same as showWinner — persist completion so the host can reload this screen later,
-  // but only once the tournament has genuinely concluded (see comment above).
   const trulyOver = (g.currentMatchIdx >= g.matches.length) || (g.players.filter(p=>!p.eliminated).length <= 1);
   const backBtn = document.getElementById('winner-back-to-game-btn');
   if(backBtn) backBtn.style.display = (me.role==='host' && !trulyOver) ? 'block' : 'none';
@@ -5961,7 +5945,7 @@ document.getElementById('toggle-all-tools-btn').addEventListener('click', async 
 document.getElementById('view-final-standings-btn').addEventListener('click', async () => {
   const g = await loadGame(me.code);
   if(!g){ alert('Could not load game.'); return; }
-  showFinalLeaderboard(g);
+  showWinner(g);
 });
 document.getElementById('winner-back-to-game-btn').addEventListener('click', async () => {
   const g = await loadGame(me.code);
@@ -8174,7 +8158,7 @@ async function hostContinueFromSummary() {
   // Check if game is over
   if(g.currentMatchIdx >= g.matches.length){
     await saveGame(g);
-    showFinalLeaderboard(g);
+    showWinner(g);
     return;
   }
 
@@ -8185,7 +8169,7 @@ async function hostContinueFromSummary() {
     g.currentMatchIdx++;
     if(g.currentMatchIdx >= g.matches.length){
       await saveGame(g);
-      showFinalLeaderboard(g);
+      showWinner(g);
       return;
     }
   }
