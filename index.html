@@ -6872,7 +6872,7 @@ async function commitKOBulkFromWatch(g, round) {
 
 // ─── FORCE START ─────────────────────────────────────────────────────────────
 document.getElementById('force-start-btn').addEventListener('click', async () => {
-  if(!confirm('Force start? Players who have not submitted predictions will lose 2 lives per unpredicted match.')) return;
+  if(!confirm('Force start? Players who have not submitted predictions will be treated as missing a pick for each unpredicted match — costing 2 lives per match once each result is entered (same as any other missed pick). Lives are not deducted immediately by this button.')) return;
   const btn = document.getElementById('force-start-btn');
   btn.textContent = 'Starting…'; btn.disabled = true;
   const fresh = await loadGame(me.code);
@@ -6888,15 +6888,14 @@ document.getElementById('force-start-btn').addEventListener('click', async () =>
       if(m.round===round && !m.koSlot && m.home!=='TBD' && m.away!=='TBD') acc.push(i);
       return acc;
     },[]);
-    // Apply -2 lives per unpredicted match for players who haven't submitted
+    // NOTE: we deliberately do NOT deduct lives here. Doing so used to double-count:
+    // this button would take -2 immediately, and then entering the actual match
+    // result later would ALSO take -2 for the same still-null prediction (the normal
+    // missed-pick scoring in submit-result-btn can't tell it was already penalised
+    // here). Filling the prediction with null is enough — the -2 gets applied exactly
+    // once, when each match's real result is scored normally.
     fresh.players.forEach(p=>{
       if(!fresh.koBulkSubmitted[p.name]){
-        roundMatchIndices.forEach(idx=>{
-          if(!fresh.predictions[idx] || !fresh.predictions[idx][p.name]){
-            p.lives = Math.max(0, p.lives - 2);
-            if(p.lives === 0) p.eliminated = true;
-          }
-        });
         fresh.koBulkSubmitted[p.name] = true;
       }
     });
@@ -6913,15 +6912,11 @@ document.getElementById('force-start-btn').addEventListener('click', async () =>
       if(m.group) acc.push(i);
       return acc;
     },[]);
-    // Apply -2 lives per unpredicted match for players who haven't submitted
+    // NOTE: we deliberately do NOT deduct lives here — see comment in the KO-bulk
+    // branch above. Filling missing predictions with null is enough; the -2 per
+    // missed match gets applied once, naturally, as each result is entered.
     fresh.players.forEach(p=>{
       if(!fresh.bulkSubmitted[p.name]){
-        groupMatchIndices.forEach(idx=>{
-          if(!fresh.predictions[idx] || !fresh.predictions[idx][p.name]){
-            p.lives = Math.max(0, p.lives - 2);
-            if(p.lives === 0) p.eliminated = true;
-          }
-        });
         fresh.bulkSubmitted[p.name] = true;
       }
     });
