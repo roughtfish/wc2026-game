@@ -600,17 +600,15 @@
           </div>
         </div>
         <div style="display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end">
+        <button class="btn btn-secondary btn-sm" id="toggle-all-tools-btn" style="font-size:11px;letter-spacing:1px;opacity:0.85;display:none;border-color:rgba(234,179,8,0.4);color:#eab308" title="Show/hide the gameplay & setup tools that no longer do anything now the tournament is over">🔧 Show All Tools</button>
+        <div id="gameplay-tools-group" style="display:contents">
         <button class="btn btn-secondary btn-sm" id="host-my-stats-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7;display:none">📋 Team Pick Qty</button>
         <button class="btn btn-secondary btn-sm" id="player-team-picks-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="See how many of the 5 per-team picks any player has used">👥 Player Team Picks</button>
         <button class="btn btn-secondary btn-sm" id="view-schedule-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7">📅 Schedule</button>
         <button class="btn btn-secondary btn-sm" id="complete-day-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7;display:none">📊 Complete Day</button>
         <button class="btn btn-secondary btn-sm" id="open-group-preds-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7;display:none">📋 My Group Picks</button>
         <button class="btn btn-secondary btn-sm" id="open-ko-preds-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7;display:none">🎯 My Picks</button>
-        <button class="btn btn-secondary btn-sm" id="undo-result-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7;display:none">↩ Undo</button>
-        <button class="btn btn-secondary btn-sm" id="open-history-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7;display:none">✎ Edit Result</button>
         <button class="btn btn-secondary btn-sm" id="host-view-yesterday-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7;display:none">📊 Last Day's Results</button>
-        <button class="btn btn-secondary btn-sm" id="adjust-lives-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Add or remove lives from all active players">❤️ Adjust Lives</button>
-        <button class="btn btn-secondary btn-sm" id="adjust-one-life-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Add or remove lives from a single player (e.g. to correct a bug-caused over-penalty)">➕ Adjust One Player</button>
         <button class="btn btn-secondary btn-sm" id="reset-movement-baseline-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Reset the stats page's 'movement since last day' baseline to right now — use after manual life corrections so they don't show up as fake match movement">🔄 Reset Movement Baseline</button>
         <button class="btn btn-secondary btn-sm" id="set-baseline-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Set the starting-lives baseline used for the stats page bars">📊 Set Baseline</button>
         <button class="btn btn-secondary btn-sm" id="locked-ko-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="See which Round of 32 ties are already mathematically locked in">🔓 Locked KO Ties</button>
@@ -618,19 +616,24 @@
         <button class="btn btn-secondary btn-sm" id="fix-ko-round-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Correct the matchups for the current knockout round (R16/QF/SF)">🔧 Fix KO Matchups</button>
         <button class="btn btn-secondary btn-sm" id="reopen-my-picks-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Re-open your own current-round predictions so you can edit them">✏️ Edit My Picks</button>
         <button class="btn btn-secondary btn-sm" id="who-picked-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="See who has submitted their predictions for the current round">✅ Who's Picked?</button>
+        <button class="btn btn-secondary btn-sm" id="reset-password-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Clear a player's password so they can rejoin and set a new one">🔑 Reset Player Password</button>
+        <button class="btn btn-secondary btn-sm" id="check-scores-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="See how many exact-score predictions each player made">🎯 Score Check</button>
+        <button class="btn btn-secondary btn-sm" id="enter-scores-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Enter exact-score predictions a player gave you, on their behalf">✍️ Enter Scores For Player</button>
+        <button class="btn btn-secondary btn-sm" id="pregame-stats-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Generate anonymous pre-game stats to share (e.g. on WhatsApp)">📣 Pre-Game Stats</button>
+        </div>
+        <button class="btn btn-secondary btn-sm" id="undo-result-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7;display:none">↩ Undo</button>
+        <button class="btn btn-secondary btn-sm" id="open-history-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7;display:none">✎ Edit Result</button>
+        <button class="btn btn-secondary btn-sm" id="adjust-lives-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Add or remove lives from all active players">❤️ Adjust Lives</button>
+        <button class="btn btn-secondary btn-sm" id="adjust-one-life-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Add or remove lives from a single player (e.g. to correct a bug-caused over-penalty)">➕ Adjust One Player</button>
         <button class="btn btn-secondary btn-sm" id="check-player-flag-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Check one player's raw submission status (short, won't get cut off)">🔧 Check Player</button>
         <button class="btn btn-secondary btn-sm" id="recompute-rivals-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Recalculate all rival head-to-head victories from the completed days">⚔️ Recompute Rival Stats</button>
         <button class="btn btn-secondary btn-sm" id="award-rival-bonus-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Award the end-of-group-stage rival victory bonus lives">🏅 Award Rival Bonus</button>
-        <button class="btn btn-secondary btn-sm" id="reset-password-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Clear a player's password so they can rejoin and set a new one">🔑 Reset Player Password</button>
         <button class="btn btn-secondary btn-sm" id="recompute-scores-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Recalculate every player's correct count, lives and score bonuses from scratch — fixes any drift">🔢 Recompute Scores</button>
         <button class="btn btn-secondary btn-sm" id="player-breakdown-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Show a full per-player accounting: correct, wrong, missed, score bonuses and expected vs actual lives">📋 Player Breakdown</button>
         <button class="btn btn-secondary btn-sm" id="rebuild-lives-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Rebuild every player's lives purely from the stored results and baseline — fixes drift">❤️ Rebuild Lives</button>
         <button class="btn btn-secondary btn-sm" id="backup-game-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Download full game backup (JSON) — restore later if anything goes wrong">💾 Backup</button>
         <button class="btn btn-secondary btn-sm" id="restore-game-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Restore a game from a backup JSON file">📂 Restore</button>
         <button class="btn btn-secondary btn-sm" id="export-csv-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Export all player picks to a CSV spreadsheet">📊 Export CSV</button>
-        <button class="btn btn-secondary btn-sm" id="check-scores-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="See how many exact-score predictions each player made">🎯 Score Check</button>
-        <button class="btn btn-secondary btn-sm" id="enter-scores-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Enter exact-score predictions a player gave you, on their behalf">✍️ Enter Scores For Player</button>
-        <button class="btn btn-secondary btn-sm" id="pregame-stats-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Generate anonymous pre-game stats to share (e.g. on WhatsApp)">📣 Pre-Game Stats</button>
         <button class="btn btn-secondary btn-sm" id="local-backups-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="View and restore automatic local backups (last 10)">⏱ Local Backups</button>
         <button class="btn btn-secondary btn-sm" id="view-final-standings-btn" style="font-size:11px;letter-spacing:1px;opacity:0.7" title="Jump to the final standings screen at any time — doesn't change the game state">🏆 View Final Standings</button>
         <input type="file" id="restore-file-input" accept=".json,application/json" style="display:none">
@@ -2814,8 +2817,19 @@ async function enterGame(g){
   },2500);
 }
 
+let showAllTools = false;
 async function renderGameHost(g){
   renderScoreboard(g,'players-grid');
+  // Once the tournament is over, the gameplay & setup tools (fixtures, submissions,
+  // day-flow, etc.) no longer do anything meaningful — collapse them behind a
+  // "Show All Tools" toggle so the post-game toolkit (breakdown, backups, exports,
+  // corrections) isn't buried in a 25-button wall. Toggle state resets on reload.
+  const toggleToolsBtn = document.getElementById('toggle-all-tools-btn');
+  const gameplayGroup = document.getElementById('gameplay-tools-group');
+  const isDone = g.status === 'done';
+  if(toggleToolsBtn) toggleToolsBtn.style.display = isDone ? 'inline-block' : 'none';
+  if(gameplayGroup) gameplayGroup.style.display = (isDone && !showAllTools) ? 'none' : 'contents';
+  if(toggleToolsBtn) toggleToolsBtn.textContent = showAllTools ? '🔧 Hide Setup Tools' : '🔧 Show All Tools';
   // Edit Result is a host-only control — show it now we're on the host screen
   const editResultBtn = document.getElementById('open-history-btn');
   if(editResultBtn) editResultBtn.style.display = 'inline-block';
@@ -5948,6 +5962,11 @@ document.getElementById('copy-pregame-stats-btn').addEventListener('click', asyn
   }
 });
 
+document.getElementById('toggle-all-tools-btn').addEventListener('click', async () => {
+  showAllTools = !showAllTools;
+  const g = await loadGame(me.code);
+  if(g) renderGameHost(g);
+});
 document.getElementById('view-final-standings-btn').addEventListener('click', async () => {
   const g = await loadGame(me.code);
   if(!g){ alert('Could not load game.'); return; }
