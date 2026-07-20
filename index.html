@@ -3939,6 +3939,13 @@ function showWinner(g){
   renderFinalLB(g);
   const wbb=document.getElementById('winner-breakdown-btn');
   if(wbb) wbb.style.display = me.role==='host' ? 'block' : 'none';
+  // Persist that the game has finished, so reloading (or a later rejoin) restores
+  // straight back to this screen instead of trying to resume a finished match.
+  // Only the host writes this, to avoid every watching player racing to save it.
+  if(me.role==='host' && g.status!=='done'){
+    g.status='done';
+    saveGame(g).catch(()=>{});
+  }
 }
 function showFinalLeaderboard(g){
   stopPolling();show('screen-winner');
@@ -3946,6 +3953,11 @@ function showFinalLeaderboard(g){
   renderFinalLB(g);
   const wbb=document.getElementById('winner-breakdown-btn');
   if(wbb) wbb.style.display = me.role==='host' ? 'block' : 'none';
+  // Same as showWinner — persist completion so the host can reload this screen later.
+  if(me.role==='host' && g.status!=='done'){
+    g.status='done';
+    saveGame(g).catch(()=>{});
+  }
 }
 function renderFinalLB(g){
   const s=[...g.players].sort((a,b)=>b.lives-a.lives||b.correct-a.correct||(b.scoreBonus||0)-(a.scoreBonus||0));
