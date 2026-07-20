@@ -2459,7 +2459,7 @@ function renderLeaderboard(g){
     // default: lives (elimination-aware)
     if(a.p.eliminated && !b.p.eliminated) return 1;
     if(!a.p.eliminated && b.p.eliminated) return -1;
-    return b.p.lives - a.p.lives || b.p.correct - a.p.correct;
+    return b.p.lives - a.p.lives || b.p.correct - a.p.correct || b.scoreBonusLb - a.scoreBonusLb;
   });
 
   const el=document.getElementById('leaderboard');
