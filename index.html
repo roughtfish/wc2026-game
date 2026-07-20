@@ -845,6 +845,7 @@
       <button class="btn btn-primary" id="play-again-btn" style="max-width:260px;margin:32px auto 0;">PLAY AGAIN</button>
     </div>
     <div id="final-leaderboard" style="margin-top:14px;"></div>
+    <button class="btn btn-secondary btn-sm" id="winner-breakdown-btn" style="display:none;margin:14px auto 0;font-size:11px;letter-spacing:1px;opacity:0.7">📋 Player Breakdown (fix any life discrepancies)</button>
   </div>
   
   <!-- Daily Summary Screen -->
@@ -3936,11 +3937,15 @@ function showWinner(g){
   stopPolling();show('screen-winner');
   setWinnerBanner(g);
   renderFinalLB(g);
+  const wbb=document.getElementById('winner-breakdown-btn');
+  if(wbb) wbb.style.display = me.role==='host' ? 'block' : 'none';
 }
 function showFinalLeaderboard(g){
   stopPolling();show('screen-winner');
   setWinnerBanner(g);
   renderFinalLB(g);
+  const wbb=document.getElementById('winner-breakdown-btn');
+  if(wbb) wbb.style.display = me.role==='host' ? 'block' : 'none';
 }
 function renderFinalLB(g){
   const s=[...g.players].sort((a,b)=>b.lives-a.lives||b.correct-a.correct||(b.scoreBonus||0)-(a.scoreBonus||0));
@@ -4454,7 +4459,7 @@ document.getElementById('rebuild-lives-btn').addEventListener('click', async () 
   showToast('❤️ Lives rebuilt');
 });
 
-document.getElementById('player-breakdown-btn').addEventListener('click', async () => {
+async function showPlayerBreakdown() {
   const g = await loadGame(me.code);
   if(!g){ alert('Could not load game.'); return; }
   const baseline = g.lives;
@@ -4559,7 +4564,9 @@ document.getElementById('player-breakdown-btn').addEventListener('click', async 
       document.getElementById('breakdown-modal').style.display = 'none';
     });
   }
-});
+}
+document.getElementById('player-breakdown-btn').addEventListener('click', showPlayerBreakdown);
+document.getElementById('winner-breakdown-btn')?.addEventListener('click', showPlayerBreakdown);
 document.getElementById('close-breakdown-btn').addEventListener('click', () => {
   document.getElementById('breakdown-modal').style.display = 'none';
 });
